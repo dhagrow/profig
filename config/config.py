@@ -64,8 +64,8 @@ class ReadError(SyncError):
     
     def __str__(self):
         if self.filename:
-            err = ["error reading '{0}', line {1}".format(self.filename,
-                self.lineno)]
+            msg = "error reading '{}', line {}"
+            err = [msg.format(self.filename, self.lineno)]
             if self.message:
                 err.extend([': ', self.message])
             if self.text:
