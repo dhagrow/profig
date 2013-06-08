@@ -383,7 +383,11 @@ class ConfigSection(collections.MutableMapping):
         return self._key < other._key
     
     def __str__(self):
+<<<<<<< local
         return "{}({})".format(self.__class__.__name__, self.key)
+=======
+        return str(dict(self))
+>>>>>>> other
     
     def __repr__(self):
         return "{}(key={}, value={!r}, default={!r})".format(
@@ -761,7 +765,15 @@ class Config(ConfigSection):
         super().__init__('', None, sync_format, **kwargs)
     
     def __repr__(self):
+<<<<<<< local
         return "{}()".format(self.__class__.__name__)
+=======
+        s = [self.__class__.__name__, '(']
+        if self._sources:
+            s.append('sources={}'.format(self._sources))
+        s.append(')')
+        return ''.join(s)
+>>>>>>> other
 
 class BaseFormat(object):
     extension = ''
@@ -774,7 +786,7 @@ class BaseFormat(object):
     
     @property
     def read_errors(self):
-        """The action to take when there is an error when
+        """The action to take when there is an error
         reading a config file. Must be one of 'exception',
         'error', or 'ignore'."""
         return self._read_errors
@@ -788,7 +800,7 @@ class BaseFormat(object):
     
     @property
     def write_errors(self):
-        """The action to take when there is an error when
+        """The action to take when there is an error
         writing to a config file. Must be one of 'exception',
         'error', or 'ignore'."""
         return self._write_errors
