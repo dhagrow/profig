@@ -739,7 +739,7 @@ class Config(ConfigSection):
     """Root Config object"""
     
     def __init__(self, sources=None, **kwargs):
-        for key in ("key", "parent"):
+        for key in ['key', 'parent']:
             if key in kwargs:
                 err = "__init__() got an unexpected keyword argument '{}'"
                 raise TypeError(err.format(key))
