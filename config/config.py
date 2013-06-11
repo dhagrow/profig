@@ -383,10 +383,10 @@ class ConfigSection(collections.MutableMapping):
         return self._key < other._key
     
     def __str__(self):
-        return str(self.dict_type(self))
+        return "{}({})".format(self.__class__.__name__, self.key)
     
     def __repr__(self):
-        return "{0}(key={1}, value={2!r}, default={3!r})".format(
+        return "{}(key={}, value={!r}, default={!r})".format(
             self.__class__.__name__, self.key, self._value, self._default)
     
     def __len__(self):
@@ -755,9 +755,13 @@ class Config(ConfigSection):
                 fname = os.extsep.join([sources, sync_format.extension])
                 scopes = ('script', 'user')
                 sources = [get_source(fname, scope) for scope in scopes]
-        kwargs['sources'] = [canonpath(s) for s in sources]
+        if sources:
+            kwargs['sources'] = [canonpath(s) for s in sources]
         
         super().__init__('', None, sync_format, **kwargs)
+    
+    def __repr__(self):
+        return "{}()".format(self.__class__.__name__)
 
 class BaseFormat(object):
     extension = ''
