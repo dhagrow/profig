@@ -372,11 +372,7 @@ class ConfigSection(collections.MutableMapping):
         return self._key < other._key
     
     def __str__(self):
-<<<<<<< local
-        return "{}({})".format(self.__class__.__name__, self.key)
-=======
         return str(dict(self))
->>>>>>> other
     
     def __repr__(self):
         return "{}(key={}, value={!r}, default={!r})".format(
@@ -750,15 +746,11 @@ class Config(ConfigSection):
         super().__init__('', None, sync_format, **kwargs)
     
     def __repr__(self):
-<<<<<<< local
-        return "{}()".format(self.__class__.__name__)
-=======
         s = [self.__class__.__name__, '(']
         if self._sources:
             s.append('sources={}'.format(self._sources))
         s.append(')')
         return ''.join(s)
->>>>>>> other
 
 class BaseFormat(object):
     extension = ''
