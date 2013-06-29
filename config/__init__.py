@@ -2,6 +2,7 @@
 
 from . import coerce
 from .config import Config
+from .config import ConfigFormat, IniFormat
 
 __author__ = 'dhagrow'
 __license__ = 'MIT'
