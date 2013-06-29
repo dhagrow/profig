@@ -80,18 +80,20 @@ class WriteError(SyncError):
 class NoSourcesError(Exception):
     """Raised when there are no sources for a config object"""
 
+class NoValue:
+    def __repr__(self):
+        return '{}'.format(self.__class__.__name__)
+NoValue = NoValue()
+
 class ConfigSection(collections.MutableMapping):
     _rx_can_interpolate = re.compile(r'{![^!]')
     
     def __init__(self, key, parent, sync_format=None, **kwargs):
         self._name = key
-        self._value = None
-        self._cache = None
-        self._default = None
+        self._value = NoValue
+        self._cache = NoValue
+        self._default = NoValue
         self._type = None
-        self._has_value = False
-        self._has_cache = False
-        self._has_default = False
         self._has_type = False
         self._dirty = False
         self._parent = parent
@@ -224,13 +226,12 @@ class ConfigSection(collections.MutableMapping):
     @property
     def value(self):
         """The section's value."""
-        if self._has_cache:
+        if self._cache is not NoValue:
             return self._cache
-        elif self._has_value:
+        elif self._value is not NoValue:
             value = self._convert(self._value)
             if self._should_cache(value, self._value):
                 self._cache = value
-                self._has_cache = True
             return value
         else:
             return self.default
@@ -240,16 +241,14 @@ class ConfigSection(collections.MutableMapping):
         strvalue = self._adapt(value)
         if strvalue != self._value:
             self._value = strvalue
-            self._has_value = True
             if self._should_cache(value, self._value):
                 self._cache = value
-                self._has_cache = True
             self._dirty = True
     
     @property
     def strvalue(self):
         """The section's unprocessed string value."""
-        if self._has_value:
+        if self._value is not NoValue:
             return self._value
         else:
             return self.strdefault
@@ -258,26 +257,23 @@ class ConfigSection(collections.MutableMapping):
     def strvalue(self, value):
         if value != self._value:
             self._value = value
-            self._has_value = True
-            if self._has_cache:
-                self._cache = None
-                self._has_cache = False
+            if self._cache is not NoValue:
+                self._cache = NoValue
             self._dirty = True
     
     @property
     def default(self):
         """The section's default value."""
-        if self._has_default:
-            if not self._has_value and self._has_cache:
+        if self._default is not NoValue:
+            if self._value is NoValue and self._cache is not NoValue:
                 # only use cache if self._value hasn't been set
                 return self._cache
             else:
                 value = self._convert(self._default)
                 if (self._should_cache(value, self._default)
-                    and not self._has_value):
+                    and self._value is NoValue):
                     # only set cache if self._value hasn't been set
                     self._cache = value
-                    self._has_cache = True
                 return value
         else:
             raise InvalidSectionError(self.key)
@@ -285,17 +281,15 @@ class ConfigSection(collections.MutableMapping):
     @default.setter
     def default(self, default):
         self._default = self._adapt(default)
-        self._has_default = True
         if (self._should_cache(default, self._default)
-            and not self._has_value):
+            and self._value is NoValue):
             # only set cache if self._value hasn't been set
             self._cache = default
-            self._has_cache = True
     
     @property
     def strdefault(self):
         """The section's unprocessed default string value."""
-        if self._has_default:
+        if self._default is not NoValue:
             return self._default
         else:
             raise InvalidSectionError(self.key)
@@ -303,11 +297,9 @@ class ConfigSection(collections.MutableMapping):
     @strdefault.setter
     def strdefault(self, default):
         self._default = default
-        self._has_default = True
         # only clear cache if self._value hasn't been set
-        if self._has_cache and not self._has_value:
-            self._cache = None
-            self._has_cache = False
+        if self._cache is not NoValue and self._value is NoValue:
+            self._cache = NoValue
     
     @property
     def type(self):
@@ -318,7 +310,7 @@ class ConfigSection(collections.MutableMapping):
     @property
     def valid(self):
         """:keyword:`True` if this section has a valid value. Read-only."""
-        return self._has_value or self._has_default
+        return self._value is not NoValue or self._default is not NoValue
     
     @property
     def dirty(self):
@@ -333,10 +325,8 @@ class ConfigSection(collections.MutableMapping):
         """Initializes a key to the given default value. If *type* is not
         provided, the type of the default value will be used."""
         section = self.section(key)
-        section._value = None
-        section._has_value = False
-        section._cache = None
-        section._has_cache = False
+        section._value = NoValue
+        section._cache = NoValue
         section._type = type or default.__class__
         section._has_type = True
         section.default = default
@@ -352,9 +342,9 @@ class ConfigSection(collections.MutableMapping):
             section = self.section(key, build=False)
         except InvalidSectionError:
             return default
-        if section._has_value:
+        if section._value is not NoValue:
             return section._convert(section._value, type)
-        elif section._has_default:
+        elif section._default is not NoValue:
             return section._convert(section._default, type)
         else:
             return default
@@ -372,8 +362,7 @@ class ConfigSection(collections.MutableMapping):
         else:
             # can't just delete the root section
             section.reset()
-            section._default = None
-            section._has_default = False
+            section._default = NoValue
             section._type = None
             section._has_type = False
     
@@ -448,13 +437,11 @@ class ConfigSection(collections.MutableMapping):
         If *recurse* is :keyword:`True`, does the same to all the
         section's children."""
         def reset(s):
-            if s._has_value:
-                s._value = None
-                s._has_value = False
-                s._cache = None
-                s._has_cache = False
+            if s._value is not NoValue:
+                s._value = NoValue
+                s._cache = NoValue
                 s._dirty = True
-                if not s._has_default:
+                if s._default is NoValue:
                     s._type = None
         
         reset(self)
@@ -463,8 +450,7 @@ class ConfigSection(collections.MutableMapping):
                 reset(child)
     
     def is_default(self, key):
-        section = self.section(key)
-        return not section._has_value
+        return self.section(key)._value is NoValue
     
     def set_dirty(self, keys, dirty=True):
         """Sets the :attr:`dirty` flag for *keys*, which, if
@@ -596,8 +582,7 @@ class ConfigSection(collections.MutableMapping):
         """Clears cached values for this section. If *recurse* is
         :keyword:`True`, clears the cache for child sections as well."""
         for section in self.children(recurse):
-            section._cache = None
-            section._has_cache = None
+            section._cache = NoValue
     
     def is_root(self):
         """Returns :keyword:`True` if this is the root section"""
@@ -694,7 +679,7 @@ class ConfigSection(collections.MutableMapping):
             and not self._rx_can_interpolate.search(strvalue))
     
     def _adapt_cache(self):
-        if self._has_cache:
+        if self._cache is not NoValue:
             strvalue = self._adapt(self._cache)
             if strvalue != self.strvalue:
                 self.strvalue = strvalue
