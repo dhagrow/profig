@@ -8,7 +8,6 @@ import os
 import re
 import sys
 import errno
-import pickle
 import itertools
 import collections
 
@@ -1086,19 +1085,22 @@ class IniFormat(BaseFormat):
 class PickleFormat(BaseFormat):
     extension = 'pkl'
     
-    def __init__(self, protocol=pickle.HIGHEST_PROTOCOL):
-        self.protocol = protocol
+    def __init__(self, protocol=None):
+        import pickle
+        self._load = pickle.load
+        self._dump = pickle.dump
+        self.protocol = protocol or pickle.HIGHEST_PROTOCOL
     
     def read(self, file):
         try:
-            return pickle.load(file)
+            return self._load(file)
         except EOFError:
             # file is empty
             return {}
     
     def write(self, file, values):
         if values:
-            pickle.dump(values, file, self.protocol)
+            self._dump(values, file, self.protocol)
         else:
             file.write(b'')
     
