@@ -23,6 +23,8 @@ else:
     coerce.register_adapter(bool, lambda x: 'true' if x else 'false')
     coerce.register_converter(bool, lambda x: _boolean_states[x.lower()])
 
+__all__ = ['Config', 'ConfigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat']
+
 def canonpath(path):
     p = os.path.normcase(
         os.path.realpath(os.path.expanduser(os.path.expandvars(path))))
@@ -949,6 +951,30 @@ class ConfigFormat(BaseFormat):
         for key, value in values.items():
             line = '{0}: {1}\n'.format(key, value)
             file.write(line)
+
+class JsonFormat(BaseFormat):
+    extension = 'json'
+    
+    def __init__(self):
+        import json
+        self._load = json.load
+        self._dump = json.dump
+    
+    def read(self, file):
+        try:
+            return self._load(file)
+        except ValueError:
+            # file is empty, or invalid json
+            return {}
+    
+    def write(self, file, values):
+        if values:
+            self._dump(values, file)
+        else:
+            file.write('')
+    
+    def open(self, source, mode='r', *args):
+        return open(source, mode, *args)
 
 class IniFormat(BaseFormat):
     extension = 'ini'

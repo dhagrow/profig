@@ -1,8 +1,7 @@
 """Simple but flexible config file management"""
 
 from . import coerce
-from .config import Config
-from .config import ConfigFormat, IniFormat
+from .config import *
 
 __author__ = 'dhagrow'
 __license__ = 'MIT'
