@@ -72,14 +72,21 @@ class TestJsonFormat(unittest.TestCase):
         self.c.init('b', 'value')
         self.c.init('a.1', 2)
 
+        self.b = io.StringIO()
+
     def test_basic(self):
         del self.c['a.1']
 
-        buf = io.StringIO()
-        self.c.sync(buf)
+        self.c.sync(self.b)
         
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(self.b.getvalue(), """\
 {"a": "1", "b": "value"}""")
+
+    def test_subsection(self):
+        self.c.sync(self.b)
+
+        self.assertEqual(self.b.getvalue(), """\
+{"a": {"": "1", "1": "2"}," b": "value"}""")
 
 if __name__ == '__main__':
     unittest.main()

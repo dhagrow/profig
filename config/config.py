@@ -86,10 +86,139 @@ class NoValue:
         return '{}'.format(self.__class__.__name__)
 NoValue = NoValue()
 
-class ConfigSection(collections.MutableMapping):
+class BaseSection(collections.MutableMapping):
+    """Provides common methods to subclasses.
+
+    The following attributes are required on subclasses of this mixin:
+
+    _flags
+    _children
+    """
+    
+    def init(self, key, default, type=None):
+        """Initializes a key to the given default value. If *type* is not
+        provided, the type of the default value will be used."""
+        section = self._create_section(key)
+        section._value = NoValue
+        section._cache = NoValue
+        section._type = type or default.__class__
+        section._has_type = True
+        section.default = default
+    
+    def get(self, key, default=None, type=None):
+        """Return the value for key if key is in the dictionary,
+        else default. If *default* is not given, it defaults to
+        :keyword:`None`, so that this method never raises an
+        :exception:`InvalidSectionError`. If *type* is provided,
+        it will be used as the type to convert the value from text.
+        This method does not use cached values."""
+        try:
+            section = self.section(key)
+        except InvalidSectionError:
+            return default
+        if section._value is not NoValue:
+            return section._convert(section._value, type)
+        elif section._default is not NoValue:
+            return section._convert(section._default, type)
+        else:
+            return default
+    
+    def __getitem__(self, key):
+        return self.section(key).value
+    
+    def __setitem__(self, key, value):
+        self._create_section(key).value = value
+    
+    def __delitem__(self, key):
+        section = self.section(key)
+        del section._parent._children[section.name]
+    
+    def __len__(self):
+        return len(list(iter(self)))
+    
+    def __iter__(self):
+        sep = self._flags['sep']
+        for child in self._children.values():
+            for key in child:
+                if key:
+                    yield sep.join([child._name, key])
+                else:
+                    yield child._name
+
+    def section(self, key):
+        """Returns a section object for *key*.
+        If there is no existing section for *key*, and
+        :exc:`InvalidSectionError` is thrown."""
+        
+        if not key:
+            raise InvalidSectionError(key)
+        
+        config = self
+        for name in self._make_key(key):
+            if not name:
+                # skip empty fields
+                continue
+            try:
+                config = config._children[name]
+            except KeyError:
+                raise InvalidSectionError(key)
+        return config
+    
+    def has_children(self, key=None):
+        return self.section(key).has_children() if key else bool(self._children)
+
+    def children(self, recurse=False):
+        """Returns the sections that are children to this section.
+        If *recurse* is `True`, returns grandchildren as well."""
+        for child in self._children.values():
+            yield child
+            if recurse:
+                for grand in child.children(recurse):
+                    yield grand
+    
+    def set_dirty(self, keys, dirty=True):
+        """Sets the :attr:`dirty` flag for *keys*, which, if
+        :keyword:`True`, will ensure that each key's value is synced.
+        *keys* can be a single key or a sequence of keys."""
+        if isinstance(keys, str):
+            keys = [keys]
+        for key in keys:
+            self.section(key)._dirty = dirty
+    
+    def _create_section(self, key):
+        if not key:
+            raise InvalidSectionError(key)
+        
+        config = self
+        for name in self._make_key(key):
+            if not name:
+                # skip empty fields
+                continue
+            try:
+                config = config._children[name]
+            except KeyError:
+                config = ConfigSection(name, config)
+        return config
+    
+    def _make_key(self, *path):
+        key = []
+        sep = self._flags['sep']
+        for p in path:
+            if p and isinstance(p, str):
+                key.extend(p.split(sep))
+            elif isinstance(p, collections.Sequence):
+                key.extend(p)
+            elif p is None:
+                pass
+            else:
+                err = "invalid value for key: '{0}'"
+                raise TypeError(err.format(p))
+        return tuple(key)
+
+class ConfigSection(BaseSection):
     _rx_can_interpolate = re.compile(r'{![^!]')
     
-    def __init__(self, key, parent, sync_format=None, **kwargs):
+    def __init__(self, key, parent):
         self._name = key
         self._value = NoValue
         self._cache = NoValue
@@ -99,115 +228,13 @@ class ConfigSection(collections.MutableMapping):
         self._dirty = False
         self._parent = parent
         
-        if parent is not None:
-            self._root = parent._root
-            self._key = self._make_key(parent._key, key)
-            parent._children[self._name] = self
-        else:
-            self._root = self
-            self._sep = kwargs.pop('sep', '.')
-            self._key = self._make_key(key)
-            
-            # root-only properties
-            self._format = sync_format
-            self._sources = kwargs.pop('sources', None) or []
-            self._write_unset_values = kwargs.pop('write_unset_values', True)
-            self._cache_values = kwargs.pop('cache_values', True)
-            self._coerce_values = kwargs.pop('coerce_values', True)
-            self._interpolate_values = kwargs.pop('interpolate_values', True)
-            self._dict_type = kwargs.pop('dict_type', collections.OrderedDict)
-            self._get_methods = set()
+        self._root = parent._root
+        self._key = self._make_key(parent._key, key)
+        parent._children[self._name] = self
         
-        self._children = self.dict_type()
-            
-        if kwargs:
-            err = "__init__() got an unexpected keyword argument: '{0}'"
-            raise TypeError(err.format(kwargs.popitem()[0]))
-    
-    ## root-only properties ##
-    
-    @property
-    def sep(self):
-        """The separator to use for keys."""
-        return self._root._sep
-    
-    @sep.setter
-    def sep(self, sep):
-        self._root._sep = sep
-    
-    @property
-    def sources(self):
-        """The sources to use for syncing all sections."""
-        return self._root._sources
-    
-    @sources.setter
-    def sources(self, sources):
-        self._root._sources = sources
-    
-    @property
-    def format(self):
-        """The file format to use when syncing."""
-        return self._root._format
-    
-    @format.setter
-    def format(self, format):
-        self._root._format = format
-    
-    @property
-    def write_unset_values(self):
-        """bool indicating whether or not to write unset values on sync."""
-        return self._root._write_unset_values
-    
-    @write_unset_values.setter
-    def write_unset_values(self, write):
-        self._root._write_unset_values = write
-    
-    @property
-    def dict_type(self):
-        """The type of dict to use to store values."""
-        return self._root._dict_type
-    
-    @dict_type.setter
-    def dict_type(self, type):
-        self._root._dict_type = type
-    
-    @property
-    def cache_values(self):
-        """If :keyword:`True`, converted values will be kept to avoid
-        having to convert on each access."""
-        return self._root._cache_values
-    
-    @cache_values.setter
-    def cache_values(self, cache):
-        self._root._cache_values = cache
-        if not cache:
-            self._root.clear_cache(recurse=True)
-    
-    @property
-    def coerce_values(self):
-        """If :keyword:`True`, values will be automatically converted
-        and adapted."""
-        return self._root._coerce_values
-    
-    @coerce_values.setter
-    def coerce_values(self, coerce):
-        self._root._coerce_values = coerce
-    
-    @property
-    def interpolate_values(self):
-        """If :keyword:`True`, values will be interpolated on access."""
-        return self._root._interpolate_values
-    
-    @interpolate_values.setter
-    def interpolate_values(self, interpolate):
-        self._root._interpolate_values = interpolate
+        self._children = self._root._dict_type()
     
     ## general properties ##
-    
-    @property
-    def root(self):
-        """The root section object. Read-only."""
-        return self._root
     
     @property
     def parent(self):
@@ -217,7 +244,7 @@ class ConfigSection(collections.MutableMapping):
     @property
     def key(self):
         """The section's key. Read-only."""
-        return self._keystr(self._key)
+        return self._root._keystr(self._key)
     
     @property
     def name(self):
@@ -313,60 +340,6 @@ class ConfigSection(collections.MutableMapping):
         """:keyword:`True` if this section has a valid value. Read-only."""
         return self._value is not NoValue or self._default is not NoValue
     
-    @property
-    def dirty(self):
-        """:keyword:`True` if the value has changed since the last sync."""
-        return self._dirty
-    
-    @dirty.setter
-    def dirty(self, dirty):
-        self._dirty = dirty
-    
-    def init(self, key, default, type=None):
-        """Initializes a key to the given default value. If *type* is not
-        provided, the type of the default value will be used."""
-        section = self.section(key)
-        section._value = NoValue
-        section._cache = NoValue
-        section._type = type or default.__class__
-        section._has_type = True
-        section.default = default
-    
-    def get(self, key, default=None, type=None):
-        """Return the value for key if key is in the dictionary,
-        else default. If *default* is not given, it defaults to
-        :keyword:`None`, so that this method never raises an
-        :exception:`InvalidSectionError`. If *type* is provided,
-        it will be used as the type to convert the value from text.
-        This method does not use cached values."""
-        try:
-            section = self.section(key, build=False)
-        except InvalidSectionError:
-            return default
-        if section._value is not NoValue:
-            return section._convert(section._value, type)
-        elif section._default is not NoValue:
-            return section._convert(section._default, type)
-        else:
-            return default
-    
-    def __getitem__(self, key):
-        return self.section(key, build=False).value
-    
-    def __setitem__(self, key, value):
-        self.section(key).value = value
-    
-    def __delitem__(self, key):
-        section = self.section(key, build=False)
-        if section._parent:
-            del section._parent._children[section.name]
-        else:
-            # can't just delete the root section
-            section.reset()
-            section._default = NoValue
-            section._type = None
-            section._has_type = False
-    
     def __lt__(self, other):
         if not isinstance(other, ConfigSection):
             return NotImplemented
@@ -376,57 +349,35 @@ class ConfigSection(collections.MutableMapping):
         return str(dict(self))
     
     def __repr__(self):
-        return "{}(key={}, value={!r}, default={!r})".format(
+        return "{}('{}', {!r}, default={!r})".format(
             self.__class__.__name__, self.key, self._value, self._default)
-    
-    def __len__(self):
-        return len(list(iter(self)))
     
     def __iter__(self):
         if self.valid:
             # an empty key so the section can find itself
             yield ''
-        sep = self._root._sep
-        for child in self._children.values():
-            for key in child:
-                if key:
-                    yield sep.join([child._name, key])
-                else:
-                    yield child._name
+        yield from super(ConfigSection, self).__iter__()
     
     def stritems(self):
         """Returns a (key, value) iterator over the unprocessed
         string values of this section."""
         for key in self:
-            yield (key, self.section(key, build=False).strvalue)
-    
-    def children(self, recurse=False):
-        """Returns the sections that are children to this section.
-        If *recurse* is :keyword:`True`, returns grandchildren as well."""
-        for child in self._children.values():
-            yield child
-            if recurse:
-                for grand in child.children(recurse):
-                    yield grand
-    
-    def has_children(self):
-        return bool(self._children)
-    
-    def section(self, key, *, build=True):
-        """Returns a section object for *key*"""
-        config = self
-        for name in self._make_key(key):
-            if not name:
-                # skip empty fields
-                continue
-            try:
-                config = config._children[name]
-            except KeyError:
-                if build:
-                    config = ConfigSection(name, config)
-                else:
-                    raise InvalidSectionError(key)
-        return config
+            yield (key, self.section(key).strvalue)
+
+    def sync(self, source=None, include=None, exclude=None):
+        include = set(include or ())
+        exclude = set(exclude or ())
+        
+        # adjust for subsections
+        sep = self._flags['sep']
+        for clude in (include, exclude):
+            for c in clude.copy():
+                clude.remove(c)
+                clude.add(sep.join([self.key, c]))
+        # for subsections, use self as an include filter
+        include.add(self.key)
+
+        self._root.sync(source, include, exclude)
     
     def reset(self, recurse=True):
         """Resets this section to it's default value, leaving it
@@ -445,62 +396,6 @@ class ConfigSection(collections.MutableMapping):
         if recurse:
             for child in self.children(recurse):
                 reset(child)
-    
-    def is_default(self, key):
-        return self.section(key)._value is NoValue
-    
-    def set_dirty(self, keys, dirty=True):
-        """Sets the :attr:`dirty` flag for *keys*, which, if
-        :keyword:`True`, will ensure that each key's value is synced.
-        *keys* can be a single key or a sequence of keys."""
-        if isinstance(keys, str):
-            keys = [keys]
-        for key in keys:
-            self.section(key, build=False)._dirty = dirty
-    
-    def get_setter(self, key):
-        """Returns a function that can be used to set the value for *key*."""
-        return lambda x: setattr(self.section(key, build=False), 'value', x)
-    
-    def sync(self, source=None, include=None, exclude=None):
-        """Writes changes to sources and reloads any external changes
-        from sources. If *source* is provided, sync only that source.
-        Otherwise, sync the sources in self.sources."""
-        
-        sources = [source] if source else self.sources
-        if not sources:
-            raise NoSourcesError()
-        
-        # update values from registered methods
-        rootlen = len(self.key)
-        for key, get in self._root._get_methods:
-            # adjust for subsections
-            key = key[rootlen:]
-            section = self.section(key, build=False)
-            section.value = get()
-        
-        # if caching, adapt cached values
-        if self.cache_values:
-            self._adapt_cache()
-            for child in self.children(recurse=True):
-                child._adapt_cache()
-        
-        include = set(include or ())
-        exclude = set(exclude or ())
-        if not self.is_root():
-            # adjust for subsections
-            for clude in (include, exclude):
-                for c in clude.copy():
-                    clude.remove(c)
-                    clude.add(self.sep.join([self.key, c]))
-            # for subsections, use self as an include filter
-            include.add(self.key)
-        # remove redundant entries
-        include = self._fix_include(include)
-        exclude = self._fix_include(exclude)
-        
-        # sync
-        self.format.sync(sources, self, include, exclude)
     
     def adapt(self, value, type):
         return coerce.adapt(value, type) if coerce else value
@@ -581,29 +476,12 @@ class ConfigSection(collections.MutableMapping):
         for section in self.children(recurse):
             section._cache = NoValue
     
-    def is_root(self):
-        """Returns :keyword:`True` if this is the root section"""
-        return self is self._root
-    
-    def _make_key(self, *path):
-        key = []
-        for p in path:
-            if p and isinstance(p, str):
-                key.extend(p.split(self.sep))
-            elif isinstance(p, collections.Sequence):
-                key.extend(p)
-            elif p is None:
-                pass
-            else:
-                err = "invalid value for key: '{0}'"
-                raise TypeError(err.format(p))
-        return tuple(key)
-    
-    def _keystr(self, key):
-        return self.sep.join(key)
+    @property
+    def _flags(self):
+        return self._root._flags
     
     def _adapt(self, value):
-        if self.coerce_values:
+        if self._flags['coerce_values']:
             if not self._has_type:
                 self._type = value.__class__
             return self.adapt(value, self._type)
@@ -611,69 +489,14 @@ class ConfigSection(collections.MutableMapping):
             return value
     
     def _convert(self, value, type=None):
-        if self.interpolate_values:
+        if self._flags['interpolate_values']:
             # get a dict of the text values
             values = dict(self._root.stritems())
             value = self.interpolate(self.key, value, values)
-        if self.coerce_values:
+        if self._flags['coerce_values']:
             return self.convert(value, type or self._type)
         else:
             return value
-    
-    def _matchroot(self, roots):
-        """Returns the length of the longest matching root."""
-        match = 0
-        keylen = len(self._key)
-        for root in roots:
-            root = self._make_key(root)
-            rootlen = len(root)
-            if rootlen > keylen:
-                continue
-            m = 0
-            for i in range(rootlen):
-                if root[i] != self._key[i]:
-                    m = 0
-                    break
-                m += 1
-            match = max(match, m)
-        return match
-    
-    def _should_include(self, include, exclude):
-        # first check if the section itself should be included
-        if self._value == self._default and not self.write_unset_values:
-            return False
-        
-        # now filter
-        if include:
-            imatch = self._matchroot(include)
-            ematch = self._matchroot(exclude)
-            return imatch > ematch
-        elif exclude:
-            ematch = self._matchroot(exclude)
-            return not ematch
-        else:
-            return True
-    
-    def _fix_include(self, include):
-        if len(include) < 2:
-            return include
-        result = set()
-        rejected = set()
-        # get a set of unique pairs
-        perms = set(frozenset(i) for i in itertools.permutations(include, 2))
-        for x, y in perms:
-            result |= set([x, y])
-            if x.startswith(y):
-                rejected.add(y)
-            elif y.startswith(x):
-                rejected.add(x)
-        return result - rejected
-    
-    def _should_cache(self, value, strvalue):
-        # don't cache values that can be interpolated
-        # also no point in caching a string
-        return (self.cache_values and not isinstance(value, str)
-            and not self._rx_can_interpolate.search(strvalue))
     
     def _adapt_cache(self):
         if self._cache is not NoValue:
@@ -682,12 +505,54 @@ class ConfigSection(collections.MutableMapping):
                 self.strvalue = strvalue
                 self._dirty = True
     
+    def _should_include(self, include, exclude):
+        # returns the length of the longest matching root
+        def matchroot(roots):
+            match = 0
+            keylen = len(self._key)
+            for root in roots:
+                root = self._make_key(root)
+                rootlen = len(root)
+                if rootlen > keylen:
+                    continue
+                m = 0
+                for i in range(rootlen):
+                    if root[i] != self._key[i]:
+                        m = 0
+                        break
+                    m += 1
+                match = max(match, m)
+            return match
+
+        # first check if the section itself should be included
+        write_unset = self._flags['write_unset_values']
+        if self._value == self._default and not write_unset:
+            return False
+        
+        # now filter
+        if include:
+            imatch = matchroot(include)
+            ematch = matchroot(exclude)
+            return imatch > ematch
+        elif exclude:
+            ematch = matchroot(exclude)
+            return not ematch
+        else:
+            return True
+    
+    def _should_cache(self, value, strvalue):
+        # don't cache values that can be interpolated
+        # also no point in caching a string
+        return (self._flags['cache_values'] and not isinstance(value, str)
+            and not self._rx_can_interpolate.search(strvalue))
+    
     def _dump(self, indent=2): # pragma: no cover
         rootlen = len(self._key)
         for section in sorted(self.children(recurse=True)):
             spaces = ' ' * ((len(section._key) - rootlen) * indent - 1)
             print(spaces, repr(section))
 
+# adapted from pyglet
 def get_source(filename, scope='script'):
     """Returns a path for *filename* in the given *scope*.
     *scope* must be one of the following:
@@ -695,7 +560,6 @@ def get_source(filename, scope='script'):
     * script - the running script's directory
     * user - the current user's settings directory
     """
-    # adapted from pyglet
     if scope == 'script':
         script = ''
         frozen = getattr(sys, 'frozen', None)
@@ -708,6 +572,7 @@ def get_source(filename, scope='script'):
             if hasattr(main, '__file__'):
                 script = main.__file__
         base = os.path.dirname(script)
+
     elif scope == 'user':
         base = ''
         if sys.platform in ('cygwin', 'win32'):
@@ -719,36 +584,96 @@ def get_source(filename, scope='script'):
             base = '~/Library/Application Support/'
         else:
             base = '~/.config/'
+
     return os.path.join(base, filename)
 
-class Config(ConfigSection):
+class Config(BaseSection):
     """Root Config object"""
     
-    def __init__(self, sources=None, **kwargs):
-        for key in ['key', 'parent']:
-            if key in kwargs:
-                err = "__init__() got an unexpected keyword argument '{}'"
-                raise TypeError(err.format(key))
+    def __init__(self, sources=None, format=None, dict_type=None):
+        self._root = self
+        self._key = None
+
+        self._dict_type = dict_type or collections.OrderedDict
+        self._children = self._dict_type()
+
+        self.format = format or ConfigFormat()
         
-        sync_format = kwargs.pop('format', None)
-        if not sync_format:
-            sync_format = ConfigFormat()
-        
+        # sources
         if isinstance(sources, str):
             if os.path.isabs(sources) or '.' in sources:
                 sources = [sources]
             else:
-                fname = os.extsep.join([sources, sync_format.extension])
+                fname = os.extsep.join([sources, fmt.extension])
                 scopes = ('script', 'user')
                 sources = [get_source(fname, scope) for scope in scopes]
-        if sources:
-            kwargs['sources'] = [canonpath(s) for s in sources]
         
-        super().__init__('', None, sync_format, **kwargs)
+        self.sources = [canonpath(s) for s in sources] if sources else []
+
+        self._flags = {
+            'sep': '.',
+            'write_unset_values': True,
+            'cache_values': True,
+            'coerce_values': True,
+            'interpolate_values': True,
+        }
+
+    @property
+    def flags(self):
+        return self._flags
+    @flags.setter
+    def flags(self, flags):
+        self._flags = value
+    
+    
+    def sync(self, source=None, include=None, exclude=None):
+        """Writes changes to sources and reloads any external changes
+        from sources.
+
+        If *source* is provided, syncs only that source. Otherwise,
+        syncs the sources in `self.sources`.
+
+        *include* or *exclude* can be used to filter the keys that
+        are written."""
+        
+        sources = [source] if source else self.sources
+        if not sources:
+            raise NoSourcesError()
+        
+        # if caching, adapt cached values
+        if self.flags['cache_values']:
+            for child in self.children(recurse=True):
+                child._adapt_cache()
+        
+        # remove redundant entries
+        def fix_clude(clude):
+            clude = set(clude or [])
+            if len(clude) < 2:
+                return clude
+            result = set()
+            rejected = set()
+            # get a set of unique pairs
+            perms = set(frozenset(i) for i in itertools.permutations(clude, 2))
+            for x, y in perms:
+                result |= set([x, y])
+                if x.startswith(y):
+                    rejected.add(y)
+                elif y.startswith(x):
+                    rejected.add(x)
+            return result - rejected
+        
+        include = fix_clude(include)
+        exclude = fix_clude(exclude)
+        
+        # sync
+        self.format.sync(sources, self, include, exclude)
+    
+    def _keystr(self, key):
+        return self._flags['sep'].join(key)
     
     def __repr__(self):
         s = [self.__class__.__name__, '(']
-        if self._sources:
+        if self.sources:
             s.append('sources={}'.format(self._sources))
         s.append(')')
         return ''.join(s)
@@ -796,7 +721,7 @@ class BaseFormat(object):
         *exclude* must be lists of keys."""
         
         # only valid during sync
-        self._config = config.root
+        self._config = config._root
         
         # read unchanged values from sources
         for source in sources:
@@ -814,7 +739,7 @@ class BaseFormat(object):
                 
                 # process values
                 for key, value in values.items():
-                    section = config.root.section(key)
+                    section = config._root._create_section(key)
                     if not section._dirty:
                         section.strvalue = value
         
@@ -822,7 +747,7 @@ class BaseFormat(object):
         keys = [] # keys to clean after (diff from keys to write)
         values = config._root._dict_type()
         for key in config:
-            section = config.section(key, build=False)
+            section = config.section(key)
             if section._should_include(include, exclude):
                 # use section.key so we get the full key
                 values[section.key] = section.strvalue
@@ -1024,7 +949,7 @@ class IniFormat(BaseFormat):
             values[key] = value.strip()
             if self._source0:
                 if (section == '' and key in self._config and
-                    self._config.section(key, build=False).has_children()):
+                    self._config.has_children(key)):
                     # key no longer belongs to the defaults so skip
                     continue
                 self._lines.append(((key, orgline), True, False))
@@ -1037,15 +962,16 @@ class IniFormat(BaseFormat):
         stripbase = lambda k: self._config._keystr(self._config._make_key(k)[1:])
         
         # sort values by section
-        dict_type = self._config.dict_type
+        dict_type = self._config._dict_type
         sections = dict_type()
+        sep = self._config._flags['sep']
         for key, value in values.items():
-            sec = key.partition(self._config.sep)
+            sec = key.partition(sep)
             section = sec[0] if sec[2] else ''
             if section.lower() == 'default':
                 key = stripbase(key)
                 section = ''
-            elif section == '' and self._config.section(key, build=False).has_children():
+            elif section == '' and self._config.has_children(key):
                 # fix key for section values
                 section = key
             sections.setdefault(section, dict_type())[key] = value
