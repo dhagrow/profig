@@ -90,7 +90,8 @@ class BaseSection(collections.MutableMapping):
     """Provides common methods to subclasses.
 
     The following attributes are required on subclasses of this mixin:
-
+    
+    _root
     _flags
     _children
     """
@@ -144,6 +145,16 @@ class BaseSection(collections.MutableMapping):
                     yield sep.join([child._name, key])
                 else:
                     yield child._name
+    
+    def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
+        if flat:
+            return self._root._dict_type(self)
+        d = {}
+        for section in self.children():
+            if section._should_include(include, exclude):
+                d.update(section.asdict(
+                    convert=convert, include=include, exclude=exclude))
+        return d
 
     def section(self, key):
         """Returns a section object for *key*.
@@ -356,7 +367,15 @@ class ConfigSection(BaseSection):
         if self.valid:
             # an empty key so the section can find itself
             yield ''
-        yield from super(ConfigSection, self).__iter__()
+        yield from super().__iter__()
+    
+    def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
+        if not flat and (not self._children or not recurse):
+            return {self.name: self.value}
+        d = super().asdict(flat, recurse, convert, include, exclude)
+        if self._value is not NoValue or self._default is not NoValue:
+            d[''] = self.value
+        return {self.name: d}
     
     def stritems(self):
         """Returns a (key, value) iterator over the unprocessed
@@ -625,6 +644,10 @@ class Config(BaseSection):
     def flags(self, flags):
         self._flags = value
     
+    def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
+        if not self._children:
+            return {}
+        return super().asdict(flat, recurse, convert, include, exclude)
     
     def sync(self, source=None, include=None, exclude=None):
         """Writes changes to sources and reloads any external changes
