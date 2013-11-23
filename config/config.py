@@ -1,6 +1,6 @@
 """config
 
-Store an application's configuration.
+Configuration management.
 """
 
 import io
@@ -24,13 +24,6 @@ else:
     coerce.register_converter(bool, lambda x: _boolean_states[x.lower()])
 
 __all__ = ['Config', 'ConfigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat']
-
-def canonpath(path):
-    p = os.path.normcase(
-        os.path.realpath(os.path.expanduser(os.path.expandvars(path))))
-    if os.path.isdir(p) and p[-1] != os.pathsep:
-        p += '/'
-    return p
 
 class InvalidSectionError(KeyError):
     """Raised when a given section has never been given a value"""
@@ -627,7 +620,7 @@ class Config(BaseSection):
                 scopes = ('script', 'user')
                 sources = [get_source(fname, scope) for scope in scopes]
         
-        self.sources = [canonpath(s) for s in sources] if sources else []
+        self.sources = sources or []
 
         self._flags = {
             'sep': '.',
@@ -640,9 +633,6 @@ class Config(BaseSection):
     @property
     def flags(self):
         return self._flags
-    @flags.setter
-    def flags(self, flags):
-        self._flags = value
     
     def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
         if not self._children:
@@ -693,6 +683,11 @@ class Config(BaseSection):
     
     def _keystr(self, key):
         return self._flags['sep'].join(key)
+    
+    def _dump(self, indent=2): # pragma: no cover
+        for section in sorted(self.children(recurse=True)):
+            spaces = ' ' * ((len(section._key) - 1) * indent)
+            print(spaces, repr(section), sep='')
     
     def __repr__(self):
         s = [self.__class__.__name__, '(']
