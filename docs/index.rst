@@ -7,11 +7,11 @@ Welcome to config's documentation!
 ==================================
 
 Contents:
-
+    
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
 
-
+    config
 
 Indices and tables
 ==================
