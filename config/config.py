@@ -3,6 +3,8 @@
 Configuration management.
 """
 
+from __future__ import print_function
+
 import io
 import os
 import re
@@ -360,7 +362,8 @@ class ConfigSection(BaseSection):
         if self.valid:
             # an empty key so the section can find itself
             yield ''
-        yield from super().__iter__()
+        for key in super().__iter__():
+            yield key
     
     def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
         if not flat and (not self._children or not recurse):
@@ -699,9 +702,13 @@ class Config(BaseSection):
 class BaseFormat(object):
     extension = ''
     
-    def __init__(self, *, read_errors='error', write_errors='error'):
-        self.read_errors = read_errors
-        self.write_errors = write_errors
+    def __init__(self, **kwargs):
+        self.read_errors = kwargs.pop('read_errors', 'error')
+        self.write_errors = kwargs.pop('write_errors', 'error')
+        if kwargs:
+            err = "TypeError: __init__() got an unexpected keyword argument '{}'"
+            raise TypeError(err.format(kwargs.keys()[0]))
+        
         # only valid during sync
         self._config = None
     
