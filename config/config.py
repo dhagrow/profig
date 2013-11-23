@@ -703,6 +703,7 @@ class BaseFormat(object):
     extension = ''
     
     def __init__(self, **kwargs):
+        self.ensure_dirs = kwargs.pop('ensure_dirs', 0o744)
         self.read_errors = kwargs.pop('read_errors', 'error')
         self.write_errors = kwargs.pop('write_errors', 'error')
         if kwargs:
@@ -813,9 +814,9 @@ class BaseFormat(object):
     
     def _open(self, source, mode='r', *args):
         if isinstance(source, str):
-            if not 'r' in mode or '+' in mode:
+            if self.ensure_dirs is not None and ('r' not in mode or '+' in mode):
                 # ensure the path exists if any writing is to be done
-                _ensuredirs(os.path.dirname(source))
+                _ensure_dirs(os.path.dirname(source), self.ensure_dirs)
             elif not os.path.exists(source):
                 # if reading and path doesn't exist
                 return None
@@ -1084,14 +1085,15 @@ class PickleFormat(BaseFormat):
     def open(self, source, mode='r', *args):
         return open(source, mode + 'b', *args)
 
-def _ensuredirs(path, mode=0o777):
+def _ensure_dirs(path, mode=0o744):
     """Like makedirs, but doesn't raise en exception if the dirs exist"""
-    if path:
-        try:
-            os.makedirs(path, mode)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
+    if not path:
+        return
+    try:
+        os.makedirs(path, mode)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
 
 class _CycleError(Exception):
     pass
