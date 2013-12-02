@@ -1,0 +1,22 @@
+Introduction
+============
+
+Motivation
+----------
+
+Why another configuration library? The simple answer is that none of the
+available options gave me everything I wanted, with an API that I liked.
+This library is as close to ideal as I have been able to come within the
+limits of Python.
+
+The result is not so different from the standard library's ConfigParser,
+but allows me to avoid patching ConfigParser with the changes I find myself
+making everytime I use it.
+
+Features
+--------
+
+* Coercion - Automatic type parsing and serialization.
+* Nested sections
+* dict-like access
+* Interpolation - Keys can be referenced within values.

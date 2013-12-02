@@ -1,0 +1,30 @@
+Quickstart
+==========
+
+Direct Use
+----------
+
+A :class:`~config.Config` object can be used directly without any initialization::
+    
+    import config
+    
+    c = config.Config()
+    c['server.host'] = '127.0.0.1'
+    c['server.port'] = 8080
+
+The configuration can then be serialized to various formats using the
+:meth:`~config.Config.sync` method.
+
+.. code-block:: python
+
+    c.sync('app.ini', config.IniFormat())
+
+After the call to :meth:`~config.Config.sync`, a new file with the following
+contents will be created in the current working directory::
+
+    [server]
+    host = 127.0.0.1
+    port = 8080
+
+Initialization
+--------------

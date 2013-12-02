@@ -1,5 +1,5 @@
 config API
 ==========
 
-.. automodule:: config.config
+.. automodule:: config
     :members:
