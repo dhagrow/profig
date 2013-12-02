@@ -15,7 +15,7 @@ import collections
 
 # don't require coerce
 try:
-    from . import coerce
+    from config import coerce
 except ImportError:
     coerce = None
 else:
@@ -379,7 +379,7 @@ class ConfigSection(BaseSection):
         for key in self:
             yield (key, self.section(key).strvalue)
 
-    def sync(self, source=None, include=None, exclude=None):
+    def sync(self, source=None, format=None, include=None, exclude=None):
         include = set(include or ())
         exclude = set(exclude or ())
         
@@ -392,7 +392,7 @@ class ConfigSection(BaseSection):
         # for subsections, use self as an include filter
         include.add(self.key)
 
-        self._root.sync(source, include, exclude)
+        self._root.sync(source, format, include, exclude)
     
     def reset(self, recurse=True):
         """Resets this section to it's default value, leaving it
@@ -506,7 +506,7 @@ class ConfigSection(BaseSection):
     def _convert(self, value, type=None):
         if self._flags['interpolate_values']:
             # get a dict of the text values
-            values = dict(self._root.stritems())
+            values = dict(self.stritems())
             value = self.interpolate(self.key, value, values)
         if self._flags['coerce_values']:
             return self.convert(value, type or self._type)
@@ -642,7 +642,7 @@ class Config(BaseSection):
             return {}
         return super().asdict(flat, recurse, convert, include, exclude)
     
-    def sync(self, source=None, include=None, exclude=None):
+    def sync(self, source=None, format=None, include=None, exclude=None):
         """Writes changes to sources and reloads any external changes
         from sources.
 
@@ -682,7 +682,8 @@ class Config(BaseSection):
         exclude = fix_clude(exclude)
         
         # sync
-        self.format.sync(sources, self, include, exclude)
+        format = format or self.format
+        format.sync(sources, self, include, exclude)
     
     def _keystr(self, key):
         return self._flags['sep'].join(key)
@@ -782,6 +783,7 @@ class BaseFormat(object):
         # write changed values to the first source
         source = sources[0]
         file = self._open(source, 'w+')
+        # XXX: warning/error when source cannot be opened
         if file:
             try:
                 self.write(file, values)
@@ -923,9 +925,6 @@ class JsonFormat(BaseFormat):
             self._dump(values, file)
         else:
             file.write('')
-    
-    def open(self, source, mode='r', *args):
-        return open(source, mode, *args)
 
 class IniFormat(BaseFormat):
     extension = 'ini'
