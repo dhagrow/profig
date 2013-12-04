@@ -1,4 +1,5 @@
-"""
+"""config
+
 Configuration management.
 """
 
@@ -24,19 +25,27 @@ else:
     coerce.register_adapter(bool, lambda x: 'true' if x else 'false')
     coerce.register_converter(bool, lambda x: _boolean_states[x.lower()])
 
-__all__ = ['Config',
-    'BaseFormat', 'ConfigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat']
+__all__ = [
+    'Config',
+    'BaseFormat', 'ConfigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat',
+    'InvalidSectionError', 'InterpolationError', 'InterpolationCycleError',
+    'SyncError', 'ReadError', 'WriteError', 'NoSourcesError',
+    'ConfigError',
+    ]
 
-class InvalidSectionError(KeyError):
+class ConfigError(Exception):
+    """Base exception class for all exceptions raised."""
+
+class InvalidSectionError(KeyError, ConfigError):
     """Raised when a given section has never been given a value"""
 
-class InterpolationError(Exception):
+class InterpolationError(ConfigError):
     """Raised when a value cannot be interpolated"""
 
 class InterpolationCycleError(InterpolationError):
     """Raised when an interpolation would result in an infinite cycle"""
 
-class SyncError(Exception):
+class SyncError(ConfigError):
     """Base class for errors that can occur when syncing"""
     def __init__(self, filename=None, message=''):
         self.filename = filename
@@ -73,7 +82,7 @@ class ReadError(SyncError):
 class WriteError(SyncError):
     """Raised when a value could not be written to a source"""
 
-class NoSourcesError(Exception):
+class NoSourcesError(ConfigError):
     """Raised when there are no sources for a config object"""
 
 class NoValue:
@@ -104,8 +113,8 @@ class BaseSection(collections.MutableMapping):
     def get(self, key, default=None, type=None):
         """Return the value for key if key is in the dictionary,
         else default. If *default* is not given, it defaults to
-        `None`, so that this method never raises an
-        :exc:`InvalidSectionError`. If *type* is provided,
+        :keyword:`None`, so that this method never raises an
+        :exception:`InvalidSectionError`. If *type* is provided,
         it will be used as the type to convert the value from text.
         This method does not use cached values."""
         try:
@@ -184,7 +193,7 @@ class BaseSection(collections.MutableMapping):
     
     def set_dirty(self, keys, dirty=True):
         """Sets the :attr:`dirty` flag for *keys*, which, if
-        `True`, will ensure that each key's value is synced.
+        :keyword:`True`, will ensure that each key's value is synced.
         *keys* can be a single key or a sequence of keys."""
         if isinstance(keys, str):
             keys = [keys]
@@ -419,7 +428,7 @@ class ConfigSection(BaseSection):
         return coerce.convert(value, type) if coerce else value
     
     def interpolate(self, key, value, values):
-        agraph = _AcyclicGraph()
+        agraph = AcyclicGraph()
         in_field = False
         field_map = {}
         
@@ -453,7 +462,7 @@ class ConfigSection(BaseSection):
                         newkey = ''.join(field[1:-1])
                         try:
                             agraph.add_edge(key, newkey)
-                        except _CycleError:
+                        except CycleError:
                             raise InterpolationCycleError()
                         
                         index = sum(len(x) for x in result) - 1
@@ -566,41 +575,6 @@ class ConfigSection(BaseSection):
         for section in sorted(self.children(recurse=True)):
             spaces = ' ' * ((len(section._key) - rootlen) * indent - 1)
             print(spaces, repr(section))
-
-# adapted from pyglet
-def get_source(filename, scope='script'):
-    """Returns a path for *filename* in the given *scope*.
-    *scope* must be one of the following:
-    
-    * script - the running script's directory
-    * user - the current user's settings directory
-    """
-    if scope == 'script':
-        script = ''
-        frozen = getattr(sys, 'frozen', None)
-        if frozen == 'macosx_app':
-            script = os.environ['RESOURCEPATH']
-        elif frozen:
-            script = sys.executable
-        else:
-            main = sys.modules['__main__']
-            if hasattr(main, '__file__'):
-                script = main.__file__
-        base = os.path.dirname(script)
-
-    elif scope == 'user':
-        base = ''
-        if sys.platform in ('cygwin', 'win32'):
-            if 'APPDATA' in os.environ:
-                base = os.environ['APPDATA']
-            else:
-                base = '~/'
-        elif sys.platform == 'darwin':
-            base = '~/Library/Application Support/'
-        else:
-            base = '~/.config/'
-
-    return os.path.join(base, filename)
 
 class Config(BaseSection):
     """Root Config object"""
@@ -818,7 +792,7 @@ class BaseFormat(object):
         if isinstance(source, str):
             if self.ensure_dirs is not None and ('r' not in mode or '+' in mode):
                 # ensure the path exists if any writing is to be done
-                _ensure_dirs(os.path.dirname(source), self.ensure_dirs)
+                ensure_dirs(os.path.dirname(source), self.ensure_dirs)
             elif not os.path.exists(source):
                 # if reading and path doesn't exist
                 return None
@@ -1084,7 +1058,42 @@ class PickleFormat(BaseFormat):
     def open(self, source, mode='r', *args):
         return open(source, mode + 'b', *args)
 
-def _ensure_dirs(path, mode=0o744):
+# adapted from pyglet
+def get_source(filename, scope='script'):
+    """Returns a path for *filename* in the given *scope*.
+    *scope* must be one of the following:
+    
+    * script - the running script's directory
+    * user - the current user's settings directory
+    """
+    if scope == 'script':
+        script = ''
+        frozen = getattr(sys, 'frozen', None)
+        if frozen == 'macosx_app':
+            script = os.environ['RESOURCEPATH']
+        elif frozen:
+            script = sys.executable
+        else:
+            main = sys.modules['__main__']
+            if hasattr(main, '__file__'):
+                script = main.__file__
+        base = os.path.dirname(script)
+
+    elif scope == 'user':
+        base = ''
+        if sys.platform in ('cygwin', 'win32'):
+            if 'APPDATA' in os.environ:
+                base = os.environ['APPDATA']
+            else:
+                base = '~/'
+        elif sys.platform == 'darwin':
+            base = '~/Library/Application Support/'
+        else:
+            base = '~/.config/'
+
+    return os.path.join(base, filename)
+
+def ensure_dirs(path, mode=0o744):
     """Like makedirs, but doesn't raise en exception if the dirs exist"""
     if not path:
         return
@@ -1094,10 +1103,10 @@ def _ensure_dirs(path, mode=0o744):
         if e.errno != errno.EEXIST:
             raise
 
-class _CycleError(Exception):
+class CycleError(ConfigError):
     pass
 
-class _AcyclicGraph:
+class AcyclicGraph:
     """An acyclic graph.
     
     Raises a CycleError if any added edge would
@@ -1108,7 +1117,7 @@ class _AcyclicGraph:
     
     def add_edge(self, u, v):
         if u in self._g[v]:
-            raise _CycleError
+            raise CycleError
         
         self._g[u].add(v)
         self._g[u] |= self._g[v]

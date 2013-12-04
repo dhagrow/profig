@@ -1,4 +1,4 @@
-"""Simple but flexible config file management"""
+"""Simple but flexible config file management."""
 
 from .config import *
 
