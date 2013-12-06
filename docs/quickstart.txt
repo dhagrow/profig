@@ -8,16 +8,21 @@ A :class:`~config.Config` object can be used directly without any initialization
     
     import config
     
-    c = config.Config()
-    c['server.host'] = '127.0.0.1'
-    c['server.port'] = 8080
+    cfg = config.Config()
+    cfg['server.host'] = '127.0.0.1'
+    cfg['server.port'] = 8080
+
+Configuration keys are :samp:`.` delimited strings where each preceding name
+refers to a section, and the final name refers to a key with a value. In
+the example above, `server` is a section name, while `host` and `port` are
+keys within the section.
 
 The configuration can then be serialized to various formats using the
 :meth:`~config.Config.sync` method.
 
 .. code-block:: python
 
-    c.sync('app.ini', config.IniFormat())
+    cfg.sync('app.ini', config.IniFormat())
 
 After the call to :meth:`~config.Config.sync`, a new file with the following
 contents will be created in the current working directory::
@@ -28,3 +33,18 @@ contents will be created in the current working directory::
 
 Initialization
 --------------
+
+On of the most useful features of the :mod:`config` module is the ability
+to initialize a :class:`~config.Config` object with options that are
+expected to be set.
+
+This can be done using the :meth:`~config.Config.init` method::
+    
+    cfg.init('host', '127.0.0.1')
+    cfg.init('port', 8080, int)
+
+The second argument to :meth:`~config.Config.init` specifies a default
+value for the option. The third argument is optional and is used by the
+:mod:`coerce` module to automatically (de)serialize any value that is set
+for the option. If the third is not provided, the type of the default value
+will be used to select to correct serializer.
