@@ -1,5 +1,4 @@
-"""config
-
+"""
 Configuration management.
 """
 
