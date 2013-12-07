@@ -27,9 +27,9 @@ else:
 __all__ = [
     'Config',
     'BaseFormat', 'ConfigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat',
+    'ConfigError',
     'InvalidSectionError', 'InterpolationError', 'InterpolationCycleError',
     'SyncError', 'ReadError', 'WriteError', 'NoSourcesError',
-    'ConfigError',
     ]
 
 class ConfigError(Exception):
