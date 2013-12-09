@@ -112,8 +112,8 @@ class BaseSection(collections.MutableMapping):
     def get(self, key, default=None, type=None):
         """Return the value for key if key is in the dictionary,
         else default. If *default* is not given, it defaults to
-        :keyword:`None`, so that this method never raises an
-        :exception:`InvalidSectionError`. If *type* is provided,
+        `None`, so that this method never raises an
+        :exc:`InvalidSectionError`. If *type* is provided,
         it will be used as the type to convert the value from text.
         This method does not use cached values."""
         try:
@@ -192,7 +192,7 @@ class BaseSection(collections.MutableMapping):
     
     def set_dirty(self, keys, dirty=True):
         """Sets the :attr:`dirty` flag for *keys*, which, if
-        :keyword:`True`, will ensure that each key's value is synced.
+        `True`, will ensure that each key's value is synced.
         *keys* can be a single key or a sequence of keys."""
         if isinstance(keys, str):
             keys = [keys]
@@ -597,7 +597,7 @@ class Config(BaseSection):
             if os.path.isabs(sources) or '.' in sources:
                 sources = [sources]
             else:
-                fname = os.extsep.join([sources, fmt.extension])
+                fname = os.extsep.join([sources, self.format.extension])
                 scopes = ('script', 'user')
                 sources = [get_source(fname, scope) for scope in scopes]
         

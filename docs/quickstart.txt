@@ -1,9 +1,6 @@
 Quickstart
 ==========
 
-Direct Use
-----------
-
 A :class:`~config.Config` object can be used directly without any initialization::
     
     import config
@@ -22,29 +19,36 @@ The configuration can then be serialized to various formats using the
 
 .. code-block:: python
 
-    cfg.sync('app.ini', config.IniFormat())
+    cfg.sync('app.cfg')
 
 After the call to :meth:`~config.Config.sync`, a new file with the following
 contents will be created in the current working directory::
 
-    [server]
-    host = 127.0.0.1
-    port = 8080
+    server.host = 127.0.0.1
+    server.port = 8080
+
+The default output format is a simple list of "full.key = value" lines. The
+format to use can be set either in the call to :meth:`~config.Config.sync` or
+in the :class:`~config.Config` constructor.
 
 Initialization
 --------------
 
 On of the most useful features of the :mod:`config` module is the ability
-to initialize a :class:`~config.Config` object with options that are
-expected to be set.
+to initialize the options that are expected to be set on a
+:class:`~config.Config` object.
 
 This can be done using the :meth:`~config.Config.init` method::
     
-    cfg.init('host', '127.0.0.1')
-    cfg.init('port', 8080, int)
+    cfg.init('server.host', '127.0.0.1')
+    cfg.init('server.port', 8080, int)
 
 The second argument to :meth:`~config.Config.init` specifies a default
 value for the option. The third argument is optional and is used by the
 :mod:`coerce` module to automatically (de)serialize any value that is set
 for the option. If the third is not provided, the type of the default value
-will be used to select to correct serializer.
+will be used to select the correct coercer.
+
+If you were to `sync` the config file without initializing, all the values
+would be set as string values. However, the :meth:`~config.Config.get` method
+accepts a `type` argument that will apply a coercer directly.
