@@ -373,8 +373,13 @@ class ConfigSection(BaseSection):
         for key in super().__iter__():
             yield key
     
+    def section(self, key):
+        if not key:
+            return self
+        return super().section(key)
+    
     def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
-        if not flat and (not self._children or not recurse):
+        if not flat and not (self._children and recurse):
             return {self.name: self.value}
         d = super().asdict(flat, recurse, convert, include, exclude)
         if self._value is not NoValue or self._default is not NoValue:
