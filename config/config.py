@@ -551,11 +551,6 @@ class ConfigSection(BaseSection):
                     m += 1
                 match = max(match, m)
             return match
-
-        # first check if the section itself should be included
-        write_unset = self._flags['write_unset_values']
-        if self._value == self._default and not write_unset:
-            return False
         
         # now filter
         if include:
@@ -729,7 +724,7 @@ class BaseFormat(object):
         self._config = config._root
         
         # read unchanged values from sources
-        for source in sources:
+        for source in reversed(sources):
             file = self._open(source)
             if file:
                 # read file
@@ -751,8 +746,14 @@ class BaseFormat(object):
         # filter sections
         keys = [] # keys to clean after (diff from keys to write)
         values = config._root._dict_type()
+        write_unset = self._config._flags['write_unset_values']
         for key in config:
             section = config.section(key)
+            
+            # first check if the section itself should be included
+            if section._value == section._default and not write_unset:
+                continue
+            
             if section._should_include(include, exclude):
                 # use section.key so we get the full key
                 values[section.key] = section.strvalue
