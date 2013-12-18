@@ -95,7 +95,6 @@ class BaseSection(collections.MutableMapping):
     The following attributes are required on subclasses of this mixin:
     
     _root
-    _flags
     _children
     """
     
@@ -141,7 +140,7 @@ class BaseSection(collections.MutableMapping):
         return len(list(iter(self)))
     
     def __iter__(self):
-        sep = self._flags['sep']
+        sep = self._root.sep
         for child in self._children.values():
             for key in child:
                 if key:
@@ -216,7 +215,7 @@ class BaseSection(collections.MutableMapping):
     
     def _make_key(self, *path):
         key = []
-        sep = self._flags['sep']
+        sep = self._root.sep
         for p in path:
             if p and isinstance(p, str):
                 key.extend(p.split(sep))
@@ -397,7 +396,7 @@ class ConfigSection(BaseSection):
         exclude = set(exclude or ())
         
         # adjust for subsections
-        sep = self._flags['sep']
+        sep = self.sep
         for clude in (include, exclude):
             for c in clude.copy():
                 clude.remove(c)
@@ -504,12 +503,8 @@ class ConfigSection(BaseSection):
         for section in self.children(recurse):
             section._cache = NoValue
     
-    @property
-    def _flags(self):
-        return self._root._flags
-    
     def _adapt(self, value):
-        if self._flags['coerce_values']:
+        if self._root.coerce_values:
             if not self._has_type:
                 self._type = value.__class__
             return self.adapt(value, self._type)
@@ -517,11 +512,11 @@ class ConfigSection(BaseSection):
             return value
     
     def _convert(self, value, type=None):
-        if self._flags['interpolate_values']:
+        if self._root.interpolate_values:
             # get a dict of the text values
             values = dict(self.stritems())
             value = self.interpolate(self.key, value, values)
-        if self._flags['coerce_values']:
+        if self._root.coerce_values:
             return self.convert(value, type or self._type)
         else:
             return value
@@ -566,7 +561,7 @@ class ConfigSection(BaseSection):
     def _should_cache(self, value, strvalue):
         # don't cache values that can be interpolated
         # also no point in caching a string
-        return (self._flags['cache_values'] and not isinstance(value, str)
+        return (self._root.cache_values and not isinstance(value, str)
             and not self._rx_can_interpolate.search(strvalue))
     
     def _dump(self, indent=2): # pragma: no cover
@@ -597,18 +592,12 @@ class Config(BaseSection):
                 sources = [get_source(fname, scope) for scope in scopes]
         
         self.sources = sources or []
-
-        self._flags = {
-            'sep': '.',
-            'write_unset_values': True,
-            'cache_values': True,
-            'coerce_values': True,
-            'interpolate_values': True,
-        }
-
-    @property
-    def flags(self):
-        return self._flags
+        
+        self.sep = '.'
+        self.write_unset_values = False
+        self.cache_values = True
+        self.coerce_values = True
+        self.interpolate_values = True
     
     def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
         if not self._children:
@@ -630,7 +619,7 @@ class Config(BaseSection):
             raise NoSourcesError()
         
         # if caching, adapt cached values
-        if self.flags['cache_values']:
+        if self.cache_values:
             for child in self.children(recurse=True):
                 child._adapt_cache()
         
@@ -659,7 +648,7 @@ class Config(BaseSection):
         format.sync(sources, self, include, exclude)
     
     def _keystr(self, key):
-        return self._flags['sep'].join(key)
+        return self.sep.join(key)
     
     def _dump(self, indent=2): # pragma: no cover
         for section in sorted(self.children(recurse=True)):
@@ -746,7 +735,7 @@ class BaseFormat(object):
         # filter sections
         keys = [] # keys to clean after (diff from keys to write)
         values = config._root._dict_type()
-        write_unset = self._config._flags['write_unset_values']
+        write_unset = self._config.write_unset_values
         for key in config:
             section = config.section(key)
             
@@ -968,7 +957,7 @@ class IniFormat(BaseFormat):
         # sort values by section
         dict_type = self._config._dict_type
         sections = dict_type()
-        sep = self._config._flags['sep']
+        sep = self._config.sep
         for key, value in values.items():
             sec = key.partition(sep)
             section = sec[0] if sec[2] else ''
