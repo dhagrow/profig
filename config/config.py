@@ -573,25 +573,15 @@ class ConfigSection(BaseSection):
 class Config(BaseSection):
     """Root Config object"""
     
-    def __init__(self, sources=None, format=None, dict_type=None):
+    def __init__(self, *sources, format=None, dict_type=None):
         self._root = self
         self._key = None
 
         self._dict_type = dict_type or collections.OrderedDict
         self._children = self._dict_type()
 
+        self.sources = self._process_sources(sources)
         self.format = format or ConfigFormat()
-        
-        # sources
-        if isinstance(sources, str):
-            if os.path.isabs(sources) or '.' in sources:
-                sources = [sources]
-            else:
-                fname = os.extsep.join([sources, self.format.extension])
-                scopes = ('script', 'user')
-                sources = [get_source(fname, scope) for scope in scopes]
-        
-        self.sources = sources or []
         
         self.sep = '.'
         self.write_unset_values = False
@@ -604,7 +594,7 @@ class Config(BaseSection):
             return {}
         return super().asdict(flat, recurse, convert, include, exclude)
     
-    def sync(self, source=None, format=None, include=None, exclude=None):
+    def sync(self, *sources, format=None, include=None, exclude=None):
         """Writes changes to sources and reloads any external changes
         from sources.
 
@@ -614,7 +604,7 @@ class Config(BaseSection):
         *include* or *exclude* can be used to filter the keys that
         are written."""
         
-        sources = [source] if source else self.sources
+        sources = self._process_sources(sources) if sources else self.sources
         if not sources:
             raise NoSourcesError()
         
@@ -649,6 +639,23 @@ class Config(BaseSection):
     
     def _keystr(self, key):
         return self.sep.join(key)
+    
+    def _process_sources(self, sources):
+        """Process user-entered paths and return absolute paths.
+        
+        If a filename (has extension) or path is entered, return it.
+        Otherwise, consider the source a base name and generate an
+        OS-specific set of paths.
+        """
+        result = []
+        for source in sources:
+            if os.path.isabs(source) or '.' in source:
+                result.append(source)
+            else:
+                fname = os.extsep.join([source, self.format.extension])
+                scopes = ('script', 'user')
+                result.extend(get_source(fname, scope) for scope in scopes)
+        return result
     
     def _dump(self, indent=2): # pragma: no cover
         for section in sorted(self.children(recurse=True)):

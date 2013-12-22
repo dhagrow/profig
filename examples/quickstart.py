@@ -14,7 +14,7 @@ print(open('app.cfg').read())
 
 # Initialization
 
-cfg = config.Config(['app.cfg', 'app2.cfg'])
+cfg = config.Config('app.cfg', 'app2.cfg')
 
 cfg.init('server.host', '127.0.0.1')
 cfg.init('server.port', 8080, int)
