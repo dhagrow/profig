@@ -643,13 +643,17 @@ class Config(BaseSection):
     def _process_sources(self, sources):
         """Process user-entered paths and return absolute paths.
         
+        If a source is not a string, assume it is a file object and return it.
         If a filename (has extension) or path is entered, return it.
         Otherwise, consider the source a base name and generate an
         OS-specific set of paths.
         """
         result = []
         for source in sources:
-            if os.path.isabs(source) or '.' in source:
+            if not isinstance(source, str):
+                result.append(source)
+                continue
+            elif os.path.isabs(source) or '.' in source:
                 result.append(source)
             else:
                 fname = os.extsep.join([source, self.format.extension])
@@ -718,48 +722,46 @@ class BaseFormat(object):
         
         # only valid during sync
         self._config = config._root
-        
-        # read unchanged values from sources
-        for source in reversed(sources):
-            file = self._open(source)
-            if file:
-                # read file
-                try:
-                    values = self.read(file)
-                except IOError:
-                    continue
-                finally:
-                    # only close files that were opened from the filesystem
-                    if isinstance(source, str):
-                        file.close()
+        try:
+            # read unchanged values from sources
+            for source in reversed(sources):
+                file = self._open(source)
+                if file:
+                    # read file
+                    try:
+                        values = self.read(file)
+                    except IOError:
+                        continue
+                    finally:
+                        # only close files that were opened from the filesystem
+                        if isinstance(source, str):
+                            file.close()
+                    
+                    # process values
+                    for key, value in values.items():
+                        section = config._root._create_section(key)
+                        if not section._dirty:
+                            section.strvalue = value
+            
+            # filter sections
+            keys = [] # keys to clean after (diff from keys to write)
+            values = config._root._dict_type()
+            write_unset = self._config.write_unset_values
+            for key in config:
+                section = config.section(key)
                 
-                # process values
-                for key, value in values.items():
-                    section = config._root._create_section(key)
-                    if not section._dirty:
-                        section.strvalue = value
-        
-        # filter sections
-        keys = [] # keys to clean after (diff from keys to write)
-        values = config._root._dict_type()
-        write_unset = self._config.write_unset_values
-        for key in config:
-            section = config.section(key)
+                # first check if the section itself should be included
+                if not write_unset and section._value == section._default:
+                    continue
+                
+                if section._should_include(include, exclude):
+                    # use section.key so we get the full key
+                    values[section.key] = section.strvalue
+                    keys.append(key)
             
-            # first check if the section itself should be included
-            if section._value == section._default and not write_unset:
-                continue
-            
-            if section._should_include(include, exclude):
-                # use section.key so we get the full key
-                values[section.key] = section.strvalue
-                keys.append(key)
-        
-        # write changed values to the first source
-        source = sources[0]
-        file = self._open(source, 'w+')
-        # XXX: warning/error when source cannot be opened
-        if file:
+            # write changed values to the first source
+            source = sources[0]
+            file = self._open(source, 'w')
             try:
                 self.write(file, values)
             finally:
@@ -768,11 +770,12 @@ class BaseFormat(object):
                     file.close()
                 else:
                     file.flush()
-        
-        # clean values
-        config.set_dirty(keys, False)
-        # clear sync config
-        self._config = None
+            
+            # clean values
+            config.set_dirty(keys, False)
+        finally:
+            # clear sync config
+            self._config = None
     
     def read(self, file): # pragma: no cover
         """Reads *file* and returns a dict. Must be implemented
@@ -790,11 +793,17 @@ class BaseFormat(object):
         return open(source, mode, *args)
     
     def _open(self, source, mode='r', *args):
+        """Returns a file object.
+        
+        If *source* is a file object, returns *source*. If *mode* is 'w',
+        The file object will be truncated.
+        This method assumes either read or write/append access, but not both.
+        """
         if isinstance(source, str):
-            if self.ensure_dirs is not None and ('r' not in mode or '+' in mode):
+            if self.ensure_dirs is not None and 'w' in mode:
                 # ensure the path exists if any writing is to be done
                 ensure_dirs(os.path.dirname(source), self.ensure_dirs)
-            elif not os.path.exists(source):
+            elif 'r' in mode and not os.path.exists(source):
                 # if reading and path doesn't exist
                 return None
             
