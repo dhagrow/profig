@@ -4,7 +4,6 @@ Quickstart
 A :class:`~config.Config` object can be used directly without any initialization::
     
     import config
-    
     cfg = config.Config()
     cfg['server.host'] = '8.8.8.8'
     cfg['server.port'] = 8181
@@ -14,7 +13,13 @@ refers to a section, and the final name refers to a key with a value. In
 the example above, `server` is a section name, while `host` and `port` are
 keys within the section.
 
-The configuration can then be serialized to various formats using the
+For a quick look at the hierarchical structure of the options, you can easily
+get the dict representation::
+    
+    print(cfg.asdict())
+    #-> {'server': {'host': '8.8.8.8', 'port': 8181}}
+
+The configuration can be serialized to various formats using the
 :meth:`~config.Config.sync` method::
 
     cfg.sync('app.cfg')
@@ -25,10 +30,6 @@ contents will be created in the current working directory::
     server.host = 127.0.0.1
     server.port = 8080
 
-The default output format is a simple list of "full.key = value" lines. The
-format to use can be set either in the call to :meth:`~config.Config.sync` or
-in the :class:`~config.Config` constructor.
-
 Sources
 -------
 
@@ -37,19 +38,51 @@ The sources a config object uses when it syncs can also be set in the
     
     cfg = config.Config('app.cfg')
 
-The `sources` argument can be either a single path, or a sequence of paths. In
-the case of a sequence, a sync will first update the object with any values
-that have changed in the sources but not in the object since the last sync.
-Then it will write back any values changed in the object to the first source.
+If more than `source` is provided, a sync will first update the object with
+any values that have changed in the sources but not in the object since the
+last sync. Then it will write back any values changed in the object to the
+first source.
+
+Formats
+-------
+
+The default output format is a simple list of "section.key = value" lines. The
+format to use can be set either in the call to :meth:`~config.Config.sync` or
+in the :class:`~config.Config` constructor.
+
+The following formats are available:
+    
+:class:`~config.ConfigFormat`
+    The default format. Simple but expressive.
+
+:class:`~config.IniFormat`
+    Mostly standard INI format. Subsections after the first are :samp:`.`
+    separated (by default), similar to :class:`~config.ConfigFormat`.
+    
+:class:`~config.JsonFormat`
+    Standard JSON format.
+    
+:class:`~config.PickleFormat`
+    Dumps straight to pickle files.
+
+Support for additional formats can be added easily by subclassing
+:class:`~config.BaseFormat`.
 
 Initialization
 --------------
 
-On of the most useful features of the :mod:`config` module is the ability
+One of the most useful features of the :mod:`config` module is the ability
 to initialize the options that are expected to be set on a
 :class:`~config.Config` object.
 
-This can be done using the :meth:`~config.Config.init` method::
+If you were to sync the following config file without any initialization::
+
+    server.host = 127.0.0.1
+    server.port = 8080
+
+The port number would be interpreted as a string, and you would have to
+convert it manually. You can avoid doing this each time you access the value
+by using the :meth:`~config.Config.init` method::
     
     cfg.init('server.host', '127.0.0.1')
     cfg.init('server.port', 8080, int)
@@ -59,7 +92,3 @@ value for the option. The third argument is optional and is used by the
 :mod:`coerce` module to automatically (de)serialize any value that is set
 for the option. If the third is not provided, the type of the default value
 will be used to select the correct coercer.
-
-If you were to `sync` the config file without initializing, all the values
-would be set as string values. However, the :meth:`~config.Config.get` method
-accepts a `type` argument that will apply a coercer directly.

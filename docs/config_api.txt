@@ -1,4 +1,17 @@
 config API
 ==========
 
-.. automodule:: config
+.. autoclass:: config.Config
+
+Formats
+-------
+
+.. autoclass:: config.BaseFormat
+
+.. autoclass:: config.ConfigFormat
+
+.. autoclass:: config.IniFormat
+
+.. autoclass:: config.JsonFormat
+
+.. autoclass:: config.PickleFormat
