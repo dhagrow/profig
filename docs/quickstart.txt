@@ -19,6 +19,14 @@ get the dict representation::
     print(cfg.asdict())
     #-> {'server': {'host': '8.8.8.8', 'port': 8181}}
 
+Sync
+----
+
+A sync is a combination of the read and write operations. It first reads in any
+changed values from a source (except those changed in memory on the config
+object) then write any values changed on the config object back to the primary
+source.
+
 The configuration can be serialized to various formats using the
 :meth:`~config.Config.sync` method::
 
@@ -27,8 +35,12 @@ The configuration can be serialized to various formats using the
 After the call to :meth:`~config.Config.sync`, a new file with the following
 contents will be created in the current working directory::
 
-    server.host = 127.0.0.1
-    server.port = 8080
+    server.host: 127.0.0.1
+    server.port: 8080
+
+If :meth:`~config.Config.sync` is called again, it will use the types of
+any values set on the calling Config object to determine how to interpret
+the values read from the specified source(s).
 
 Sources
 -------
