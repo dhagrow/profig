@@ -22,13 +22,16 @@ get the dict representation::
 Sync
 ----
 
-A sync is a combination of the read and write operations. It first reads in any
-changed values from a source (except those changed in memory on the config
-object) then write any values changed on the config object back to the primary
-source.
+A sync is a combination of the read and write operations, executed in the
+following order:
+    
+    1. Read in any changed values from a source, unless a value has changed
+       on the config object since the last time it was synced.
+    2. Write any values changed on the config object back to the primary
+       source.
 
-The configuration can be serialized to various formats using the
-:meth:`~config.Config.sync` method::
+The configuration can be serialized using the :meth:`~config.Config.sync`
+method::
 
     cfg.sync('app.cfg')
 
@@ -38,10 +41,6 @@ contents will be created in the current working directory::
     server.host: 127.0.0.1
     server.port: 8080
 
-If :meth:`~config.Config.sync` is called again, it will use the types of
-any values set on the calling Config object to determine how to interpret
-the values read from the specified source(s).
-
 Sources
 -------
 
@@ -50,10 +49,11 @@ The sources a config object uses when it syncs can also be set in the
     
     cfg = config.Config('app.cfg')
 
-If more than `source` is provided, a sync will first update the object with
-any values that have changed in the sources but not in the object since the
-last sync. Then it will write back any values changed in the object to the
-first source.
+Sources can be either paths or file objects.
+
+If more than one `source` is provided then a sync will update the config
+object with values from each of the sources in the order given. Then it will
+write values changed on the config object back to the first source.
 
 Formats
 -------
@@ -68,8 +68,8 @@ The following formats are available:
     The default format. Simple but expressive.
 
 :class:`~config.IniFormat`
-    Mostly standard INI format. Subsections after the first are :samp:`.`
-    separated (by default), similar to :class:`~config.ConfigFormat`.
+    Mostly standard INI format. An INI section will be created for each
+    subsection in the config object.
     
 :class:`~config.JsonFormat`
     Standard JSON format.
