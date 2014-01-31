@@ -28,8 +28,7 @@ sys.path.insert(0, os.path.abspath('../config/'))
 extensions = ['sphinx.ext.autodoc']
 
 # autodoc
-autodoc_default_flags = ['members', 'undoc-members', 'inherited-members',
-    'show-inheritance']
+autodoc_default_flags = ['members', 'undoc-members', 'show-inheritance']
 autodoc_member_order = 'groupwise'
 
 # Add any paths that contain templates here, relative to this directory.

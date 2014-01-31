@@ -3,6 +3,8 @@ config API
 
 .. autoclass:: config.Config
 
+.. autoclass:: config.ConfigSection
+
 Formats
 -------
 
