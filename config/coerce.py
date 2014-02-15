@@ -27,7 +27,7 @@ class Coercer:
     """
     The coercer class, with which adapters and converters can be registered.
     """
-    def __init__(self, register_defaults=True, register_qt=False):
+    def __init__(self, register_defaults=True, register_qt=None):
         #: An adapter to fallback to when no other adapter is found.
         self.adapt_fallback = None
         #: An converter to fallback to when no other converter is found.
@@ -38,6 +38,9 @@ class Coercer:
         
         if register_defaults:
             register_default_coercers(self)
+        if register_qt is None:
+            # only load Qt coercers if PyQt/PySide has already been imported
+            register_qt = bool({'PyQt4', 'PySide'} & set(sys.modules))
         if register_qt:
             register_qt_coercers(self)
     
@@ -226,9 +229,7 @@ def get_default_coercer():
     """Returns the default :class:`Coercer` object."""
     global _default_coercer
     if not _default_coercer:
-        # only load Qt coercers if PyQt/PySide has already been imported
-        register_qt = bool({'PyQt4', 'PySide'} & set(sys.modules))
-        _default_coercer = Coercer(register_qt=register_qt)
+        _default_coercer = Coercer()
     return _default_coercer
 
 def set_default_coercer(coercer):
