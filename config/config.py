@@ -18,11 +18,12 @@ try:
 except ImportError:
     coerce = None
 else:
-    ## override boolean coercers ##
-    _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
-        '0': False, 'no': False, 'false': False, 'off': False}
-    coerce.register_adapter(bool, lambda x: 'true' if x else 'false')
-    coerce.register_converter(bool, lambda x: _boolean_states[x.lower()])
+    def register_booleans(coercer):
+        ## override boolean coercers ##
+        _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
+            '0': False, 'no': False, 'false': False, 'off': False}
+        coercer.register_adapter(bool, lambda x: 'true' if x else 'false')
+        coercer.register_converter(bool, lambda x: _boolean_states[x.lower()])
 
 __all__ = [
     'Config',
@@ -425,10 +426,12 @@ class ConfigSection(BaseSection):
                 reset(child)
     
     def adapt(self, value, type):
-        return coerce.adapt(value, type) if coerce else value
+        coercer = self._root._coercer
+        return coercer.adapt(value, type) if coercer else value
     
     def convert(self, value, type):
-        return coerce.convert(value, type) if coerce else value
+        coercer = self._root._coercer
+        return coercer.convert(value, type) if coercer else value
     
     def interpolate(self, key, value, values):
         agraph = AcyclicGraph()
@@ -576,7 +579,10 @@ class Config(BaseSection):
     def __init__(self, *sources, format=None, dict_type=None):
         self._root = self
         self._key = None
-
+        
+        self._coercer = coerce.Coercer() if coerce else None
+        if coerce:
+            register_booleans(self._coercer)
         self._dict_type = dict_type or collections.OrderedDict
         self._children = self._dict_type()
 
@@ -586,7 +592,7 @@ class Config(BaseSection):
         self.sep = '.'
         self.write_unset_values = False
         self.cache_values = True
-        self.coerce_values = True
+        self.coerce_values = bool(coerce)
         self.interpolate_values = True
     
     def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
