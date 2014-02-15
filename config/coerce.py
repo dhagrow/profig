@@ -11,10 +11,6 @@ import collections
 # the name 'type' is used often so give type() an alias rather than use 'typ'
 _type = type
 
-def _issequence(obj):
-    """Returns True if *obj* is a Sequence but not a str."""
-    return isinstance(obj, collections.Sequence) and not isinstance(obj, str)
-
 class CoerceError(Exception):
     """Base class for coerce exceptions"""
 
@@ -51,7 +47,7 @@ class Coercer:
         if not type:
             type = _type(value)
         
-        if _issequence(type):
+        if isinstance(type, tuple):
             try:
                 try:
                     # try and get an adapter for the full type sequence
@@ -97,7 +93,7 @@ class Coercer:
     
     def convert(self, value, type):
         """Convert a *value* to the given *type* (string to type)."""
-        if _issequence(type):
+        if isinstance(type, tuple):
             try:
                 try:
                     # try and get a converter for the full type sequence
