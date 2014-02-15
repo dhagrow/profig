@@ -31,12 +31,19 @@ class Coercer:
     """
     The coercer class, with which adapters and converters can be registered.
     """
-    def __init__(self):
+    def __init__(self, register_defaults=True, register_qt=False):
+        #: An adapter to fallback to when no other adapter is found.
         self.adapt_fallback = None
+        #: An converter to fallback to when no other converter is found.
         self.convert_fallback = None
         
         self._adapters = {}
         self._converters = {}
+        
+        if register_defaults:
+            register_default_coercers(self)
+        if register_qt:
+            register_qt_coercers(self)
     
     def adapt(self, value, type=None):
         """Adapt a *value* from the given *type* (type to string). If
@@ -217,10 +224,15 @@ class Coercer:
 
 ## default coercer ##
 
-_default_coercer = Coercer()
+_default_coercer = None
 
 def get_default_coercer():
     """Returns the default :class:`Coercer` object."""
+    global _default_coercer
+    if not _default_coercer:
+        # only load Qt coercers if PyQt/PySide has already been imported
+        register_qt = bool({'PyQt4', 'PySide'} & set(sys.modules))
+        _default_coercer = Coercer(register_qt=register_qt)
     return _default_coercer
 
 def set_default_coercer(coercer):
@@ -228,143 +240,92 @@ def set_default_coercer(coercer):
     global _default_coercer
     _default_coercer = coercer
 
-
 def adapt(value, type=None):
     '''See :meth:`Coercer.adapt`.'''
-    return _default_coercer.adapt(value, type)
+    return get_default_coercer().adapt(value, type)
 
 def convert(value, type):
     '''See :meth:`Coercer.convert`.'''
-    return _default_coercer.convert(value, type)
-
-def register(type, adapter, converter):
-    '''See :meth:`Coercer.register`.'''
-    _default_coercer.register(type, adapter, converter)
-
-def register_adapter(type, adapter):
-    '''See :meth:`Coercer.register_adapter`.'''
-    _default_coercer.register_adapter(type, adapter)
-
-def register_converter(type, converter):
-    '''See :meth:`Coercer.register_converter`.'''
-    _default_coercer.register_converter(type, converter)
-
-def register_choice(type, choices):
-    '''See :meth:`Coercer.register_choice`.'''
-    _default_coercer.register_choice(type, choices)
-
-def clear_coercers():
-    '''See :meth:`Coercer.clear_coercers`.'''
-    _default_coercer.clear_coercers()
-
-def unregister_adapters(*types):
-    '''See :meth:`Coercer.unregister_adapters`.'''
-    _default_coercer.unregister_adapters(*types)
-
-def unregister_converters(*types):
-    '''See :meth:`Coercer.unregister_converters`.'''
-    _default_coercer.unregister_converters(*types)
-
-def set_adapt_fallback(fallback):
-    '''See :attr:`Coercer.adapt_fallback`.'''
-    _default_coercer.adapt_fallback = fallback
-
-def set_convert_fallback(fallback):
-    '''See :attr:`Coercer.convert_fallback`.'''
-    _default_coercer.convert_fallback = fallback
-
-## decorators ##
-
-def adapter(type):
-    """Decorator to register a function as an adapter for the given *type*."""
-    def register(adapter):
-        register_adapter(type, adapter)
-    return register
-
-def converter(type):
-    """Decorator to register a function as a converter for the given *type*."""
-    def register(converter):
-        register_converter(type, converter)
-    return register
+    return get_default_coercer().convert(value, type)
 
 ## register defaults ##
 
-def register_default_coercers():
+def register_default_coercers(coercer):
     """Registers adapters and converters for common types."""
     
     # None as the type does not change the value
-    register(None, lambda x: x, lambda x: x)
+    coercer.register(None, lambda x: x, lambda x: x)
     # NoneType as the type assumes the value is None
-    register(type(None), lambda x: '', lambda x: None)
-    register(bool, lambda x: str(int(x)), lambda x: bool(int(x)))
-    register(int, str, int)
-    register(float, str, float)
-    register(complex, str, complex)
-    register(str, str, str)
-    register(bytes,
+    coercer.register(type(None), lambda x: '', lambda x: None)
+    coercer.register(bool, lambda x: str(int(x)), lambda x: bool(int(x)))
+    coercer.register(int, str, int)
+    coercer.register(float, str, float)
+    coercer.register(complex, str, complex)
+    coercer.register(str, str, str)
+    coercer.register(bytes,
         lambda x: binascii.hexlify(x).decode('ascii'),
         lambda x: binascii.unhexlify(x).encode('ascii'))
     
     # collection coercers, simply comma delimited
     split = lambda x: x.split(',') if x else []
-    register(list, lambda x: ','.join(x), split)
-    register(set, lambda x: ','.join(x), lambda x: set(split(x)))
-    register(tuple, lambda x: ','.join(x), lambda x: tuple(split(x)))
-    register(collections.deque, lambda x: ','.join(x),
+    coercer.register(list, lambda x: ','.join(x), split)
+    coercer.register(set, lambda x: ','.join(x), lambda x: set(split(x)))
+    coercer.register(tuple, lambda x: ','.join(x), lambda x: tuple(split(x)))
+    coercer.register(collections.deque, lambda x: ','.join(x),
         lambda x: collections.deque(split(x)))
     
     # path coercers, os.pathsep delimited
-    register('path', str, str)
+    coercer.register('path', str, str)
     sep = os.pathsep
     pathsplit = lambda x: x.split(sep) if x else []
-    register((list, 'path'), lambda x: sep.join(x), pathsplit)
-    register((set, 'path'), lambda x: sep.join(x), lambda x: set(pathsplit(x)))
-    register((tuple, 'path'), lambda x: sep.join(x),
+    coercer.register((list, 'path'), lambda x: sep.join(x), pathsplit)
+    coercer.register((set, 'path'), lambda x: sep.join(x), lambda x: set(pathsplit(x)))
+    coercer.register((tuple, 'path'), lambda x: sep.join(x),
         lambda x: tuple(pathsplit(x)))
-    register((collections.deque, 'path'), lambda x: sep.join(x),
+    coercer.register((collections.deque, 'path'), lambda x: sep.join(x),
         lambda x: collections.deque(pathsplit(x)))
 
-register_default_coercers()
-
-def register_qt_coercers():
-    from PySide import QtCore, QtGui
+def register_qt_coercers(coercer):
+    if 'PyQt4' in sys.modules:
+        from PyQt4 import QtCore, QtGui
+    elif 'PySide' in sys.modules:
+        from PySide import QtCore, QtGui
+    else:
+        err = 'A Qt library must be imported before registering Qt coercers'
+        raise ImportError(err)
     
     def fontFromString(s):
         font = QtGui.QFont()
         font.fromString(s)
         return font
     
-    register(QtCore.QByteArray,
+    coercer.register(QtCore.QByteArray,
         lambda x: str(x.toHex()),
         lambda x: QtCore.QByteArray.fromHex(x))
-    register(QtCore.QPoint,
+    coercer.register(QtCore.QPoint,
         lambda x: '{0},{1}'.format(x.x(), x.y()),
         lambda x: QtCore.QPoint(*[int(i) for i in x.split(',')]))
-    register(QtCore.QPointF,
+    coercer.register(QtCore.QPointF,
         lambda x: '{0},{1}'.format(x.x(), x.y()),
         lambda x: QtCore.QPointF(*[float(i) for i in x.split(',')]))
-    register(QtCore.QSize,
+    coercer.register(QtCore.QSize,
         lambda x: '{0},{1}'.format(x.width(), x.height()),
         lambda x: QtCore.QSize(*[int(i) for i in x.split(',')]))
-    register(QtCore.QSizeF,
+    coercer.register(QtCore.QSizeF,
         lambda x: '{0},{1}'.format(x.width(), x.height()),
         lambda x: QtCore.QSizeF(*[float(i) for i in x.split(',')]))
-    register(QtCore.QRect,
+    coercer.register(QtCore.QRect,
         lambda x: '{0},{1},{2},{3}'.format(x.x(), x.y(), x.width(), x.height()),
         lambda x: QtCore.QRect(*[int(i) for i in x.split(',')]))
-    register(QtCore.QRectF,
+    coercer.register(QtCore.QRectF,
         lambda x: '{0},{1},{2},{3}'.format(x.x(), x.y(), x.width(), x.height()),
         lambda x: QtCore.QRectF(*[float(i) for i in x.split(',')]))
-    register(QtGui.QColor, lambda x: str(x.name()), QtGui.QColor)
-    register(QtGui.QFont,
+    coercer.register(QtGui.QColor, lambda x: str(x.name()), QtGui.QColor)
+    coercer.register(QtGui.QFont,
         lambda x: str(x.toString()),
         lambda x: fontFromString(x))
-    register(QtGui.QKeySequence,
+    coercer.register(QtGui.QKeySequence,
         lambda x: str(QtGui.QKeySequence(x).toString()), QtGui.QKeySequence)
-    register(QtCore.Qt.WindowStates,
+    coercer.register(QtCore.Qt.WindowStates,
         lambda x: str(int(x)),
         lambda x: QtCore.Qt.WindowState(int(x)))
-
-# only load these coercers if PyQt/PySide has already been imported
-if {'PyQt4', 'PySide'} & set(sys.modules):
-    register_qt_coercers()
