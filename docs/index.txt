@@ -13,8 +13,7 @@ Contents:
     
     introduction
     quickstart
-    config_api
-    coerce_api
+    api
 
 Indices and tables
 ==================

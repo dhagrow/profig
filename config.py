@@ -1,5 +1,12 @@
 """
-Configuration management.
+A simple-to-use configuration management library.
+
+    import config
+    cfg = config.Config()
+    cfg['server.host'] = '8.8.8.8'
+    cfg['server.port'] = 8181
+    cfg.sync()
+
 """
 
 from __future__ import print_function
@@ -13,7 +20,7 @@ import itertools
 import collections
 
 __author__  = 'Miguel Turner'
-__version__ = '0.2'
+__version__ = '0.2.0'
 
 __all__ = [
     'Config',

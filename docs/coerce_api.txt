@@ -1,4 +1,0 @@
-coerce API
-==========
-
-.. automodule:: coerce

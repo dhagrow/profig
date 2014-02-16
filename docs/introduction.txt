@@ -20,3 +20,10 @@ Features
 * Nested sections
 * dict-like access
 * Interpolation - Keys can be referenced within values.
+
+Alternatives
+------------
+
+There is no shortage of configuration libraries for Python. The Python wiki
+keeps a list of various contenders that aimed to replace the standard
+libraries' ConfigParser: https://wiki.python.org/moin/ConfigParserShootout.

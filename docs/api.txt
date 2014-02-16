@@ -17,3 +17,8 @@ Formats
 .. autoclass:: config.JsonFormat
 
 .. autoclass:: config.PickleFormat
+
+Coercer
+-------
+
+.. autoclass:: config.Coercer
