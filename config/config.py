@@ -12,85 +12,19 @@ import errno
 import itertools
 import collections
 
-# don't require coerce
-try:
-    from config import coerce
-except ImportError:
-    coerce = None
-else:
-    def register_booleans(coercer):
-        ## override boolean coercers ##
-        _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
-            '0': False, 'no': False, 'false': False, 'off': False}
-        coercer.register_adapter(bool, lambda x: 'true' if x else 'false')
-        coercer.register_converter(bool, lambda x: _boolean_states[x.lower()])
-
 __all__ = [
     'Config',
-    'BaseFormat', 'ConfigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat',
+    'ConfigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat',
     'ConfigError',
-    'InvalidSectionError', 'InterpolationError', 'InterpolationCycleError',
-    'SyncError', 'ReadError', 'WriteError', 'NoSourcesError',
+    'Coercer', 'CoerceError',
     ]
 
-class ConfigError(Exception):
-    """Base exception class for all exceptions raised."""
+# the name *type* is used often so give type() an alias rather than use *typ*
+_type = type
 
-class InvalidSectionError(KeyError, ConfigError):
-    """Raised when a given section has never been given a value"""
+## Config ##
 
-class InterpolationError(ConfigError):
-    """Raised when a value cannot be interpolated"""
-
-class InterpolationCycleError(InterpolationError):
-    """Raised when an interpolation would result in an infinite cycle"""
-
-class SyncError(ConfigError):
-    """Base class for errors that can occur when syncing"""
-    def __init__(self, filename=None, message=''):
-        self.filename = filename
-        self.message = message
-    
-    def __str__(self):
-        if self.filename:
-            err = ["error reading '{0}'".format(self.filename)]
-            if self.message:
-                err.extend([': ', self.message])
-            return ''.join(err)
-        else:
-            return self.message
-
-class ReadError(SyncError):
-    """Raised when a value could not be read from a source"""
-    def __init__(self, filename=None, lineno=None, text='', message=''):
-        super().__init__(filename, message)
-        self.lineno = lineno
-        self.text = text
-    
-    def __str__(self):
-        if self.filename:
-            msg = "error reading '{}', line {}"
-            err = [msg.format(self.filename, self.lineno)]
-            if self.message:
-                err.extend([': ', self.message])
-            if self.text:
-                err.extend(['\n  ', self.text])
-            return ''.join(err)
-        else:
-            return self.message
-
-class WriteError(SyncError):
-    """Raised when a value could not be written to a source"""
-
-class NoSourcesError(ConfigError):
-    """Raised when there are no sources for a config object"""
-
-class NoValue:
-    def __repr__(self):
-        return '{}'.format(self.__class__.__name__)
-NoValue = NoValue()
-
-class BaseSection(collections.MutableMapping):
+class SectionMixin(collections.MutableMapping):
     """Provides common methods to subclasses.
 
     The following attributes are required on subclasses of this mixin:
@@ -229,7 +163,113 @@ class BaseSection(collections.MutableMapping):
                 raise TypeError(err.format(p))
         return tuple(key)
 
-class ConfigSection(BaseSection):
+class Config(SectionMixin):
+    """Configuration Root object"""
+    
+    def __init__(self, *sources, format=None, dict_type=None):
+        self._root = self
+        self._key = None
+        
+        self._coercer = Coercer()
+        self._dict_type = dict_type or collections.OrderedDict
+        self._children = self._dict_type()
+
+        self.sources = self._process_sources(sources)
+        self.format = format or ConfigFormat()
+        
+        self.sep = '.'
+        self.write_unset_values = False
+        self.cache_values = True
+        self.coerce_values = True
+        self.interpolate_values = True
+    
+    def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
+        if not self._children:
+            return {}
+        return super().asdict(flat, recurse, convert, include, exclude)
+    
+    def sync(self, *sources, format=None, include=None, exclude=None):
+        """Writes changes to sources and reloads any external changes
+        from sources.
+
+        If *source* is provided, syncs only that source. Otherwise,
+        syncs the sources in `self.sources`.
+
+        *include* or *exclude* can be used to filter the keys that
+        are written."""
+        
+        sources = self._process_sources(sources) if sources else self.sources
+        if not sources:
+            raise NoSourcesError()
+        
+        # if caching, adapt cached values
+        if self.cache_values:
+            for child in self.children(recurse=True):
+                child._adapt_cache()
+        
+        # remove redundant entries
+        def fix_clude(clude):
+            clude = set(clude or [])
+            if len(clude) < 2:
+                return clude
+            result = set()
+            rejected = set()
+            # get a set of unique pairs
+            perms = set(frozenset(i) for i in itertools.permutations(clude, 2))
+            for x, y in perms:
+                result |= set([x, y])
+                if x.startswith(y):
+                    rejected.add(y)
+                elif y.startswith(x):
+                    rejected.add(x)
+            return result - rejected
+        
+        include = fix_clude(include)
+        exclude = fix_clude(exclude)
+        
+        # sync
+        format = format or self.format
+        format.sync(sources, self, include, exclude)
+    
+    def _keystr(self, key):
+        return self.sep.join(key)
+    
+    def _process_sources(self, sources):
+        """Process user-entered paths and return absolute paths.
+        
+        If a source is not a string, assume it is a file object and return it.
+        If a filename (has extension) or path is entered, return it.
+        Otherwise, consider the source a base name and generate an
+        OS-specific set of paths.
+        """
+        result = []
+        for source in sources:
+            if not isinstance(source, str):
+                result.append(source)
+                continue
+            elif os.path.isabs(source) or '.' in source:
+                result.append(source)
+            else:
+                fname = os.extsep.join([source, self.format.extension])
+                scopes = ('script', 'user')
+                result.extend(get_source(fname, scope) for scope in scopes)
+        return result
+    
+    def _dump(self, indent=2): # pragma: no cover
+        for section in sorted(self.children(recurse=True)):
+            spaces = ' ' * ((len(section._key) - 1) * indent)
+            print(spaces, repr(section), sep='')
+    
+    def __repr__(self):
+        s = [self.__class__.__name__, '(']
+        if self.sources:
+            s.append('sources={}'.format(self._sources))
+        s.append(')')
+        return ''.join(s)
+
+class ConfigSection(SectionMixin):
+    """Configuration Section object"""
+    
     _rx_can_interpolate = re.compile(r'{![^!]')
     
     def __init__(self, key, parent):
@@ -426,12 +466,10 @@ class ConfigSection(BaseSection):
                 reset(child)
     
     def adapt(self, value, type):
-        coercer = self._root._coercer
-        return coercer.adapt(value, type) if coercer else value
+        return self._root._coercer.adapt(value, type)
     
     def convert(self, value, type):
-        coercer = self._root._coercer
-        return coercer.convert(value, type) if coercer else value
+        return self._root._coercer.convert(value, type)
     
     def interpolate(self, key, value, values):
         agraph = AcyclicGraph()
@@ -573,111 +611,7 @@ class ConfigSection(BaseSection):
             spaces = ' ' * ((len(section._key) - rootlen) * indent - 1)
             print(spaces, repr(section))
 
-class Config(BaseSection):
-    """Root Config object"""
-    
-    def __init__(self, *sources, format=None, dict_type=None):
-        self._root = self
-        self._key = None
-        
-        self._coercer = coerce.Coercer() if coerce else None
-        if coerce:
-            register_booleans(self._coercer)
-        self._dict_type = dict_type or collections.OrderedDict
-        self._children = self._dict_type()
-
-        self.sources = self._process_sources(sources)
-        self.format = format or ConfigFormat()
-        
-        self.sep = '.'
-        self.write_unset_values = False
-        self.cache_values = True
-        self.coerce_values = bool(coerce)
-        self.interpolate_values = True
-    
-    def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
-        if not self._children:
-            return {}
-        return super().asdict(flat, recurse, convert, include, exclude)
-    
-    def sync(self, *sources, format=None, include=None, exclude=None):
-        """Writes changes to sources and reloads any external changes
-        from sources.
-
-        If *source* is provided, syncs only that source. Otherwise,
-        syncs the sources in `self.sources`.
-
-        *include* or *exclude* can be used to filter the keys that
-        are written."""
-        
-        sources = self._process_sources(sources) if sources else self.sources
-        if not sources:
-            raise NoSourcesError()
-        
-        # if caching, adapt cached values
-        if self.cache_values:
-            for child in self.children(recurse=True):
-                child._adapt_cache()
-        
-        # remove redundant entries
-        def fix_clude(clude):
-            clude = set(clude or [])
-            if len(clude) < 2:
-                return clude
-            result = set()
-            rejected = set()
-            # get a set of unique pairs
-            perms = set(frozenset(i) for i in itertools.permutations(clude, 2))
-            for x, y in perms:
-                result |= set([x, y])
-                if x.startswith(y):
-                    rejected.add(y)
-                elif y.startswith(x):
-                    rejected.add(x)
-            return result - rejected
-        
-        include = fix_clude(include)
-        exclude = fix_clude(exclude)
-        
-        # sync
-        format = format or self.format
-        format.sync(sources, self, include, exclude)
-    
-    def _keystr(self, key):
-        return self.sep.join(key)
-    
-    def _process_sources(self, sources):
-        """Process user-entered paths and return absolute paths.
-        
-        If a source is not a string, assume it is a file object and return it.
-        If a filename (has extension) or path is entered, return it.
-        Otherwise, consider the source a base name and generate an
-        OS-specific set of paths.
-        """
-        result = []
-        for source in sources:
-            if not isinstance(source, str):
-                result.append(source)
-                continue
-            elif os.path.isabs(source) or '.' in source:
-                result.append(source)
-            else:
-                fname = os.extsep.join([source, self.format.extension])
-                scopes = ('script', 'user')
-                result.extend(get_source(fname, scope) for scope in scopes)
-        return result
-    
-    def _dump(self, indent=2): # pragma: no cover
-        for section in sorted(self.children(recurse=True)):
-            spaces = ' ' * ((len(section._key) - 1) * indent)
-            print(spaces, repr(section), sep='')
-    
-    def __repr__(self):
-        s = [self.__class__.__name__, '(']
-        if self.sources:
-            s.append('sources={}'.format(self._sources))
-        s.append(')')
-        return ''.join(s)
+## Config Formats ##
 
 class BaseFormat(object):
     extension = ''
@@ -1074,6 +1008,67 @@ class PickleFormat(BaseFormat):
     def open(self, source, mode='r', *args):
         return open(source, mode + 'b', *args)
 
+## Config Errors ##
+
+class ConfigError(Exception):
+    """Base exception class for all exceptions raised."""
+
+class InvalidSectionError(KeyError, ConfigError):
+    """Raised when a given section has never been given a value"""
+
+class InterpolationError(ConfigError):
+    """Raised when a value cannot be interpolated"""
+
+class InterpolationCycleError(InterpolationError):
+    """Raised when an interpolation would result in an infinite cycle"""
+
+class SyncError(ConfigError):
+    """Base class for errors that can occur when syncing"""
+    def __init__(self, filename=None, message=''):
+        self.filename = filename
+        self.message = message
+    
+    def __str__(self):
+        if self.filename:
+            err = ["error reading '{0}'".format(self.filename)]
+            if self.message:
+                err.extend([': ', self.message])
+            return ''.join(err)
+        else:
+            return self.message
+
+class ReadError(SyncError):
+    """Raised when a value could not be read from a source"""
+    def __init__(self, filename=None, lineno=None, text='', message=''):
+        super().__init__(filename, message)
+        self.lineno = lineno
+        self.text = text
+    
+    def __str__(self):
+        if self.filename:
+            msg = "error reading '{}', line {}"
+            err = [msg.format(self.filename, self.lineno)]
+            if self.message:
+                err.extend([': ', self.message])
+            if self.text:
+                err.extend(['\n  ', self.text])
+            return ''.join(err)
+        else:
+            return self.message
+
+class WriteError(SyncError):
+    """Raised when a value could not be written to a source"""
+
+class NoSourcesError(ConfigError):
+    """Raised when there are no sources for a config object"""
+
+## Config Utilities ##
+
+class NoValue:
+    def __repr__(self):
+        return '{}'.format(self.__class__.__name__)
+NoValue = NoValue()
+
 # adapted from pyglet
 def get_source(filename, scope='script'):
     """Returns a path for *filename* in the given *scope*.
@@ -1119,6 +1114,8 @@ def ensure_dirs(path, mode=0o744):
         if e.errno != errno.EEXIST:
             raise
 
+## Acyclic ##
+
 class CycleError(ConfigError):
     pass
 
@@ -1144,3 +1141,307 @@ class AcyclicGraph:
     
     def __repr__(self):
         return repr(self._g)
+
+## Coercer ##
+
+class Coercer:
+    """
+    The coercer class, with which adapters and converters can be registered.
+    """
+    def __init__(self, register_defaults=True, register_qt=None):
+        #: An adapter to fallback to when no other adapter is found.
+        self.adapt_fallback = None
+        #: An converter to fallback to when no other converter is found.
+        self.convert_fallback = None
+        
+        self._adapters = {}
+        self._converters = {}
+        
+        if register_defaults:
+            register_default_coercers(self)
+        if register_qt is None:
+            # only load Qt coercers if PyQt/PySide has already been imported
+            register_qt = bool({'PyQt4', 'PySide'} & set(sys.modules))
+        if register_qt:
+            register_qt_coercers(self)
+    
+    def adapt(self, value, type=None):
+        """Adapt a *value* from the given *type* (type to string). If
+        *type* is not provided the type of the value will be used."""
+        if not type:
+            type = _type(value)
+        
+        if isinstance(type, tuple):
+            try:
+                try:
+                    # try and get an adapter for the full type sequence
+                    seq_adapter = self._get_adapter(type)
+                except KeyError:
+                    # otherwise use the first type to get the adapter
+                    seq_adapter = self._get_adapter(type[0])
+                
+                # str is default if no other type is given
+                seq_types = type[1:]
+                if not seq_types:
+                    seq_types = [str]
+                
+                ads = itertools.cycle(self._get_adapter(t) for t in seq_types)
+            except KeyError:
+                # fallback
+                pass
+            else:
+                try:
+                    return seq_adapter(next(ads)(v) for v in value)
+                except Exception as e:
+                    raise AdaptError(e)
+        else:
+            try:
+                func = self._get_adapter(type)
+            except KeyError:
+                # fallback
+                pass
+            else:
+                try:
+                    return func(value)
+                except Exception as e:
+                    raise AdaptError(e)
+        
+        if self.adapt_fallback:
+            try:
+                return self.adapt_fallback(value)
+            except Exception as e:
+                raise AdaptError(e)
+        else:
+            err = "no adapter registered for '{0}'"
+            raise NotRegisteredError(err.format(type))
+    
+    def convert(self, value, type):
+        """Convert a *value* to the given *type* (string to type)."""
+        if isinstance(type, tuple):
+            try:
+                try:
+                    # try and get a converter for the full type sequence
+                    seq_converter = self._get_converter(type)
+                except KeyError:
+                    # otherwise try the first type to get the converter
+                    seq_converter = self._get_converter(type[0])
+                
+                # str is default if no other type is given
+                seq_types = type[1:]
+                if not seq_types:
+                    seq_types = [str]
+                
+                cons = itertools.cycle(self._get_converter(t) for t in seq_types)
+            except KeyError:
+                # fallback
+                pass
+            else:
+                try:
+                    return type[0](next(cons)(v) for v in seq_converter(value))
+                except Exception as e:
+                    raise ConvertError(e)
+        else:
+            try:
+                func = self._get_converter(type)
+            except KeyError:
+                # fallback
+                pass
+            else:
+                try:
+                    return func(value)
+                except Exception as e:
+                    raise ConvertError(e)
+        
+        if self.convert_fallback:
+            try:
+                return self.convert_fallback(value)
+            except Exception as e:
+                raise ConvertError(e)
+        else:
+            err = "no converter registered for '{0}'"
+            raise NotRegisteredError(err.format(type))
+    
+    def register(self, type, adapter, converter):
+        """Register an adapter and converter for the given type."""
+        self.register_adapter(type, adapter)
+        self.register_converter(type, converter)
+    
+    def register_adapter(self, type, adapter):
+        """Register an adapter (type to string) for the given type."""
+        self._adapters[self._typename(type)] = adapter
+    
+    def register_converter(self, type, converter):
+        """Register a converter (string to type) for the given type."""
+        self._converters[self._typename(type)] = converter
+    
+    def register_choice(self, type, choices):
+        """Registers an adapter and converter for a choice of values.
+        Values passed into :meth:`adapt` or :meth:`convert` for *type* will
+        have to be one of the choices. *choices* must be a dict that maps
+        converted->adapted representations."""
+        def verify(x, c=choices):
+            if x not in c:
+                err = "invalid choice {0!r}, must be one of: {1}"
+                raise ValueError(err.format(x, c))
+            return x
+        
+        values = {value: key for key, value in choices.items()}
+        adapt = lambda x: choices[verify(x, choices.keys())]
+        convert = lambda x: values[verify(x, values.keys())]
+        
+        self.register_adapter(type, adapt)
+        self.register_converter(type, convert)
+    
+    def clear_coercers(self):
+        """Clears all registered adapters and converters."""
+        self.unregister_adapters()
+        self.unregister_converters()
+    
+    def unregister_adapters(self, *types):
+        """
+        Unregister one or more adapters.
+        Unregisters all adapters if no arguments are given.
+        """
+        if not types:
+            self._adapters.clear()
+        else:
+            for type in types:
+                del self._adapters[self._typename(type)]
+    
+    def unregister_converters(self, *types):
+        """
+        Unregister one or more converters.
+        Unregisters all converters if no arguments are given.
+        """
+        if not types:
+            self._converters.clear()
+        else:
+            for type in types:
+                del self._converters[self._typename(type)]
+    
+    def _typename(self, type):
+        if isinstance(type, str):
+            if '.' in type:
+                return tuple(type.rsplit('.', 1))
+            else:
+                return type
+        elif isinstance(type, collections.Sequence):
+            return tuple(self._typename(t) for t in type)
+        elif isinstance(type, _type):
+            return (type.__module__, type.__name__)
+        elif type is None:
+            t = _type(type)
+            return (t.__module__, 'None')
+        else:
+            t = _type(type)
+            return (t.__module__, t.__name__)
+    
+    def _get_adapter(self, type):
+        return self._adapters[self._typename(type)]
+    
+    def _get_converter(self, type):
+        return self._converters[self._typename(type)]
+
+## Coercer Errors ##
+
+class CoerceError(Exception):
+    """Base class for coerce exceptions"""
+
+class AdaptError(CoerceError):
+    """Raised when a value cannot be adapted"""
+
+class ConvertError(CoerceError):
+    """Raised when a value cannot be converted"""
+
+class NotRegisteredError(CoerceError, KeyError):
+    """Raised when an unknown type is passed to adapt or convert"""
+
+## Coercer Registries ##
+
+def register_default_coercers(coercer):
+    """Registers adapters and converters for common types."""
+    import binascii
+    
+    # None as the type does not change the value
+    coercer.register(None, lambda x: x, lambda x: x)
+    # NoneType as the type assumes the value is None
+    coercer.register(type(None), lambda x: '', lambda x: None)
+    coercer.register(bool, lambda x: str(int(x)), lambda x: bool(int(x)))
+    coercer.register(int, str, int)
+    coercer.register(float, str, float)
+    coercer.register(complex, str, complex)
+    coercer.register(str, str, str)
+    coercer.register(bytes,
+        lambda x: binascii.hexlify(x).decode('ascii'),
+        lambda x: binascii.unhexlify(x).encode('ascii'))
+    
+    # collection coercers, simply comma delimited
+    split = lambda x: x.split(',') if x else []
+    coercer.register(list, lambda x: ','.join(x), split)
+    coercer.register(set, lambda x: ','.join(x), lambda x: set(split(x)))
+    coercer.register(tuple, lambda x: ','.join(x), lambda x: tuple(split(x)))
+    coercer.register(collections.deque, lambda x: ','.join(x),
+        lambda x: collections.deque(split(x)))
+    
+    # path coercers, os.pathsep delimited
+    coercer.register('path', str, str)
+    sep = os.pathsep
+    pathsplit = lambda x: x.split(sep) if x else []
+    coercer.register((list, 'path'), lambda x: sep.join(x), pathsplit)
+    coercer.register((set, 'path'), lambda x: sep.join(x), lambda x: set(pathsplit(x)))
+    coercer.register((tuple, 'path'), lambda x: sep.join(x),
+        lambda x: tuple(pathsplit(x)))
+    coercer.register((collections.deque, 'path'), lambda x: sep.join(x),
+        lambda x: collections.deque(pathsplit(x)))
+
+def register_booleans(coercer):
+    ## override boolean coercers ##
+    _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
+        '0': False, 'no': False, 'false': False, 'off': False}
+    coercer.register_adapter(bool, lambda x: 'true' if x else 'false')
+    coercer.register_converter(bool, lambda x: _boolean_states[x.lower()])
+
+def register_qt_coercers(coercer):
+    if 'PyQt4' in sys.modules:
+        from PyQt4 import QtCore, QtGui
+    elif 'PySide' in sys.modules:
+        from PySide import QtCore, QtGui
+    else:
+        err = 'A Qt library must be imported before registering Qt coercers'
+        raise ImportError(err)
+    
+    def fontFromString(s):
+        font = QtGui.QFont()
+        font.fromString(s)
+        return font
+    
+    coercer.register(QtCore.QByteArray,
+        lambda x: str(x.toHex()),
+        lambda x: QtCore.QByteArray.fromHex(x))
+    coercer.register(QtCore.QPoint,
+        lambda x: '{0},{1}'.format(x.x(), x.y()),
+        lambda x: QtCore.QPoint(*[int(i) for i in x.split(',')]))
+    coercer.register(QtCore.QPointF,
+        lambda x: '{0},{1}'.format(x.x(), x.y()),
+        lambda x: QtCore.QPointF(*[float(i) for i in x.split(',')]))
+    coercer.register(QtCore.QSize,
+        lambda x: '{0},{1}'.format(x.width(), x.height()),
+        lambda x: QtCore.QSize(*[int(i) for i in x.split(',')]))
+    coercer.register(QtCore.QSizeF,
+        lambda x: '{0},{1}'.format(x.width(), x.height()),
+        lambda x: QtCore.QSizeF(*[float(i) for i in x.split(',')]))
+    coercer.register(QtCore.QRect,
+        lambda x: '{0},{1},{2},{3}'.format(x.x(), x.y(), x.width(), x.height()),
+        lambda x: QtCore.QRect(*[int(i) for i in x.split(',')]))
+    coercer.register(QtCore.QRectF,
+        lambda x: '{0},{1},{2},{3}'.format(x.x(), x.y(), x.width(), x.height()),
+        lambda x: QtCore.QRectF(*[float(i) for i in x.split(',')]))
+    coercer.register(QtGui.QColor, lambda x: str(x.name()), QtGui.QColor)
+    coercer.register(QtGui.QFont,
+        lambda x: str(x.toString()),
+        lambda x: fontFromString(x))
+    coercer.register(QtGui.QKeySequence,
+        lambda x: str(QtGui.QKeySequence(x).toString()), QtGui.QKeySequence)
+    coercer.register(QtCore.Qt.WindowStates,
+        lambda x: str(int(x)),
+        lambda x: QtCore.Qt.WindowState(int(x)))
