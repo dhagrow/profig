@@ -94,9 +94,13 @@ class SectionMixin(collections.MutableMapping):
                     yield child._name
     
     def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
+        if not self._children:
+            return self._root._dict_type()
         if flat:
-            return self._root._dict_type(self)
-        d = {}
+            sections = ((k, self.section(k)) for k in self)
+            d = {k: (s.value if convert else s.strvalue) for k, s in sections}
+            return self._root._dict_type(d)
+        d = self._root._dict_type()
         for section in self.children():
             if section._should_include(include, exclude):
                 d.update(section.asdict(
@@ -192,11 +196,6 @@ class Config(SectionMixin):
         self.cache_values = True
         self.coerce_values = True
         self.interpolate_values = True
-    
-    def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
-        if not self._children:
-            return {}
-        return super().asdict(flat, recurse, convert, include, exclude)
     
     def sync(self, *sources, format=None, include=None, exclude=None):
         """Writes changes to sources and reloads any external changes
@@ -430,10 +429,11 @@ class ConfigSection(SectionMixin):
     
     def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
         if not flat and not (self._children and recurse):
-            return {self.name: self.value}
+            d = {self.name: self.value if convert else self.strvalue}
+            return self._root.dict_type(d)
         d = super().asdict(flat, recurse, convert, include, exclude)
         if self._value is not NoValue or self._default is not NoValue:
-            d[''] = self.value
+            d[''] = self.value if convert else self.strvalue
         return {self.name: d}
     
     def stritems(self):
@@ -681,6 +681,9 @@ class BaseFormat(object):
                     try:
                         values = self.read(file)
                     except IOError:
+                        # XXX: there should be a way of indicating that there
+                        # was an error without causing the sync to fail for
+                        # other sources
                         continue
                     finally:
                         # only close files that were opened from the filesystem
