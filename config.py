@@ -43,6 +43,10 @@ class SectionMixin(collections.MutableMapping):
     _children
     """
     
+    @property
+    def root(self):
+        return self._root
+    
     def init(self, key, default, type=None):
         """Initializes a key to the given default value. If *type* is not
         provided, the type of the default value will be used."""
@@ -189,10 +193,9 @@ class Config(SectionMixin):
         self._children = self._dict_type()
 
         self.sources = self._process_sources(sources)
-        self.format = format or ConfigFormat()
+        self.format = (format or ConfigFormat)(self)
         
         self.sep = '.'
-        self.write_unset_values = False
         self.cache_values = True
         self.coerce_values = True
         self.interpolate_values = True
@@ -237,8 +240,8 @@ class Config(SectionMixin):
         exclude = fix_clude(exclude)
         
         # sync
-        format = format or self.format
-        format.sync(sources, self, include, exclude)
+        format = format(self) if format else self.format
+        format.sync(sources, include, exclude)
     
     def _keystr(self, key):
         return self.sep.join(key)
@@ -430,7 +433,7 @@ class ConfigSection(SectionMixin):
     def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
         if not flat and not (self._children and recurse):
             d = {self.name: self.value if convert else self.strvalue}
-            return self._root.dict_type(d)
+            return self._root._dict_type(d)
         d = super().asdict(flat, recurse, convert, include, exclude)
         if self._value is not NoValue or self._default is not NoValue:
             d[''] = self.value if convert else self.strvalue
@@ -626,109 +629,65 @@ class ConfigSection(SectionMixin):
 class BaseFormat(object):
     extension = ''
     
-    def __init__(self, **kwargs):
-        self.ensure_dirs = kwargs.pop('ensure_dirs', 0o744)
-        self.read_errors = kwargs.pop('read_errors', 'error')
-        self.write_errors = kwargs.pop('write_errors', 'error')
-        if kwargs:
-            err = "TypeError: __init__() got an unexpected keyword argument '{}'"
-            raise TypeError(err.format(kwargs.keys()[0]))
+    def __init__(self, config):
+        self.config = config
         
-        # only valid during sync
-        self._config = None
+        self.ensure_dirs = 0o744
+        self.read_errors = 'error'
+        self.write_errors = 'error'
     
-    @property
-    def read_errors(self):
-        """The action to take when there is an error
-        reading a config file. Must be one of 'exception',
-        'error', or 'ignore'."""
-        return self._read_errors
-    
-    @read_errors.setter
-    def read_errors(self, errors):
-        if not errors in ('exception', 'error', 'ignore'):
-            err = "value must be 'exception', 'error', or 'ignore'"
-            raise ValueError(err)
-        self._read_errors = errors
-    
-    @property
-    def write_errors(self):
-        """The action to take when there is an error
-        writing to a config file. Must be one of 'exception',
-        'error', or 'ignore'."""
-        return self._write_errors
-    
-    @write_errors.setter
-    def write_errors(self, errors):
-        if not errors in ('exception', 'error', 'ignore'):
-            err = "value must be 'exception', 'error', or 'ignore'"
-            raise ValueError(err)
-        self._write_errors = errors
-    
-    def sync(self, sources, config, include, exclude):
-        """Performs a sync on *sources* with the values in *config*,
-        which is a :class:`ConfigSection` instance. *include* and
-        *exclude* must be lists of keys."""
+    def sync(self, sources, include, exclude):
+        """Performs a sync on *sources* with the values in a
+        :class:`ConfigSection` instance. *include* and *exclude* must be
+        lists of keys."""
         
-        # only valid during sync
-        self._config = config._root
-        try:
-            # read unchanged values from sources
-            for source in reversed(sources):
-                file = self._open(source)
-                if file:
-                    # read file
-                    try:
-                        values = self.read(file)
-                    except IOError:
-                        # XXX: there should be a way of indicating that there
-                        # was an error without causing the sync to fail for
-                        # other sources
-                        continue
-                    finally:
-                        # only close files that were opened from the filesystem
-                        if isinstance(source, str):
-                            file.close()
-                    
-                    # process values
-                    for key, value in values.items():
-                        section = config._root._create_section(key)
-                        if not section._dirty:
-                            section.strvalue = value
-            
-            # filter sections
-            keys = [] # keys to clean after (diff from keys to write)
-            values = config._root._dict_type()
-            write_unset = self._config.write_unset_values
-            for key in config:
-                section = config.section(key)
-                
-                # first check if the section itself should be included
-                if not write_unset and section._value == section._default:
+        # read unchanged values from sources
+        for source in reversed(sources):
+            file = self._open(source)
+            if file:
+                # read file
+                try:
+                    values = self.read(file)
+                except IOError:
+                    # XXX: there should be a way of indicating that there
+                    # was an error without causing the sync to fail for
+                    # other sources
                     continue
+                finally:
+                    # only close files that were opened from the filesystem
+                    if isinstance(source, str):
+                        file.close()
                 
-                if section._should_include(include, exclude):
-                    # use section.key so we get the full key
-                    values[section.key] = section.strvalue
-                    keys.append(key)
-            
-            # write changed values to the first source
-            source = sources[0]
-            file = self._open(source, 'w')
-            try:
-                self.write(file, values)
-            finally:
-                # only close files that were opened from the filesystem
-                if isinstance(source, str):
-                    file.close()
-                else:
-                    file.flush()
-            
-            # clean values
-            config.set_dirty(keys, False)
+                # process values
+                for key, value in values.items():
+                    section = config.root._create_section(key)
+                    if not section._dirty:
+                        section.strvalue = value
+        
+        values = self.filter_values(include, exclude)
+        
+        # write changed values to the first source
+        source = sources[0]
+        file = self._open(source, 'w')
+        try:
+            self.write(file, values)
         finally:
-            # clear sync config
-            self._config = None
+            # only close files that were opened from the filesystem
+            if isinstance(source, str):
+                file.close()
+            else:
+                file.flush()
+        
+        # clean values
+        self.config.set_dirty(values.keys(), False)
+    
+    def filter_values(self, include, exclude):
+        """
+        Returns section values to be passed to :meth:`BaseFormat.write`.
+        Also returns a list of keys that should have their dirty flags
+        cleared after a successful write.
+        """
+        return self.config.asdict(flat=True, include=include, exclude=exclude)
     
     def read(self, file): # pragma: no cover
         """Reads *file* and returns a dict. Must be implemented
@@ -794,10 +753,10 @@ class BaseFormat(object):
 class ConfigFormat(BaseFormat):
     extension = 'cfg'
     
-    def sync(self, sources, config, include, exclude):
+    def sync(self, sources, include, exclude):
         self._source0 = True # False after the first pass through read
         self._lines = [] # line order for first source
-        super().sync(sources, config, include, exclude)
+        super().sync(sources, include, exclude)
         del self._source0
         del self._lines
     
@@ -845,10 +804,16 @@ class ConfigFormat(BaseFormat):
 class JsonFormat(BaseFormat):
     extension = 'json'
     
-    def __init__(self):
+    def __init__(self, config):
         import json
+        
+        super().__init__(config)
+        
         self._load = json.load
         self._dump = json.dump
+    
+    def filter_values(self, include, exclude):
+        return self.config.asdict(flat=False, include=include, exclude=exclude)
     
     def read(self, file):
         try:
@@ -867,10 +832,10 @@ class IniFormat(BaseFormat):
     extension = 'ini'
     _rx_section_header = re.compile('\[(.*)\]')
     
-    def sync(self, sources, config, include, exclude):
+    def sync(self, sources, include, exclude):
         self._source0 = True # False after the first pass through read
         self._lines = [] # line order for first source
-        super().sync(sources, config, include, exclude)
+        super().sync(sources, include, exclude)
         del self._source0
         del self._lines
     
@@ -906,12 +871,12 @@ class IniFormat(BaseFormat):
             
             key = key.strip()
             if section:
-                key = self._config._make_key(section, key)
-                key = self._config._keystr(key)
+                key = self.config._make_key(section, key)
+                key = self.config._keystr(key)
             values[key] = value.strip()
             if self._source0:
-                if (section == '' and key in self._config and
-                    self._config.has_children(key)):
+                if (section == '' and key in self.config and
+                    self.config.has_children(key)):
                     # key no longer belongs to the defaults so skip
                     continue
                 self._lines.append(((key, orgline), True, False))
@@ -921,19 +886,19 @@ class IniFormat(BaseFormat):
         return values
     
     def write(self, file, values):
-        stripbase = lambda k: self._config._keystr(self._config._make_key(k)[1:])
+        stripbase = lambda k: self.config._keystr(self.config._make_key(k)[1:])
         
         # sort values by section
-        dict_type = self._config._dict_type
+        dict_type = self.config._dict_type
         sections = dict_type()
-        sep = self._config.sep
+        sep = self.config.sep
         for key, value in values.items():
             sec = key.partition(sep)
             section = sec[0] if sec[2] else ''
             if section.lower() == 'default':
                 key = stripbase(key)
                 section = ''
-            elif section == '' and self._config.has_children(key):
+            elif section == '' and self.config.has_children(key):
                 # fix key for section values
                 section = key
             sections.setdefault(section, dict_type())[key] = value
