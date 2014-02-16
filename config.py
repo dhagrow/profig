@@ -55,7 +55,7 @@ class SectionMixin(collections.MutableMapping):
         section._cache = NoValue
         section._type = type or default.__class__
         section._has_type = True
-        section.default = default
+        section.set_default(default)
     
     def get(self, key, default=None, type=None):
         """Return the value for key if key is in the dictionary,
@@ -76,10 +76,10 @@ class SectionMixin(collections.MutableMapping):
             return default
     
     def __getitem__(self, key):
-        return self.section(key).value
+        return self.section(key).value()
     
     def __setitem__(self, key, value):
-        self._create_section(key).value = value
+        self._create_section(key).set_value(value)
     
     def __delitem__(self, key):
         section = self.section(key)
@@ -101,8 +101,7 @@ class SectionMixin(collections.MutableMapping):
         if not self._children:
             return self._root._dict_type()
         if flat:
-            sections = ((k, self.section(k)) for k in self)
-            d = {k: (s.value if convert else s.strvalue) for k, s in sections}
+            d = {k: self.section(k).value(convert) for k in self}
             return self._root._dict_type(d)
         d = self._root._dict_type()
         for section in self.children():
@@ -318,84 +317,6 @@ class ConfigSection(SectionMixin):
         return self._name
     
     @property
-    def value(self):
-        """The section's value."""
-        if self._cache is not NoValue:
-            return self._cache
-        elif self._value is not NoValue:
-            value = self._convert(self._value)
-            if self._should_cache(value, self._value):
-                self._cache = value
-            return value
-        else:
-            return self.default
-    
-    @value.setter
-    def value(self, value):
-        strvalue = self._adapt(value)
-        if strvalue != self._value:
-            self._value = strvalue
-            if self._should_cache(value, self._value):
-                self._cache = value
-            self._dirty = True
-    
-    @property
-    def strvalue(self):
-        """The section's unprocessed string value."""
-        if self._value is not NoValue:
-            return self._value
-        else:
-            return self.strdefault
-    
-    @strvalue.setter
-    def strvalue(self, value):
-        if value != self._value:
-            self._value = value
-            if self._cache is not NoValue:
-                self._cache = NoValue
-            self._dirty = True
-    
-    @property
-    def default(self):
-        """The section's default value."""
-        if self._default is not NoValue:
-            if self._value is NoValue and self._cache is not NoValue:
-                # only use cache if self._value hasn't been set
-                return self._cache
-            else:
-                value = self._convert(self._default)
-                if (self._should_cache(value, self._default)
-                    and self._value is NoValue):
-                    # only set cache if self._value hasn't been set
-                    self._cache = value
-                return value
-        else:
-            raise InvalidSectionError(self.key)
-    
-    @default.setter
-    def default(self, default):
-        self._default = self._adapt(default)
-        if (self._should_cache(default, self._default)
-            and self._value is NoValue):
-            # only set cache if self._value hasn't been set
-            self._cache = default
-    
-    @property
-    def strdefault(self):
-        """The section's unprocessed default string value."""
-        if self._default is not NoValue:
-            return self._default
-        else:
-            raise InvalidSectionError(self.key)
-    
-    @strdefault.setter
-    def strdefault(self, default):
-        self._default = default
-        # only clear cache if self._value hasn't been set
-        if self._cache is not NoValue and self._value is NoValue:
-            self._cache = NoValue
-    
-    @property
     def type(self):
         """The type used for coercing the value for this section.
         Read only."""
@@ -425,6 +346,88 @@ class ConfigSection(SectionMixin):
         for key in super().__iter__():
             yield key
     
+    def value(self, convert=True):
+        """
+        Get the section's value.
+        To get the underlying string value, set *convert* to `False`.
+        """
+        if not convert:
+            if self._value is not NoValue:
+                return self._value
+            else:
+                return self.default(convert=False)
+        
+        if self._cache is not NoValue:
+            return self._cache
+        elif self._value is not NoValue:
+            value = self._convert(self._value)
+            if self._should_cache(value, self._value):
+                self._cache = value
+            return value
+        else:
+            return self.default()
+    
+    def set_value(self, value, adapt=True):
+        """
+        Set the section's value.
+        To set the underlying string value, set *adapt* to `False`.
+        """
+        if not adapt:
+            if value != self._value:
+                self._value = value
+                if self._cache is not NoValue:
+                    self._cache = NoValue
+                self._dirty = True
+        
+        strvalue = self._adapt(value)
+        if strvalue != self._value:
+            self._value = strvalue
+            if self._should_cache(value, self._value):
+                self._cache = value
+            self._dirty = True
+    
+    def default(self, convert=True):
+        """
+        Get the section's default value.
+        To get the underlying string value, set *convert* to `False`.
+        """
+        if not convert:
+            if self._default is not NoValue:
+                return self._default
+            else:
+                raise InvalidSectionError(self.key)
+        
+        if self._default is not NoValue:
+            if self._value is NoValue and self._cache is not NoValue:
+                # only use cache if self._value hasn't been set
+                return self._cache
+            else:
+                value = self._convert(self._default)
+                if (self._should_cache(value, self._default)
+                    and self._value is NoValue):
+                    # only set cache if self._value hasn't been set
+                    self._cache = value
+                return value
+        else:
+            raise InvalidSectionError(self.key)
+    
+    def set_default(self, default, adapt=True):
+        """
+        Set the section's default value.
+        To set the underlying string value, set *adapt* to `False`.
+        """
+        if not adapt:
+            self._default = default
+            # only clear cache if self._value hasn't been set
+            if self._cache is not NoValue and self._value is NoValue:
+                self._cache = NoValue
+        
+        self._default = self._adapt(default)
+        if (self._should_cache(default, self._default)
+            and self._value is NoValue):
+            # only set cache if self._value hasn't been set
+            self._cache = default
+    
     def section(self, key):
         if not key:
             return self
@@ -432,18 +435,17 @@ class ConfigSection(SectionMixin):
     
     def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
         if not flat and not (self._children and recurse):
-            d = {self.name: self.value if convert else self.strvalue}
-            return self._root._dict_type(d)
+            return self._root._dict_type({self.name: self.value(convert)})
         d = super().asdict(flat, recurse, convert, include, exclude)
         if self._value is not NoValue or self._default is not NoValue:
-            d[''] = self.value if convert else self.strvalue
+            d[''] = self.value(convert)
         return {self.name: d}
     
-    def stritems(self):
-        """Returns a (key, value) iterator over the unprocessed
-        string values of this section."""
+    def items(self, convert=True):
+        """Returns a (key, value) iterator over the unprocessed values of
+        this section."""
         for key in self:
-            yield (key, self.section(key).strvalue)
+            yield (key, self.section(key).value(convert))
 
     def sync(self, source=None, format=None, include=None, exclude=None):
         include = set(include or ())
@@ -578,8 +580,8 @@ class ConfigSection(SectionMixin):
     def _adapt_cache(self):
         if self._cache is not NoValue:
             strvalue = self._adapt(self._cache)
-            if strvalue != self.strvalue:
-                self.strvalue = strvalue
+            if strvalue != self.value(convert=False):
+                self.setvalue(strvalue, adapt=False)
                 self._dirty = True
     
     def _should_include(self, include, exclude):
@@ -662,7 +664,7 @@ class BaseFormat(object):
                 for key, value in values.items():
                     section = config.root._create_section(key)
                     if not section._dirty:
-                        section.strvalue = value
+                        section.set_value(value, adapt=False)
         
         values = self.filter_values(include, exclude)
         
