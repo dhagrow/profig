@@ -12,6 +12,9 @@ import errno
 import itertools
 import collections
 
+__author__  = 'Miguel Turner'
+__version__ = '0.2'
+
 __all__ = [
     'Config',
     'ConfigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat',
