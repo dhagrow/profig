@@ -67,11 +67,8 @@ class TestJsonFormat(unittest.TestCase):
         self.c = config.Config(format=config.JsonFormat)
 
         self.c.init('a', 1)
-        print(self.c.asdict())
         self.c.init('b', 'value')
-        print(self.c.asdict())
         self.c.init('a.1', 2)
-        print(self.c.asdict())
 
         self.b = io.StringIO()
 
@@ -85,7 +82,6 @@ class TestJsonFormat(unittest.TestCase):
 
     def test_subsection(self):
         self.c.sync(self.b)
-        print(self.c.asdict())
         
         self.assertEqual(self.b.getvalue(), """\
 {"a": {"": "1", "1": "2"}, "b": "value"}""")

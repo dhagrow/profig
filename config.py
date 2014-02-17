@@ -47,6 +47,10 @@ class SectionMixin(collections.MutableMapping):
     def root(self):
         return self._root
     
+    @property
+    def is_root(self):
+        return self is self._root
+    
     def init(self, key, default, type=None):
         """Initializes a key to the given default value. If *type* is not
         provided, the type of the default value will be used."""
@@ -98,24 +102,26 @@ class SectionMixin(collections.MutableMapping):
                     yield child._name
     
     def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
-        if not self._children:
-            return self._root._dict_type()
+        dtype = self._root._dict_type
+        valid = not self.is_root and self.valid
+        
         if flat:
-            d = {k: self.section(k).value(convert) for k in self}
-            return self._root._dict_type(d)
-        d = self._root._dict_type()
-        for child in self.children():
-            if child._should_include(include, exclude):
-                d.update(child.asdict(
-                    convert=convert, include=include, exclude=exclude))
-        if self is not self._root and self.valid:
-            # XXX: broken logic
-            # include the section's value
-            if recurse and self._children:
+            return dtype((k, self.section(k).value(convert)) for k in self)
+        
+        if recurse and self._children:
+            d = dtype()
+            if valid:
                 d[''] = self.value(convert)
-            else:
-                d[name] = self.value(convert)
-        return d
+            for child in self.children():
+                if child._should_include(include, exclude):
+                    d.update(child.asdict(
+                        convert=convert, include=include, exclude=exclude))
+            
+            return d if self.is_root else dtype({self.name: d})
+        elif valid:
+            return dtype({self.name: self.value(convert)})
+        else:
+            return dtype()
 
     def section(self, key):
         """Returns a section object for *key*.
@@ -310,7 +316,7 @@ class ConfigSection(SectionMixin):
     
     @property
     def parent(self):
-        """The section's parent or :keyword:`None`. Read-only."""
+        """The section's parent or `None`. Read-only."""
         return self._parent
     
     @property
@@ -331,7 +337,7 @@ class ConfigSection(SectionMixin):
     
     @property
     def valid(self):
-        """:keyword:`True` if this section has a valid value. Read-only."""
+        """`True` if this section has a valid value. Read-only."""
         return not (self._value is NoValue and self._default is NoValue)
     
     def __lt__(self, other):
@@ -461,7 +467,7 @@ class ConfigSection(SectionMixin):
     def reset(self, recurse=True):
         """Resets this section to it's default value, leaving it
         in the same state as after a call to :meth:`ConfigSection.init`.
-        If *recurse* is :keyword:`True`, does the same to all the
+        If *recurse* is `True`, does the same to all the
         section's children."""
         def reset(s):
             if s._value is not NoValue:
@@ -551,7 +557,7 @@ class ConfigSection(SectionMixin):
     
     def clear_cache(self, recurse=False):
         """Clears cached values for this section. If *recurse* is
-        :keyword:`True`, clears the cache for child sections as well."""
+        `True`, clears the cache for child sections as well."""
         for section in self.children(recurse):
             section._cache = NoValue
     
