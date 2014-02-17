@@ -104,10 +104,17 @@ class SectionMixin(collections.MutableMapping):
             d = {k: self.section(k).value(convert) for k in self}
             return self._root._dict_type(d)
         d = self._root._dict_type()
-        for section in self.children():
-            if section._should_include(include, exclude):
-                d.update(section.asdict(
+        for child in self.children():
+            if child._should_include(include, exclude):
+                d.update(child.asdict(
                     convert=convert, include=include, exclude=exclude))
+        if self is not self._root and self.valid:
+            # XXX: broken logic
+            # include the section's value
+            if recurse and self._children:
+                d[''] = self.value(convert)
+            else:
+                d[name] = self.value(convert)
         return d
 
     def section(self, key):
@@ -325,15 +332,12 @@ class ConfigSection(SectionMixin):
     @property
     def valid(self):
         """:keyword:`True` if this section has a valid value. Read-only."""
-        return self._value is not NoValue or self._default is not NoValue
+        return not (self._value is NoValue and self._default is NoValue)
     
     def __lt__(self, other):
         if not isinstance(other, ConfigSection):
             return NotImplemented
         return self._key < other._key
-    
-    def __str__(self):
-        return str(dict(self))
     
     def __repr__(self):
         return "{}('{}', {!r}, default={!r})".format(
@@ -432,14 +436,6 @@ class ConfigSection(SectionMixin):
         if not key:
             return self
         return super().section(key)
-    
-    def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
-        if not flat and not (self._children and recurse):
-            return self._root._dict_type({self.name: self.value(convert)})
-        d = super().asdict(flat, recurse, convert, include, exclude)
-        if self._value is not NoValue or self._default is not NoValue:
-            d[''] = self.value(convert)
-        return {self.name: d}
     
     def items(self, convert=True):
         """Returns a (key, value) iterator over the unprocessed values of
