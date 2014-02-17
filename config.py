@@ -101,7 +101,7 @@ class SectionMixin(collections.MutableMapping):
                 else:
                     yield child._name
     
-    def asdict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
+    def as_dict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
         dtype = self._root._dict_type
         valid = not self.is_root and self.valid
         
@@ -114,7 +114,7 @@ class SectionMixin(collections.MutableMapping):
                 d[''] = self.value(convert)
             for child in self.children():
                 if child._should_include(include, exclude):
-                    d.update(child.asdict(
+                    d.update(child.as_dict(
                         convert=convert, include=include, exclude=exclude))
             
             return d if self.is_root else dtype({self.name: d})
@@ -691,7 +691,7 @@ class BaseFormat(object):
         Also returns a list of keys that should have their dirty flags
         cleared after a successful write.
         """
-        return self.config.asdict(flat=True, include=include, exclude=exclude)
+        return self.config.as_dict(flat=True, include=include, exclude=exclude)
     
     def read(self, file): # pragma: no cover
         """Reads *file* and returns a dict. Must be implemented
@@ -817,7 +817,7 @@ class JsonFormat(BaseFormat):
         self._dump = json.dump
     
     def filter_values(self, include, exclude):
-        return self.config.asdict(flat=False, include=include, exclude=exclude)
+        return self.config.as_dict(flat=False, include=include, exclude=exclude)
     
     def read(self, file):
         try:
