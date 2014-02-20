@@ -9,6 +9,27 @@ class TestBasic(unittest.TestCase):
 
         self.assertEqual(dict(c), {})
         self.assertEqual(c.sources, [])
+    
+    def test_root(self):
+        c = config.Config()
+        c['a'] = 1
+        
+        self.assertEqual(c.root, c)
+        
+        s = c.section('a')
+        self.assertEqual(s.root, c)
+        self.assertNotEqual(s.root, s)
+    
+    def test_get(self):
+        c = config.Config()
+        c['a'] = 1
+        c.init('a.1', 1)
+        
+        self.assertEqual(c.get('a'), 1)
+        self.assertEqual(c.get('a.1'), 1)
+        self.assertEqual(c.get('a', type=str), '1')
+        self.assertRaises(c.get('a.2'), None)
+        self.assertEqual(c.get('a.2', 2), 2)
 
 class TestConfigFormat(unittest.TestCase):
     def setUp(self):
