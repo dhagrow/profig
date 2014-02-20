@@ -201,6 +201,8 @@ class Config(SectionMixin):
         self._key = None
         
         self._coercer = Coercer()
+        register_booleans(self._coercer)
+        
         self._dict_type = dict_type or collections.OrderedDict
         self._children = self._dict_type()
 
@@ -572,7 +574,7 @@ class ConfigSection(SectionMixin):
     def _convert(self, value, type=None):
         if self._root.interpolate_values:
             # get a dict of the text values
-            values = dict(self.stritems())
+            values = dict(self.items(convert=False))
             value = self.interpolate(self.key, value, values)
         if self._root.coerce_values:
             return self.convert(value, type or self._type)
