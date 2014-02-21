@@ -61,26 +61,23 @@ class SectionMixin(collections.MutableMapping):
         section._has_type = True
         section.set_default(default)
     
-    def get(self, key, default=None, type=None):
-        """Return the value for key if key is in the dictionary,
+    def get(self, key, default=None, convert=True, type=None):
+        """
+        Return the value for key if key is in the dictionary,
         else default. If *default* is not given, it defaults to
         `None`, so that this method never raises an
         :exc:`InvalidSectionError`. If *type* is provided,
         it will be used as the type to convert the value from text.
-        This method does not use cached values."""
+        If *convert* is `False`, *type* will be ignored.
+        """
         try:
             section = self.section(key)
+            return section.get_value(convert, type)
         except InvalidSectionError:
-            return default
-        if section._value is not NoValue:
-            return section._convert(section._value, type)
-        elif section._default is not NoValue:
-            return section._convert(section._default, type)
-        else:
             return default
     
     def __getitem__(self, key):
-        return self.section(key).value()
+        return self.section(key).get_value()
     
     def __setitem__(self, key, value):
         self._create_section(key).set_value(value)
@@ -106,12 +103,12 @@ class SectionMixin(collections.MutableMapping):
         valid = not self.is_root and self.valid
         
         if flat:
-            return dtype((k, self.section(k).value(convert)) for k in self)
+            return dtype((k, self.section(k).get_value(convert)) for k in self)
         
         if recurse and self._children:
             d = dtype()
             if valid:
-                d[''] = self.value(convert)
+                d[''] = self.get_value(convert)
             for child in self.children():
                 if child._should_include(include, exclude):
                     d.update(child.as_dict(
@@ -119,7 +116,7 @@ class SectionMixin(collections.MutableMapping):
             
             return d if self.is_root else dtype({self.name: d})
         elif valid:
-            return dtype({self.name: self.value(convert)})
+            return dtype({self.name: self.get_value(convert)})
         else:
             return dtype()
 
@@ -358,26 +355,24 @@ class ConfigSection(SectionMixin):
         for key in super().__iter__():
             yield key
     
-    def value(self, convert=True):
+    def get_value(self, convert=True, type=None):
         """
         Get the section's value.
         To get the underlying string value, set *convert* to `False`.
+        If *convert* is `False`, *type* will be ignored.
         """
         if not convert:
             if self._value is not NoValue:
                 return self._value
-            else:
-                return self.default(convert=False)
-        
-        if self._cache is not NoValue:
+        elif type is None and self._cache is not NoValue:
             return self._cache
         elif self._value is not NoValue:
-            value = self._convert(self._value)
+            value = self._convert(self._value, type)
             if self._should_cache(value, self._value):
                 self._cache = value
             return value
-        else:
-            return self.default()
+        
+        return self.get_default(convert, type)
     
     def set_value(self, value, adapt=True):
         """
@@ -398,30 +393,28 @@ class ConfigSection(SectionMixin):
                 self._cache = value
             self._dirty = True
     
-    def default(self, convert=True):
+    def get_default(self, convert=True, type=None):
         """
         Get the section's default value.
         To get the underlying string value, set *convert* to `False`.
+        If *convert* is `False`, *type* will be ignored.
         """
         if not convert:
             if self._default is not NoValue:
                 return self._default
-            else:
-                raise InvalidSectionError(self.key)
-        
-        if self._default is not NoValue:
-            if self._value is NoValue and self._cache is not NoValue:
+        elif self._default is not NoValue:
+            if type is None and self._value is NoValue and self._cache is not NoValue:
                 # only use cache if self._value hasn't been set
                 return self._cache
             else:
-                value = self._convert(self._default)
+                value = self._convert(self._default, type)
                 if (self._should_cache(value, self._default)
                     and self._value is NoValue):
                     # only set cache if self._value hasn't been set
                     self._cache = value
                 return value
-        else:
-            raise InvalidSectionError(self.key)
+        
+        raise NoDefaultError(self.key)
     
     def set_default(self, default, adapt=True):
         """
@@ -449,7 +442,7 @@ class ConfigSection(SectionMixin):
         """Returns a (key, value) iterator over the unprocessed values of
         this section."""
         for key in self:
-            yield (key, self.section(key).value(convert))
+            yield (key, self.section(key).get_value(convert))
 
     def sync(self, source=None, format=None, include=None, exclude=None):
         include = set(include or ())
@@ -584,7 +577,7 @@ class ConfigSection(SectionMixin):
     def _adapt_cache(self):
         if self._cache is not NoValue:
             strvalue = self._adapt(self._cache)
-            if strvalue != self.value(convert=False):
+            if strvalue != self.get_value(convert=False):
                 self.setvalue(strvalue, adapt=False)
                 self._dirty = True
     
@@ -666,7 +659,7 @@ class BaseFormat(object):
                 
                 # process values
                 for key, value in values.items():
-                    section = config.root._create_section(key)
+                    section = self.config.root._create_section(key)
                     if not section._dirty:
                         section.set_value(value, adapt=False)
         
@@ -999,6 +992,9 @@ class ConfigError(Exception):
 
 class InvalidSectionError(KeyError, ConfigError):
     """Raised when a given section has never been given a value"""
+
+class NoDefaultError(ValueError, ConfigError):
+    """Raised when a given section has no default value"""
 
 class InterpolationError(ConfigError):
     """Raised when a value cannot be interpolated"""
