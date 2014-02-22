@@ -87,7 +87,7 @@ class SectionMixin(collections.MutableMapping):
         del section._parent._children[section.name]
     
     def __len__(self):
-        return len(list(iter(self)))
+        return len(self._children)
     
     def __iter__(self):
         sep = self._root.sep
@@ -98,12 +98,14 @@ class SectionMixin(collections.MutableMapping):
                 else:
                     yield child._name
     
-    def as_dict(self, flat=False, recurse=True, convert=False, include=None, exclude=None):
+    def as_dict(self, flat=False, recurse=True, convert=True, include=None, exclude=None):
         dtype = self._root._dict_type
-        valid = not self.is_root and self.valid
+        valid = not self.is_root and self.valid and self._should_include(include, exclude)
         
         if flat:
-            return dtype((k, self.section(k).get_value(convert)) for k in self)
+            sections = ((k, self.section(k)) for k in self)
+            return dtype((k, s.get_value(convert)) for k, s in sections
+                if s._should_include(include, exclude))
         
         if recurse and self._children:
             d = dtype()
@@ -125,19 +127,24 @@ class SectionMixin(collections.MutableMapping):
         If there is no existing section for *key*, and
         :exc:`InvalidSectionError` is thrown."""
         
-        if not key:
-            raise InvalidSectionError(key)
-        
         config = self
         for name in self._make_key(key):
-            if not name:
-                # skip empty fields
-                continue
             try:
                 config = config._children[name]
             except KeyError:
                 raise InvalidSectionError(key)
         return config
+    
+    def reset(self, recurse=True):
+        """Resets this section to it's default value, leaving it
+        in the same state as after a call to :meth:`ConfigSection.init`.
+        If *recurse* is `True`, does the same to all the
+        section's children."""
+        if not self.is_root:
+            self._reset()
+        if recurse:
+            for child in self.children(recurse):
+                child._reset()
     
     def has_children(self, key=None):
         return self.section(key).has_children() if key else bool(self._children)
@@ -161,9 +168,6 @@ class SectionMixin(collections.MutableMapping):
             self.section(key)._dirty = dirty
     
     def _create_section(self, key):
-        if not key:
-            raise InvalidSectionError(key)
-        
         config = self
         for name in self._make_key(key):
             if not name:
@@ -186,7 +190,7 @@ class SectionMixin(collections.MutableMapping):
             elif p is None:
                 pass
             else:
-                err = "invalid value for key: '{0}'"
+                err = "invalid value for key: '{}'"
                 raise TypeError(err.format(p))
         return tuple(key)
 
@@ -253,6 +257,9 @@ class Config(SectionMixin):
         # sync
         format = format(self) if format else self.format
         format.sync(sources, include, exclude)
+    
+    def reset(self):
+        super().reset()
     
     def _keystr(self, key):
         return self.sep.join(key)
@@ -338,11 +345,6 @@ class ConfigSection(SectionMixin):
     def valid(self):
         """`True` if this section has a valid value. Read-only."""
         return not (self._value is NoValue and self._default is NoValue)
-    
-    def __lt__(self, other):
-        if not isinstance(other, ConfigSection):
-            return NotImplemented
-        return self._key < other._key
     
     def __repr__(self):
         return "{}('{}', {!r}, default={!r})".format(
@@ -433,11 +435,6 @@ class ConfigSection(SectionMixin):
             # only set cache if self._value hasn't been set
             self._cache = default
     
-    def section(self, key):
-        if not key:
-            return self
-        return super().section(key)
-    
     def items(self, convert=True):
         """Returns a (key, value) iterator over the unprocessed values of
         this section."""
@@ -458,24 +455,6 @@ class ConfigSection(SectionMixin):
         include.add(self.key)
 
         self._root.sync(source, format, include, exclude)
-    
-    def reset(self, recurse=True):
-        """Resets this section to it's default value, leaving it
-        in the same state as after a call to :meth:`ConfigSection.init`.
-        If *recurse* is `True`, does the same to all the
-        section's children."""
-        def reset(s):
-            if s._value is not NoValue:
-                s._value = NoValue
-                s._cache = NoValue
-                s._dirty = True
-                if s._default is NoValue:
-                    s._type = None
-        
-        reset(self)
-        if recurse:
-            for child in self.children(recurse):
-                reset(child)
     
     def adapt(self, value, type):
         return self._root._coercer.adapt(value, type)
@@ -528,7 +507,7 @@ class ConfigSection(SectionMixin):
                         try:
                             field = ''.join(field).format(values)
                         except KeyError as exc:
-                            err = "invalid key: {0}".format(exc)
+                            err = "invalid key: {}".format(exc)
                             raise InterpolationError(err)
                         result.append(field)
                         field = []
@@ -556,6 +535,14 @@ class ConfigSection(SectionMixin):
         for section in self.children(recurse):
             section._cache = NoValue
     
+    def _reset(self):
+        if self._value is not NoValue:
+            self._value = NoValue
+            self._cache = NoValue
+            self._dirty = True
+            if self._default is NoValue:
+                self._type = None
+    
     def _adapt(self, value):
         if self._root.coerce_values:
             if not self._has_type:
@@ -567,7 +554,7 @@ class ConfigSection(SectionMixin):
     def _convert(self, value, type=None):
         if self._root.interpolate_values:
             # get a dict of the text values
-            values = dict(self.items(convert=False))
+            values = self._root.as_dict(flat=True, convert=False)
             value = self.interpolate(self.key, value, values)
         if self._root.coerce_values:
             return self.convert(value, type or self._type)
@@ -603,7 +590,7 @@ class ConfigSection(SectionMixin):
         # now filter
         if include:
             imatch = matchroot(include)
-            ematch = matchroot(exclude)
+            ematch = matchroot(exclude or [])
             return imatch > ematch
         elif exclude:
             ematch = matchroot(exclude)
@@ -686,7 +673,8 @@ class BaseFormat(object):
         Also returns a list of keys that should have their dirty flags
         cleared after a successful write.
         """
-        return self.config.as_dict(flat=True, include=include, exclude=exclude)
+        return self.config.as_dict(flat=True, convert=False,
+            include=include, exclude=exclude)
     
     def read(self, file): # pragma: no cover
         """Reads *file* and returns a dict. Must be implemented
@@ -791,13 +779,13 @@ class ConfigFormat(BaseFormat):
             if iskey:
                 key, line = line
                 if key in values:
-                    line = '{0}: {1}\n'.format(key, values[key])
+                    line = '{}: {}\n'.format(key, values[key])
                     del values[key]
             file.write(line)
         
         # now write remaining (ie. new) values
         for key, value in values.items():
-            line = '{0}: {1}\n'.format(key, value)
+            line = '{}: {}\n'.format(key, value)
             file.write(line)
 
 class JsonFormat(BaseFormat):
@@ -812,7 +800,8 @@ class JsonFormat(BaseFormat):
         self._dump = json.dump
     
     def filter_values(self, include, exclude):
-        return self.config.as_dict(flat=False, include=include, exclude=exclude)
+        return self.config.as_dict(flat=False, convert=False,
+            include=include, exclude=exclude)
     
     def read(self, file):
         try:
@@ -913,7 +902,7 @@ class IniFormat(BaseFormat):
                         for key, value in sec.items():
                             if section:
                                 key = stripbase(key)
-                            file.write('{0} = {1}\n'.format(key, value))
+                            file.write('{} = {}\n'.format(key, value))
                         del sections[section]
                         file.write('\n')
                 # new section
@@ -939,7 +928,7 @@ class IniFormat(BaseFormat):
                     wkey = key
                     if section:
                         wkey = stripbase(key)
-                    line = '{0} = {1}\n'.format(wkey, values[key])
+                    line = '{} = {}\n'.format(wkey, values[key])
                     del sec[key]
                     if not sec:
                         del sections[section]
@@ -951,11 +940,11 @@ class IniFormat(BaseFormat):
             end = list(sections.keys())[-1]
             for section, values in sections.items():
                 if section != last:
-                    file.write('[{0}]\n'.format(section or 'DEFAULT'))
+                    file.write('[{}]\n'.format(section or 'DEFAULT'))
                 for key, value in values.items():
                     if section:
                         key = stripbase(key)
-                    line = '{0} = {1}\n'.format(key, value)
+                    line = '{} = {}\n'.format(key, value)
                     file.write(line)
                 if section != end:
                     file.write('\n')
@@ -1010,7 +999,7 @@ class SyncError(ConfigError):
     
     def __str__(self):
         if self.filename:
-            err = ["error reading '{0}'".format(self.filename)]
+            err = ["error reading '{}'".format(self.filename)]
             if self.message:
                 err.extend([': ', self.message])
             return ''.join(err)
@@ -1192,7 +1181,7 @@ class Coercer:
             except Exception as e:
                 raise AdaptError(e)
         else:
-            err = "no adapter registered for '{0}'"
+            err = "no adapter registered for '{}'"
             raise NotRegisteredError(err.format(type))
     
     def convert(self, value, type):
@@ -1238,7 +1227,7 @@ class Coercer:
             except Exception as e:
                 raise ConvertError(e)
         else:
-            err = "no converter registered for '{0}'"
+            err = "no converter registered for '{}'"
             raise NotRegisteredError(err.format(type))
     
     def register(self, type, adapter, converter):
@@ -1261,7 +1250,7 @@ class Coercer:
         converted->adapted representations."""
         def verify(x, c=choices):
             if x not in c:
-                err = "invalid choice {0!r}, must be one of: {1}"
+                err = "invalid choice {!r}, must be one of: {}"
                 raise ValueError(err.format(x, c))
             return x
         
@@ -1399,22 +1388,22 @@ def register_qt_coercers(coercer):
         lambda x: str(x.toHex()),
         lambda x: QtCore.QByteArray.fromHex(x))
     coercer.register(QtCore.QPoint,
-        lambda x: '{0},{1}'.format(x.x(), x.y()),
+        lambda x: '{},{}'.format(x.x(), x.y()),
         lambda x: QtCore.QPoint(*[int(i) for i in x.split(',')]))
     coercer.register(QtCore.QPointF,
-        lambda x: '{0},{1}'.format(x.x(), x.y()),
+        lambda x: '{},{}'.format(x.x(), x.y()),
         lambda x: QtCore.QPointF(*[float(i) for i in x.split(',')]))
     coercer.register(QtCore.QSize,
-        lambda x: '{0},{1}'.format(x.width(), x.height()),
+        lambda x: '{},{}'.format(x.width(), x.height()),
         lambda x: QtCore.QSize(*[int(i) for i in x.split(',')]))
     coercer.register(QtCore.QSizeF,
-        lambda x: '{0},{1}'.format(x.width(), x.height()),
+        lambda x: '{},{}'.format(x.width(), x.height()),
         lambda x: QtCore.QSizeF(*[float(i) for i in x.split(',')]))
     coercer.register(QtCore.QRect,
-        lambda x: '{0},{1},{2},{3}'.format(x.x(), x.y(), x.width(), x.height()),
+        lambda x: '{},{},{},{}'.format(x.x(), x.y(), x.width(), x.height()),
         lambda x: QtCore.QRect(*[int(i) for i in x.split(',')]))
     coercer.register(QtCore.QRectF,
-        lambda x: '{0},{1},{2},{3}'.format(x.x(), x.y(), x.width(), x.height()),
+        lambda x: '{},{},{},{}'.format(x.x(), x.y(), x.width(), x.height()),
         lambda x: QtCore.QRectF(*[float(i) for i in x.split(',')]))
     coercer.register(QtGui.QColor, lambda x: str(x.name()), QtGui.QColor)
     coercer.register(QtGui.QFont,

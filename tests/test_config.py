@@ -20,6 +20,22 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(s.root, c)
         self.assertNotEqual(s.root, s)
     
+    def test_sync(self):
+        c = config.Config()
+        with self.assertRaises(config.NoSourcesError):
+            c.sync()
+    
+    def test_len(self):
+        c = config.Config()
+        self.assertEqual(len(c), 0)
+        
+        c['a'] = 1
+        self.assertEqual(len(c), 1)
+        
+        c['a.1'] = 1
+        self.assertEqual(len(c), 1)
+        self.assertEqual(len(c.section('a')), 1)
+    
     def test_get(self):
         c = config.Config()
         c['a'] = 1
@@ -56,10 +72,81 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(s.get_default(convert=False), '1')
         self.assertEqual(s.get_default(type=str), '1')
     
-    def test_no_section(self):
+    def test_section(self):
         c = config.Config()
+        
         with self.assertRaises(config.InvalidSectionError):
             c.section('a')
+        
+        c['a'] = 1
+        self.assertIs(c.section('a'), c._children['a'])
+        
+        c['a.a.a'] = 1
+        child = c._children['a']._children['a']._children['a']
+        self.assertIs(c.section('a.a.a'), child)
+        self.assertIs(c.section('a').section('a').section('a'), child)
+    
+    def test_as_dict(self):
+        c = config.Config(dict_type=dict)
+        self.assertEqual(c.as_dict(), {})
+        
+        c['a'] = 1
+        self.assertEqual(c.as_dict(), {'a': 1})
+        
+        c['b'] = 1
+        c['a.a'] = 1
+        self.assertEqual(c.as_dict(), {'a': {'': 1, 'a': 1}, 'b': 1})
+        self.assertEqual(c.as_dict(convert=False),
+            {'a': {'': '1', 'a': '1'}, 'b': '1'})
+        self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1, 'b': 1})
+        self.assertEqual(c.as_dict(flat=True, convert=False),
+            {'a': '1', 'a.a': '1', 'b': '1'})
+    
+    def test_reset(self):
+        c = config.Config(dict_type=dict)
+        c.init('a', 1)
+        c.init('a.a', 1)
+        c['a'] = 2
+        c['a.a'] = 2
+        
+        c.section('a').reset(recurse=False)
+        self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 2})
+        
+        c.section('a').reset()
+        self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1})
+        
+        c['a'] = 2
+        c['a.a'] = 2
+        
+        c.reset()
+        self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1})
+    
+    def test_interpolate(self):
+        c = config.Config()
+        c['a'] = 1
+        c['b.a'] = '{!a}value{!a}'
+        c['c'] = '{x}'
+        c['d'] = '{!b.a}value'
+        c['e'] = '{!f}'
+        c['f'] = '{!e}'
+        
+        self.assertEqual(c['b.a'], '1value1')
+        self.assertEqual(c['c'], '{x}')
+        self.assertEqual(c['d'], '1value1value')
+        with self.assertRaises(config.InterpolationCycleError):
+            c['e']
+    
+    def test_filter(self):
+        c = config.Config(dict_type=dict)
+        c['a'] = 1
+        c['a.a'] = 1
+        c['a.b'] = 2
+        c['b.a'] = 1
+        
+        self.assertEqual(c.as_dict(flat=True, include=['a']), {'a': 1, 'a.a': 1, 'a.b': 2})
+        self.assertEqual(c.as_dict(include=['a']), {'a': {'': 1, 'a': 1, 'b': 2}})
+        self.assertEqual(c.as_dict(flat=True, exclude=['b']), {'a': 1, 'a.a': 1, 'a.b': 2})
+        self.assertEqual(c.as_dict(exclude=['b']), {'a': {'': 1, 'a': 1, 'b': 2}})
 
 class TestConfigFormat(unittest.TestCase):
     def setUp(self):
