@@ -1,4 +1,5 @@
 import io
+import os
 import unittest
 
 import config
@@ -246,8 +247,28 @@ class TestJsonFormat(unittest.TestCase):
     def test_subsection(self):
         self.c.sync(self.b)
         
-        self.assertEqual(self.b.getvalue(), """\
-{"a": {"": "1", "1": "2"}, "b": "value"}""")
+        self.assertEqual(self.b.getvalue(),
+            """{"a": {"": "1", "1": "2"}, "b": "value"}""")
+
+class TestErrors(unittest.TestCase):
+    def test_ReadError(self):
+        c = config.Config()
+        c.format.read_errors = 'exception'
+        
+        buf = io.StringIO("""a""")
+        with self.assertRaises(config.ReadError):
+            c.sync(buf)
+
+class TestMisc(unittest.TestCase):
+    def test_NoValue(self):
+        self.assertEqual(repr(config.NoValue), 'NoValue')
+    
+    def test_get_source(self):
+        path = os.path.dirname(__file__)
+        self.assertEqual(config.get_source('test'), os.path.join(path, 'test'))
+        
+        path = '~/.config'
+        self.assertEqual(config.get_source('test', 'user'), os.path.join(path, 'test'))
 
 if __name__ == '__main__':
     unittest.main()
