@@ -1342,7 +1342,7 @@ def register_default_coercers(coercer):
     coercer.register(str, str, str)
     coercer.register(bytes,
         lambda x: binascii.hexlify(x).decode('ascii'),
-        lambda x: binascii.unhexlify(x).encode('ascii'))
+        lambda x: binascii.unhexlify(x.encode('ascii')))
     
     # collection coercers, simply comma delimited
     split = lambda x: x.split(',') if x else []
