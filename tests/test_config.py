@@ -211,6 +211,22 @@ class TestIniFormat(unittest.TestCase):
 a = 1
 b = value
 """)
+    
+    def test_sync_read_blank(self):
+        c = config.Config(format=config.IniFormat)
+        buf = io.StringIO("""\
+[DEFAULT]
+b = value
+
+[a]
+ = 1
+1 = 2
+""")
+        c.sync(buf)
+        
+        self.assertEqual(c['a'], '1')
+        self.assertEqual(c['b'], 'value')
+        self.assertEqual(c['a.1'], '2')
 
     # XXX: disabled. by default, DEFAULT should be the first section
     def xtest_subsection(self):
