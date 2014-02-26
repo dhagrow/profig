@@ -34,14 +34,34 @@ _type = type
 
 ## Config ##
 
-class SectionMixin(collections.MutableMapping):
-    """Provides common methods to subclasses.
-
-    The following attributes are required on subclasses of this mixin:
+class ConfigSection(collections.MutableMapping):
+    """A `ConfigSection` object represents a group of configuration options."""
     
-    _root
-    _children
-    """
+    _rx_can_interpolate = re.compile(r'{![^!]')
+    
+    def __init__(self, name, parent):
+        self._name = name
+        self._value = NoValue
+        self._cache = NoValue
+        self._default = NoValue
+        self._type = None
+        self._has_type = False
+        self._dirty = False
+        self._parent = parent
+        
+        if parent is None:
+            # root
+            self._root = self
+            self._key = None
+        else:
+            # child
+            self._root = parent._root
+            self._key = self._make_key(parent._key, name)
+            parent._children[name] = self
+        
+        self._children = self._root._dict_type()
+    
+    ## properties ##
     
     @property
     def root(self):
@@ -50,6 +70,34 @@ class SectionMixin(collections.MutableMapping):
     @property
     def is_root(self):
         return self is self._root
+    
+    @property
+    def parent(self):
+        """The section's parent or `None`. Read-only."""
+        return self._parent
+    
+    @property
+    def key(self):
+        """The section's key. Read-only."""
+        return self._root._keystr(self._key)
+    
+    @property
+    def name(self):
+        """The section's name. Read-only."""
+        return self._name
+    
+    @property
+    def type(self):
+        """The type used for coercing the value for this section.
+        Read only."""
+        return self._type
+    
+    @property
+    def valid(self):
+        """`True` if this section has a valid value. Read-only."""
+        return not (self._value is NoValue and self._default is NoValue)
+    
+    ## methods ##
     
     def init(self, key, default, type=None):
         """Initializes a key to the given default value. If *type* is not
@@ -90,6 +138,9 @@ class SectionMixin(collections.MutableMapping):
         return len(self._children)
     
     def __iter__(self):
+        if self.valid:
+            # an empty key so the section can find itself
+            yield ''
         sep = self._root.sep
         for child in self._children.values():
             for key in child:
@@ -97,6 +148,10 @@ class SectionMixin(collections.MutableMapping):
                     yield sep.join([child._name, key])
                 else:
                     yield child._name
+    
+    def __repr__(self):
+        return "{}('{}', {!r}, default={!r})".format(
+            self.__class__.__name__, self.key, self._value, self._default)
     
     def as_dict(self, flat=False, recurse=True, convert=True, include=None, exclude=None):
         dtype = self._root._dict_type
@@ -166,196 +221,6 @@ class SectionMixin(collections.MutableMapping):
             keys = [keys]
         for key in keys:
             self.section(key)._dirty = dirty
-    
-    def _create_section(self, key):
-        config = self
-        for name in self._make_key(key):
-            if not name:
-                # skip empty fields
-                continue
-            try:
-                config = config._children[name]
-            except KeyError:
-                config = ConfigSection(name, config)
-        return config
-    
-    def _make_key(self, *path):
-        key = []
-        sep = self._root.sep
-        for p in path:
-            if p and isinstance(p, str):
-                key.extend(p.split(sep))
-            elif isinstance(p, collections.Sequence):
-                key.extend(p)
-            elif p is None:
-                pass
-            else:
-                err = "invalid value for key: '{}'"
-                raise TypeError(err.format(p))
-        return tuple(key)
-
-class Config(SectionMixin):
-    """Configuration Root object"""
-    
-    def __init__(self, *sources, format=None, dict_type=None):
-        self._root = self
-        self._key = None
-        
-        self._coercer = Coercer()
-        register_booleans(self._coercer)
-        
-        self._dict_type = dict_type or collections.OrderedDict
-        self._children = self._dict_type()
-
-        self.sources = self._process_sources(sources)
-        self.format = (format or ConfigFormat)(self)
-        
-        self.sep = '.'
-        self.cache_values = True
-        self.coerce_values = True
-        self.interpolate_values = True
-    
-    def sync(self, *sources, format=None, include=None, exclude=None):
-        """Writes changes to sources and reloads any external changes
-        from sources.
-
-        If *source* is provided, syncs only that source. Otherwise,
-        syncs the sources in `self.sources`.
-
-        *include* or *exclude* can be used to filter the keys that
-        are written."""
-        
-        sources = self._process_sources(sources) if sources else self.sources
-        if not sources:
-            raise NoSourcesError()
-        
-        # if caching, adapt cached values
-        if self.cache_values:
-            for child in self.children(recurse=True):
-                child._adapt_cache()
-        
-        # remove redundant entries
-        def fix_clude(clude):
-            clude = set(clude or [])
-            if len(clude) < 2:
-                return clude
-            result = set()
-            rejected = set()
-            # get a set of unique pairs
-            perms = set(frozenset(i) for i in itertools.permutations(clude, 2))
-            for x, y in perms:
-                result |= set([x, y])
-                if x.startswith(y):
-                    rejected.add(y)
-                elif y.startswith(x):
-                    rejected.add(x)
-            return result - rejected
-        
-        include = fix_clude(include)
-        exclude = fix_clude(exclude)
-        
-        # sync
-        format = format(self) if format else self.format
-        format.sync(sources, include, exclude)
-    
-    def reset(self):
-        super().reset()
-    
-    def _keystr(self, key):
-        return self.sep.join(key)
-    
-    def _process_sources(self, sources):
-        """Process user-entered paths and return absolute paths.
-        
-        If a source is not a string, assume it is a file object and return it.
-        If a filename (has extension) or path is entered, return it.
-        Otherwise, consider the source a base name and generate an
-        OS-specific set of paths.
-        """
-        result = []
-        for source in sources:
-            if not isinstance(source, str):
-                result.append(source)
-                continue
-            elif os.path.isabs(source) or '.' in source:
-                result.append(source)
-            else:
-                fname = os.extsep.join([source, self.format.extension])
-                scopes = ('script', 'user')
-                result.extend(get_source(fname, scope) for scope in scopes)
-        return result
-    
-    def _dump(self, indent=2): # pragma: no cover
-        for section in sorted(self.children(recurse=True)):
-            spaces = ' ' * ((len(section._key) - 1) * indent)
-            print(spaces, repr(section), sep='')
-    
-    def __repr__(self):
-        s = [self.__class__.__name__, '(']
-        if self.sources:
-            s.append('sources={}'.format(self._sources))
-        s.append(')')
-        return ''.join(s)
-
-class ConfigSection(SectionMixin):
-    """Configuration Section object"""
-    
-    _rx_can_interpolate = re.compile(r'{![^!]')
-    
-    def __init__(self, key, parent):
-        self._name = key
-        self._value = NoValue
-        self._cache = NoValue
-        self._default = NoValue
-        self._type = None
-        self._has_type = False
-        self._dirty = False
-        self._parent = parent
-        
-        self._root = parent._root
-        self._key = self._make_key(parent._key, key)
-        parent._children[self._name] = self
-        
-        self._children = self._root._dict_type()
-    
-    ## general properties ##
-    
-    @property
-    def parent(self):
-        """The section's parent or `None`. Read-only."""
-        return self._parent
-    
-    @property
-    def key(self):
-        """The section's key. Read-only."""
-        return self._root._keystr(self._key)
-    
-    @property
-    def name(self):
-        """The section's name. Read-only."""
-        return self._name
-    
-    @property
-    def type(self):
-        """The type used for coercing the value for this section.
-        Read only."""
-        return self._type
-    
-    @property
-    def valid(self):
-        """`True` if this section has a valid value. Read-only."""
-        return not (self._value is NoValue and self._default is NoValue)
-    
-    def __repr__(self):
-        return "{}('{}', {!r}, default={!r})".format(
-            self.__class__.__name__, self.key, self._value, self._default)
-    
-    def __iter__(self):
-        if self.valid:
-            # an empty key so the section can find itself
-            yield ''
-        for key in super().__iter__():
-            yield key
     
     def get_value(self, convert=True, type=None):
         """
@@ -535,6 +400,35 @@ class ConfigSection(SectionMixin):
         for section in self.children(recurse):
             section._cache = NoValue
     
+    ## utilities ##
+    
+    def _create_section(self, key):
+        section = self
+        for name in self._make_key(key):
+            if not name:
+                # skip empty fields
+                continue
+            try:
+                section = section._children[name]
+            except KeyError:
+                section = ConfigSection(name, section)
+        return section
+    
+    def _make_key(self, *path):
+        key = []
+        sep = self._root.sep
+        for p in path:
+            if p and isinstance(p, str):
+                key.extend(p.split(sep))
+            elif isinstance(p, collections.Sequence):
+                key.extend(p)
+            elif p is None:
+                pass
+            else:
+                err = "invalid value for key: '{}'"
+                raise TypeError(err.format(p))
+        return tuple(key)
+        
     def _reset(self):
         if self._value is not NoValue:
             self._value = NoValue
@@ -609,6 +503,107 @@ class ConfigSection(SectionMixin):
         for section in sorted(self.children(recurse=True)):
             spaces = ' ' * ((len(section._key) - rootlen) * indent - 1)
             print(spaces, repr(section))
+
+class Config(ConfigSection):
+    """Configuration Root object"""
+    
+    def __init__(self, *sources, format=None, dict_type=None):
+        self._coercer = Coercer()
+        register_booleans(self._coercer)
+        
+        self._dict_type = dict_type or collections.OrderedDict
+
+        self.sources = self._process_sources(sources)
+        self.format = (format or ConfigFormat)(self)
+        
+        self.sep = '.'
+        self.cache_values = True
+        self.coerce_values = True
+        self.interpolate_values = True
+        
+        super().__init__(None, None)
+    
+    def sync(self, *sources, format=None, include=None, exclude=None):
+        """Writes changes to sources and reloads any external changes
+        from sources.
+
+        If *source* is provided, syncs only that source. Otherwise,
+        syncs the sources in `self.sources`.
+
+        *include* or *exclude* can be used to filter the keys that
+        are written."""
+        
+        sources = self._process_sources(sources) if sources else self.sources
+        if not sources:
+            raise NoSourcesError()
+        
+        # if caching, adapt cached values
+        if self.cache_values:
+            for child in self.children(recurse=True):
+                child._adapt_cache()
+        
+        # remove redundant entries
+        def fix_clude(clude):
+            clude = set(clude or [])
+            if len(clude) < 2:
+                return clude
+            result = set()
+            rejected = set()
+            # get a set of unique pairs
+            perms = set(frozenset(i) for i in itertools.permutations(clude, 2))
+            for x, y in perms:
+                result |= set([x, y])
+                if x.startswith(y):
+                    rejected.add(y)
+                elif y.startswith(x):
+                    rejected.add(x)
+            return result - rejected
+        
+        include = fix_clude(include)
+        exclude = fix_clude(exclude)
+        
+        # sync
+        format = format(self) if format else self.format
+        format.sync(sources, include, exclude)
+    
+    def reset(self):
+        super().reset()
+    
+    def _keystr(self, key):
+        return self.sep.join(key)
+    
+    def _process_sources(self, sources):
+        """Process user-entered paths and return absolute paths.
+        
+        If a source is not a string, assume it is a file object and return it.
+        If a filename (has extension) or path is entered, return it.
+        Otherwise, consider the source a base name and generate an
+        OS-specific set of paths.
+        """
+        result = []
+        for source in sources:
+            if not isinstance(source, str):
+                result.append(source)
+                continue
+            elif os.path.isabs(source) or '.' in source:
+                result.append(source)
+            else:
+                fname = os.extsep.join([source, self.format.extension])
+                scopes = ('script', 'user')
+                result.extend(get_source(fname, scope) for scope in scopes)
+        return result
+    
+    def _dump(self, indent=2): # pragma: no cover
+        for section in sorted(self.children(recurse=True)):
+            spaces = ' ' * ((len(section._key) - 1) * indent)
+            print(spaces, repr(section), sep='')
+    
+    def __repr__(self):
+        s = [self.__class__.__name__, '(']
+        if self.sources:
+            s.append('sources={}'.format(self._sources))
+        s.append(')')
+        return ''.join(s)
 
 ## Config Formats ##
 
