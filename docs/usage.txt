@@ -1,5 +1,5 @@
-Quickstart
-==========
+Usage Guide
+===========
 
 A :class:`~config.Config` object can be used directly without any initialization::
     
@@ -16,11 +16,14 @@ keys within the section.
 For a quick look at the hierarchical structure of the options, you can easily
 get the dict representation::
     
-    print(cfg.asdict())
-    #-> {'server': {'host': '8.8.8.8', 'port': 8181}}
+    >>> print(cfg.as_dict())
+    {'server': {'host': '8.8.8.8', 'port': 8181}}
 
-Sync
-----
+Synchronization
+---------------
+
+Synchronization keeps configuration in sync when accessed/updated from
+multiple processes.
 
 A sync is a combination of the read and write operations, executed in the
 following order:
@@ -33,7 +36,7 @@ following order:
 The configuration can be serialized using the :meth:`~config.Config.sync`
 method::
 
-    cfg.sync('app.cfg')
+    >>> cfg.sync('app.cfg')
 
 After the call to :meth:`~config.Config.sync`, a new file with the following
 contents will be created in the current working directory::
@@ -47,7 +50,7 @@ Sources
 The sources a config object uses when it syncs can also be set in the
 :class:`~config.Config` constructor::
     
-    cfg = config.Config('app.cfg')
+    >>> cfg = config.Config('app.cfg')
 
 Sources can be either paths or file objects.
 
@@ -96,11 +99,40 @@ The port number would be interpreted as a string, and you would have to
 convert it manually. You can avoid doing this each time you access the value
 by using the :meth:`~config.Config.init` method::
     
-    cfg.init('server.host', '127.0.0.1')
-    cfg.init('server.port', 8080, int)
+    >>> cfg.init('server.host', '127.0.0.1')
+    >>> cfg.init('server.port', 8080, int)
 
 The second argument to :meth:`~config.Config.init` specifies a default
 value for the option. The third argument is optional and is used by the
 :mod:`coerce` module to automatically (de)serialize any value that is set
 for the option. If the third is not provided, the type of the default value
 will be used to select the correct coercer.
+
+Coercion
+--------
+
+Coercion is the automatic de/serialization of values::
+    
+    >>> cfg.init('server.port', 8080)
+    >>> cfg.sync()
+    >>> port = cfg['server.port']
+    >>> print(port, type(port))
+    9090 <class 'int'>
+
+Nested Sections
+---------------
+
+Values can be organized into hierarchies::
+    
+    >>> print(cfg.section('server').as_dict())
+    {'host': 'localhost', 'port': 8080}
+
+Interpolation
+-------------
+
+Keys can be referenced within values::
+    
+    >>> cfg['user.name'] = 'Bob'
+    >>> cfg['user.salutation'] = 'Hello, {!user.name}!'
+    >>> print(cfg['user.salutation'])
+    Hello, Bob!

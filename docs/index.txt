@@ -1,24 +1,63 @@
 .. config documentation master file, created by
    sphinx-quickstart on Sat Jun  8 01:16:06 2013.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
 
 Welcome to config's documentation!
 ==================================
 
-Contents:
+Motivation
+----------
+
+Why another configuration library? The simple answer is that none of the
+available options gave me everything I wanted, with an API that I enjoyed using.
+This library is as close to my ideal as I have been able to come. It tries
+to provide some powerful functionality, without sacrificing ease-of-use.
+
+Features
+--------
+
+Synchronization
+    Keeps configuration in sync when accessed/updated from
+    multiple processes.
+
+Coercion
+    Automatic value de/serialization.
+
+Nested sections
+    Values can be organized into hierarchies.
+
+dict-like access
+    Values can be retrieved and stored directly using keys.
+
+Interpolation
+    Keys can be referenced within values.
+
+Example
+-------
+
+Basic usage is cake::
     
+    >>> cfg = config.Config('server.cfg')
+    >>> cfg.init('server.host', 'localhost')
+    >>> cfg.init('server.port', 8080)
+    >>> cfg.sync()
+    >>> cfg['server.host']
+    '192.168.1.1'
+    >>> cfg.section('server')['port']
+    9090
+
+Usage
+-----
+
 .. toctree::
     :maxdepth: 2
     
-    introduction
-    quickstart
+    usage
     api
 
-Indices and tables
-==================
+Alternatives
+------------
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
+There is no shortage of configuration libraries for Python. The Python wiki
+keeps a list of contenders that sought to replace the standard libraries'
+ConfigParser:
+`ConfigParserShootout <https://wiki.python.org/moin/ConfigParserShootout>`_.
