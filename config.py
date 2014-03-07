@@ -37,8 +37,6 @@ _type = type
 class ConfigSection(collections.MutableMapping):
     """A `ConfigSection` object represents a group of configuration options."""
     
-    _rx_can_interpolate = re.compile(r'{![^!]')
-    
     def __init__(self, name, parent):
         self._name = name
         self._value = NoValue
@@ -327,73 +325,6 @@ class ConfigSection(collections.MutableMapping):
     def convert(self, value, type):
         return self._root._coercer.convert(value, type)
     
-    def interpolate(self, key, value, values):
-        agraph = AcyclicGraph()
-        in_field = False
-        field_map = {}
-        
-        while self._rx_can_interpolate.search(value):
-            field = []
-            result = []
-            
-            # escape user str.format brackets and grab keys
-            for i, c in enumerate(value):
-                if i in field_map:
-                    key = field_map.pop(i)
-                
-                if c == '{':
-                    if in_field:
-                        raise InterpolationError("keys cannot contain '{'")
-                    elif value[i+1] == '!' and value[i+2] != '!':
-                        # we're in a field if there's just one '!'
-                        in_field = True
-                        # we add '0[' so str.format can accept
-                        # dotted dict keys
-                        field.append(c + '0[')
-                    else:
-                        result.append(c)
-                
-                elif c == '}':
-                    if in_field:
-                        in_field = False
-                        # again, ']' added for str.format
-                        field.append(']' + c)
-                        
-                        newkey = ''.join(field[1:-1])
-                        try:
-                            agraph.add_edge(key, newkey)
-                        except CycleError:
-                            raise InterpolationCycleError()
-                        
-                        index = sum(len(x) for x in result) - 1
-                        field_map[index] = newkey
-                        
-                        # here we do the actual substitution
-                        try:
-                            field = ''.join(field).format(values)
-                        except KeyError as exc:
-                            err = "invalid key: {}".format(exc)
-                            raise InterpolationError(err)
-                        result.append(field)
-                        field = []
-                    else:
-                        result.append(c)
-                
-                elif in_field:
-                    if c == '!':
-                        continue
-                    field.append(c)
-                
-                else:
-                    result.append(c)
-            
-            if in_field:
-                raise InterpolationError("missing terminating '}'")
-            
-            value = ''.join(result)
-        
-        return value
-    
     def clear_cache(self, recurse=False):
         """Clears cached values for this section. If *recurse* is
         `True`, clears the cache for child sections as well."""
@@ -446,10 +377,6 @@ class ConfigSection(collections.MutableMapping):
             return value
     
     def _convert(self, value, type=None):
-        if self._root.interpolate_values:
-            # get a dict of the text values
-            values = self._root.as_dict(flat=True, convert=False)
-            value = self.interpolate(self.key, value, values)
         if self._root.coerce_values:
             return self.convert(value, type or self._type)
         else:
@@ -493,10 +420,8 @@ class ConfigSection(collections.MutableMapping):
             return True
     
     def _should_cache(self, value, strvalue):
-        # don't cache values that can be interpolated
-        # also no point in caching a string
-        return (self._root.cache_values and not isinstance(value, str)
-            and not self._rx_can_interpolate.search(strvalue))
+        # no point in caching a string
+        return self._root.cache_values and not isinstance(value, str)
     
     def _dump(self, indent=2): # pragma: no cover
         rootlen = len(self._key)
@@ -519,7 +444,6 @@ class Config(ConfigSection):
         self.sep = '.'
         self.cache_values = True
         self.coerce_values = True
-        self.interpolate_values = True
         
         super().__init__(None, None)
     
@@ -980,12 +904,6 @@ class InvalidSectionError(KeyError, ConfigError):
 class NoDefaultError(ValueError, ConfigError):
     """Raised when a given section has no default value"""
 
-class InterpolationError(ConfigError):
-    """Raised when a value cannot be interpolated"""
-
-class InterpolationCycleError(InterpolationError):
-    """Raised when an interpolation would result in an infinite cycle"""
-
 class SyncError(ConfigError):
     """Base class for errors that can occur when syncing"""
     def __init__(self, filename=None, message=''):
@@ -1077,34 +995,6 @@ def ensure_dirs(path, mode=0o744):
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
-
-## Acyclic ##
-
-class CycleError(ConfigError):
-    pass
-
-class AcyclicGraph:
-    """An acyclic graph.
-    
-    Raises a CycleError if any added edge would
-    create a cycle.
-    """
-    def __init__(self):
-        self._g = collections.defaultdict(set)
-    
-    def add_edge(self, u, v):
-        if u in self._g[v]:
-            raise CycleError
-        
-        self._g[u].add(v)
-        self._g[u] |= self._g[v]
-        
-        for x in self._g.values():
-            if u in x:
-                x |= self._g[u]
-    
-    def __repr__(self):
-        return repr(self._g)
 
 ## Coercer ##
 
