@@ -122,21 +122,6 @@ class TestBasic(unittest.TestCase):
         c.reset()
         self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1})
     
-    def test_interpolate(self):
-        c = config.Config()
-        c['a'] = 1
-        c['b.a'] = '{!a}value{!a}'
-        c['c'] = '{x}'
-        c['d'] = '{!b.a}value'
-        c['e'] = '{!f}'
-        c['f'] = '{!e}'
-        
-        self.assertEqual(c['b.a'], '1value1')
-        self.assertEqual(c['c'], '{x}')
-        self.assertEqual(c['d'], '1value1value')
-        with self.assertRaises(config.InterpolationCycleError):
-            c['e']
-    
     def test_filter(self):
         c = config.Config(dict_type=dict)
         c['a'] = 1
