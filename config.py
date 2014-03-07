@@ -66,10 +66,6 @@ class ConfigSection(collections.MutableMapping):
         return self._root
     
     @property
-    def is_root(self):
-        return self is self._root
-    
-    @property
     def parent(self):
         """The section's parent or `None`. Read-only."""
         return self._parent
@@ -153,7 +149,7 @@ class ConfigSection(collections.MutableMapping):
     
     def as_dict(self, flat=False, recurse=True, convert=True, include=None, exclude=None):
         dtype = self._root._dict_type
-        valid = not self.is_root and self.valid and self._should_include(include, exclude)
+        valid = self is not self._root and self.valid and self._should_include(include, exclude)
         
         if flat:
             sections = ((k, self.section(k)) for k in self)
@@ -169,7 +165,7 @@ class ConfigSection(collections.MutableMapping):
                     d.update(child.as_dict(
                         convert=convert, include=include, exclude=exclude))
             
-            return d if self.is_root else dtype({self.name: d})
+            return d if self is self._root else dtype({self.name: d})
         elif valid:
             return dtype({self.name: self.get_value(convert)})
         else:
@@ -193,7 +189,7 @@ class ConfigSection(collections.MutableMapping):
         in the same state as after a call to :meth:`ConfigSection.init`.
         If *recurse* is `True`, does the same to all the
         section's children."""
-        if not self.is_root:
+        if self is not self._root:
             self._reset()
         if recurse:
             for child in self.children(recurse):
