@@ -28,9 +28,6 @@ Nested sections
 dict-like access
     Values can be retrieved and stored directly using keys.
 
-Interpolation
-    Keys can be referenced within values.
-
 Example
 -------
 

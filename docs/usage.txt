@@ -127,12 +127,15 @@ Values can be organized into hierarchies::
     >>> print(cfg.section('server').as_dict())
     {'host': 'localhost', 'port': 8080}
 
-Interpolation
--------------
+Format Strings
+--------------
 
-Keys can be referenced within values::
+:class:`~config.Config` objects can be used directly in format strings in
+several ways::
     
-    >>> cfg['user.name'] = 'Bob'
-    >>> cfg['user.salutation'] = 'Hello, {!user.name}!'
-    >>> print(cfg['user.salutation'])
-    Hello, Bob!
+    >>> '{0[server.host]}:{0[server.port]}'.format(cfg)
+    localhost:8080
+    >>> '{c[server.host]}:{c[server.port]}'.format(c=cfg)
+    localhost:8080
+    >>> '{host}:{port}'.format(**c.section('server'))
+    localhost:8080
