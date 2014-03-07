@@ -447,7 +447,11 @@ class Config(ConfigSection):
     
     def set_format(self, format):
         if isinstance(format, str):
-            self._format = Config._formats[format](self)
+            try:
+                cls = Config._formats[format]
+            except KeyError as e:
+                raise UnknownFormatError(e)
+            self._format = cls(self)
         elif isinstance(format, Format):
             self._format = format
         else:
@@ -922,6 +926,9 @@ class PickleFormat(Format):
 
 class ConfigError(Exception):
     """Base exception class for all exceptions raised."""
+
+class UnknownFormatError(ConfigError):
+    """Raised when a format is set that has not been registered."""
 
 class InvalidSectionError(KeyError, ConfigError):
     """Raised when a given section has never been given a value"""
