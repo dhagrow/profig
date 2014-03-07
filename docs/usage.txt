@@ -22,9 +22,6 @@ get the dict representation::
 Synchronization
 ---------------
 
-Synchronization keeps configuration in sync when accessed/updated from
-multiple processes.
-
 A sync is a combination of the read and write operations, executed in the
 following order:
     
