@@ -179,7 +179,7 @@ b: value
 
 class TestIniFormat(unittest.TestCase):
     def setUp(self):
-        self.c = config.Config(format=config.IniFormat)
+        self.c = config.Config(format='ini')
 
         self.c.init('a', 1)
         self.c.init('b', 'value')
@@ -229,7 +229,7 @@ b = value
 
 class TestJsonFormat(unittest.TestCase):
     def setUp(self):
-        self.c = config.Config(format=config.JsonFormat)
+        self.c = config.Config(format='json')
 
         self.c.init('a', 1)
         self.c.init('b', 'value')
@@ -254,7 +254,7 @@ class TestJsonFormat(unittest.TestCase):
 class TestErrors(unittest.TestCase):
     def test_ReadError(self):
         c = config.Config()
-        c.format.read_errors = 'exception'
+        c._format.read_errors = 'exception'
         
         buf = io.StringIO("""a""")
         with self.assertRaises(config.ReadError):

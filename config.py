@@ -428,6 +428,8 @@ class ConfigSection(collections.MutableMapping):
 class Config(ConfigSection):
     """Configuration Root object"""
     
+    _formats = {}
+    
     def __init__(self, *sources, format=None, dict_type=None):
         self._coercer = Coercer()
         register_booleans(self._coercer)
@@ -435,13 +437,21 @@ class Config(ConfigSection):
         self._dict_type = dict_type or collections.OrderedDict
 
         self.sources = self._process_sources(sources)
-        self.format = (format or ConfigFormat)(self)
+        self.set_format(format or 'config')
         
         self.sep = '.'
         self.cache_values = True
         self.coerce_values = True
         
         super().__init__(None, None)
+    
+    def set_format(self, format):
+        if isinstance(format, str):
+            self._format = Config._formats[format](self)
+        elif isinstance(format, Format):
+            self._format = format
+        else:
+            self._format = format(self)
     
     def sync(self, *sources, format=None, include=None, exclude=None):
         """Writes changes to sources and reloads any external changes
@@ -483,7 +493,11 @@ class Config(ConfigSection):
         exclude = fix_clude(exclude)
         
         # sync
-        format = format(self) if format else self.format
+        if format:
+            if not issubclass(format, Format):
+                format = Config._formats[format](self)
+        else:
+            format = self._format
         format.sync(sources, include, exclude)
     
     def reset(self):
@@ -508,7 +522,7 @@ class Config(ConfigSection):
             elif os.path.isabs(source) or '.' in source:
                 result.append(source)
             else:
-                fname = os.extsep.join([source, self.format.extension])
+                fname = os.extsep.join([source, self._format.extension])
                 scopes = ('script', 'user')
                 result.extend(get_source(fname, scope) for scope in scopes)
         return result
@@ -527,8 +541,19 @@ class Config(ConfigSection):
 
 ## Config Formats ##
 
-class BaseFormat(object):
-    extension = ''
+class MetaFormat(type):
+    """
+    Metaclass that registers a :class:`~config.Format` with the
+    :class:`~config.Config` class.
+    """
+    def __init__(cls, name, bases, dct):
+        if name is not 'Format':
+            Config._formats[cls.tag] = cls
+        return super().__init__(name, bases, dct)
+
+class Format(object, metaclass=MetaFormat):
+    tag = None
+    extension = None
     
     def __init__(self, config):
         self.config = config
@@ -584,7 +609,7 @@ class BaseFormat(object):
     
     def filter_values(self, include, exclude):
         """
-        Returns section values to be passed to :meth:`BaseFormat.write`.
+        Returns section values to be passed to :meth:`Format.write`.
         Also returns a list of keys that should have their dirty flags
         cleared after a successful write.
         """
@@ -652,7 +677,8 @@ class BaseFormat(object):
             else:
                 assert False
 
-class ConfigFormat(BaseFormat):
+class ConfigFormat(Format):
+    tag = 'config'
     extension = 'cfg'
     
     def sync(self, sources, include, exclude):
@@ -703,7 +729,8 @@ class ConfigFormat(BaseFormat):
             line = '{}: {}\n'.format(key, value)
             file.write(line)
 
-class JsonFormat(BaseFormat):
+class JsonFormat(Format):
+    tag = 'json'
     extension = 'json'
     
     def __init__(self, config):
@@ -731,7 +758,8 @@ class JsonFormat(BaseFormat):
         else:
             file.write('')
 
-class IniFormat(BaseFormat):
+class IniFormat(Format):
+    tag = 'ini'
     extension = 'ini'
     _rx_section_header = re.compile('\[(.*)\]')
     
@@ -864,7 +892,8 @@ class IniFormat(BaseFormat):
                 if section != end:
                     file.write('\n')
 
-class PickleFormat(BaseFormat):
+class PickleFormat(Format):
+    tag = 'pickle'
     extension = 'pkl'
     
     def __init__(self, protocol=None):
