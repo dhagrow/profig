@@ -15,10 +15,6 @@ to provide some powerful functionality, without sacrificing ease-of-use.
 Features
 --------
 
-Synchronization
-    Keeps configuration in sync when accessed/updated from
-    multiple processes.
-
 Coercion
     Automatic value de/serialization.
 
