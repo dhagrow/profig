@@ -48,30 +48,30 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c.get('a.2'), None)
         self.assertEqual(c.get('a.2', 2), 2)
     
-    def test_get_value(self):
+    def test_value(self):
         c = config.Config()
         c['a'] = 1
         c.init('b', 1)
         
         for key in ['a', 'b']:
             s = c.section(key)
-            self.assertEqual(s.get_value(), 1)
-            self.assertEqual(s.get_value(convert=False), '1')
-            self.assertEqual(s.get_value(type=str), '1')
+            self.assertEqual(s.value(), 1)
+            self.assertEqual(s.value(convert=False), '1')
+            self.assertEqual(s.value(type=str), '1')
     
-    def test_get_default(self):
+    def test_default(self):
         c = config.Config()
         c['a'] = 1
         c.init('b', 1)
         
         s = c.section('a')
         with self.assertRaises(config.NoDefaultError):
-            s.get_default()
+            s.default()
         
         s = c.section('b')
-        self.assertEqual(s.get_default(), 1)
-        self.assertEqual(s.get_default(convert=False), '1')
-        self.assertEqual(s.get_default(type=str), '1')
+        self.assertEqual(s.default(), 1)
+        self.assertEqual(s.default(convert=False), '1')
+        self.assertEqual(s.default(type=str), '1')
     
     def test_section(self):
         c = config.Config()

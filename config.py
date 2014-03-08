@@ -114,12 +114,12 @@ class ConfigSection(collections.MutableMapping):
         """
         try:
             section = self.section(key)
-            return section.get_value(convert, type)
+            return section.value(convert, type)
         except InvalidSectionError:
             return default
     
     def __getitem__(self, key):
-        return self.section(key).get_value()
+        return self.section(key).value()
     
     def __setitem__(self, key, value):
         self._create_section(key).set_value(value)
@@ -153,13 +153,13 @@ class ConfigSection(collections.MutableMapping):
         
         if flat:
             sections = ((k, self.section(k)) for k in self)
-            return dtype((k, s.get_value(convert)) for k, s in sections
+            return dtype((k, s.value(convert)) for k, s in sections
                 if s._should_include(include, exclude))
         
         if recurse and self._children:
             d = dtype()
             if valid:
-                d[''] = self.get_value(convert)
+                d[''] = self.value(convert)
             for child in self.children():
                 if child._should_include(include, exclude):
                     d.update(child.as_dict(
@@ -167,7 +167,7 @@ class ConfigSection(collections.MutableMapping):
             
             return d if self is self._root else dtype({self.name: d})
         elif valid:
-            return dtype({self.name: self.get_value(convert)})
+            return dtype({self.name: self.value(convert)})
         else:
             return dtype()
 
@@ -216,7 +216,7 @@ class ConfigSection(collections.MutableMapping):
         for key in keys:
             self.section(key)._dirty = dirty
     
-    def get_value(self, convert=True, type=None):
+    def value(self, convert=True, type=None):
         """
         Get the section's value.
         To get the underlying string value, set *convert* to `False`.
@@ -233,7 +233,7 @@ class ConfigSection(collections.MutableMapping):
                 self._cache = value
             return value
         
-        return self.get_default(convert, type)
+        return self.default(convert, type)
     
     def set_value(self, value, adapt=True):
         """
@@ -254,7 +254,7 @@ class ConfigSection(collections.MutableMapping):
                 self._cache = value
             self._dirty = True
     
-    def get_default(self, convert=True, type=None):
+    def default(self, convert=True, type=None):
         """
         Get the section's default value.
         To get the underlying string value, set *convert* to `False`.
@@ -298,7 +298,7 @@ class ConfigSection(collections.MutableMapping):
         """Returns a (key, value) iterator over the unprocessed values of
         this section."""
         for key in self:
-            yield (key, self.section(key).get_value(convert))
+            yield (key, self.section(key).value(convert))
 
     def sync(self, source=None, format=None, include=None, exclude=None):
         include = set(include or ())
@@ -381,7 +381,7 @@ class ConfigSection(collections.MutableMapping):
     def _adapt_cache(self):
         if self._cache is not NoValue:
             strvalue = self._adapt(self._cache)
-            if strvalue != self.get_value(convert=False):
+            if strvalue != self.value(convert=False):
                 self.setvalue(strvalue, adapt=False)
                 self._dirty = True
     
