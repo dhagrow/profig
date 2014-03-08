@@ -19,6 +19,52 @@ get the dict representation::
     >>> cfg.as_dict()
     {'server': {'host': '8.8.8.8', 'port': 8181}}
 
+Initialization
+--------------
+
+One of the most useful features of the :mod:`config` module is the ability
+to initialize the options that are expected to be set on a
+:class:`~config.Config` object.
+
+If you were to sync the following config file without any initialization::
+
+    server.host = 127.0.0.1
+    server.port = 8080
+
+The port number would be interpreted as a string, and you would have to
+convert it manually. You can avoid doing this each time you access the value
+by using the :meth:`~config.Config.init` method::
+    
+    >>> cfg.init('server.host', '127.0.0.1')
+    >>> cfg.init('server.port', 8080, int)
+
+The second argument to :meth:`~config.Config.init` specifies a default
+value for the option. The third argument is optional and is used by the
+:mod:`coerce` module to automatically (de)serialize any value that is set
+for the option. If the third is not provided, the type of the default value
+will be used to select the correct coercer.
+
+Automatic Typing
+----------------
+
+Type information can be applied by initializing a key with a default value::
+    
+    >>> cfg.init('server.port', 8080)
+    >>> cfg.sync()
+    >>> port = cfg['server.port']
+    >>> port
+    9090
+    >>> type(port)
+    <class 'int'>
+
+Nested Sections
+---------------
+
+Values can be organized and accessed in hierarchies::
+    
+    >>> cfg.section('server').as_dict()
+    {'host': 'localhost', 'port': 8080}
+
 Synchronization
 ---------------
 
@@ -101,49 +147,3 @@ is needed.
 
 Write accepts a dict of values from the :class:`~config.Config` object and any
 context returned from a call to :meth:`~config.Format.read`.
-
-Initialization
---------------
-
-One of the most useful features of the :mod:`config` module is the ability
-to initialize the options that are expected to be set on a
-:class:`~config.Config` object.
-
-If you were to sync the following config file without any initialization::
-
-    server.host = 127.0.0.1
-    server.port = 8080
-
-The port number would be interpreted as a string, and you would have to
-convert it manually. You can avoid doing this each time you access the value
-by using the :meth:`~config.Config.init` method::
-    
-    >>> cfg.init('server.host', '127.0.0.1')
-    >>> cfg.init('server.port', 8080, int)
-
-The second argument to :meth:`~config.Config.init` specifies a default
-value for the option. The third argument is optional and is used by the
-:mod:`coerce` module to automatically (de)serialize any value that is set
-for the option. If the third is not provided, the type of the default value
-will be used to select the correct coercer.
-
-Automatic Typing
-----------------
-
-Type information can be applied by initializing a key with a default value::
-    
-    >>> cfg.init('server.port', 8080)
-    >>> cfg.sync()
-    >>> port = cfg['server.port']
-    >>> port
-    9090
-    >>> type(port)
-    <class 'int'>
-
-Nested Sections
----------------
-
-Values can be organized and accessed in hierarchies::
-    
-    >>> cfg.section('server').as_dict()
-    {'host': 'localhost', 'port': 8080}
