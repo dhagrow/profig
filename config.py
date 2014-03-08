@@ -555,7 +555,6 @@ class MetaFormat(type):
 
 class Format(object, metaclass=MetaFormat):
     name = None
-    extension = None
     
     def __init__(self, config):
         self.config = config
@@ -689,7 +688,6 @@ class Format(object, metaclass=MetaFormat):
 
 class ConfigFormat(Format):
     name = 'config'
-    extension = 'cfg'
     
     def read(self, file):
         values = {}
@@ -732,7 +730,6 @@ class ConfigFormat(Format):
 
 class JsonFormat(Format):
     name = 'json'
-    extension = 'json'
     
     def __init__(self, config):
         import json
@@ -761,7 +758,6 @@ class JsonFormat(Format):
 
 class IniFormat(Format):
     name = 'ini'
-    extension = 'ini'
     _rx_section_header = re.compile('\[(.*)\]')
     
     def read(self, file):
@@ -887,7 +883,6 @@ class IniFormat(Format):
 
 class PickleFormat(Format):
     name = 'pickle'
-    extension = 'pkl'
     
     def __init__(self, protocol=None):
         import pickle
