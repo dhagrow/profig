@@ -590,15 +590,17 @@ class Format(object, metaclass=MetaFormat):
         :class:`ConfigSection` instance. *include* and *exclude* must be
         lists of keys."""
         
+        write_context = None
+        
         # read unchanged values from sources
-        for source in reversed(sources):
+        for i, source in enumerate(reversed(sources)):
             file = self._open(source)
             if not file:
                 continue
             
             # read file
             try:
-                values = self.read(file)
+                values, context = self.read(file)
             except IOError:
                 # XXX: there should be a way of indicating that there
                 # was an error without causing the sync to fail for
@@ -608,6 +610,10 @@ class Format(object, metaclass=MetaFormat):
                 # only close files that were opened from the filesystem
                 if isinstance(source, str):
                     file.close()
+            
+            # context
+            if i == 0:
+                write_context = context
             
             # process values
             for key, value in values.items():
@@ -621,7 +627,7 @@ class Format(object, metaclass=MetaFormat):
         source = sources[0]
         file = self._open(source, 'w')
         try:
-            self.write(file, values)
+            self.write(file, values, write_context)
         finally:
             # only close files that were opened from the filesystem
             if isinstance(source, str):
@@ -646,7 +652,7 @@ class Format(object, metaclass=MetaFormat):
         in a subclass."""
         raise NotImplementedError('abstract')
     
-    def write(self, file, values): # pragma: no cover
+    def write(self, file, values, context=None): # pragma: no cover
         """Writes the dict *values* to file. Must be implemented
         in a subclass."""
         raise NotImplementedError('abstract')
@@ -702,26 +708,18 @@ class Format(object, metaclass=MetaFormat):
             else:
                 assert False
 
-class OrderedFormat(Format):
-    def sync(self, sources, include, exclude):
-        self._source0 = True # False after the first pass through read
-        self._lines = [] # line order for first source
-        super().sync(sources, include, exclude)
-        del self._source0
-        del self._lines
-
-class ConfigFormat(OrderedFormat):
+class ConfigFormat(Format):
     name = 'config'
     extension = 'cfg'
     
     def read(self, file):
         values = {}
+        lines = []
         for i, orgline in enumerate(file, 1):
             line = orgline.strip()
             if not line or line.startswith('#'):
                 # blank or comment line
-                if self._source0:
-                    self._lines.append((orgline, False))
+                lines.append((orgline, False))
                 continue
             
             # get the value
@@ -733,16 +731,14 @@ class ConfigFormat(OrderedFormat):
             
             key = key.strip()
             values[key] = value.strip()
-            if self._source0:
-                self._lines.append(((key, orgline), True))
+            lines.append(((key, orgline), True))
         
-        if self._source0:
-            self._source0 = False
-        return values
+        return values, lines
     
-    def write(self, file, values):
+    def write(self, file, values, context=None):
         # first write back values in the order they were read
-        for line, iskey in self._lines:
+        lines = context or []
+        for line, iskey in lines:
             if iskey:
                 key, line = line
                 if key in values:
@@ -755,7 +751,7 @@ class ConfigFormat(OrderedFormat):
             line = '{}: {}\n'.format(key, value)
             file.write(line)
 
-class JsonFormat(OrderedFormat):
+class JsonFormat(Format):
     name = 'json'
     extension = 'json'
     
@@ -773,18 +769,18 @@ class JsonFormat(OrderedFormat):
     
     def read(self, file):
         try:
-            return self._load(file)
+            return self._load(file), None
         except ValueError:
             # file is empty, or invalid json
-            return {}
+            return {}, None
     
-    def write(self, file, values):
+    def write(self, file, values, context=None):
         if values:
             self._dump(values, file)
         else:
             file.write('')
 
-class IniFormat(OrderedFormat):
+class IniFormat(Format):
     name = 'ini'
     extension = 'ini'
     _rx_section_header = re.compile('\[(.*)\]')
@@ -792,12 +788,12 @@ class IniFormat(OrderedFormat):
     def read(self, file):
         section = None
         values = {}
+        lines = []
         for i, orgline in enumerate(file, 1):
             line = orgline.strip()
             if not line or line.startswith('#'):
                 # blank or comment line
-                if self._source0:
-                    self._lines.append((orgline, False, False))
+                lines.append((orgline, False, False))
                 continue
             else:
                 match = IniFormat._rx_section_header.match(line)
@@ -805,8 +801,7 @@ class IniFormat(OrderedFormat):
                     section = match.group(1)
                     if section.lower() == 'default':
                         section = ''
-                    if self._source0:
-                        self._lines.append(((section, orgline), False, True))
+                    lines.append(((section, orgline), False, True))
                     continue
             
             if section is None:
@@ -824,18 +819,17 @@ class IniFormat(OrderedFormat):
                 key = self.config._make_key(section, key)
                 key = self.config._keystr(key)
             values[key] = value.strip()
-            if self._source0:
-                if (section == '' and key in self.config and
-                    self.config.has_children(key)):
-                    # key no longer belongs to the defaults so skip
-                    continue
-                self._lines.append(((key, orgline), True, False))
+            
+            # context
+            if (section == '' and key in self.config and
+                self.config.has_children(key)):
+                # key no longer belongs to the defaults so skip
+                continue
+            lines.append(((key, orgline), True, False))
         
-        if self._source0:
-            self._source0 = False
-        return values
+        return values, lines
     
-    def write(self, file, values):
+    def write(self, file, values, context=None):
         stripbase = lambda k: self.config._keystr(self.config._make_key(k)[1:])
         
         # sort values by section
@@ -855,7 +849,8 @@ class IniFormat(OrderedFormat):
         
         # first write back values in the order they were read
         section = None
-        for i, (line, iskey, issection) in enumerate(self._lines):
+        lines = context or []
+        for i, (line, iskey, issection) in enumerate(lines):
             if issection:
                 if section is not None:
                     # write remaining values from last section
@@ -875,8 +870,8 @@ class IniFormat(OrderedFormat):
                 # if there is no value, skip this section
                 try:
                     j = 1
-                    while not self._lines[i+j][2]:
-                        if self._lines[i+j][1]:
+                    while not lines[i+j][2]:
+                        if lines[i+j][1]:
                             break
                         j += 1
                     else:
@@ -923,12 +918,12 @@ class PickleFormat(Format):
     
     def read(self, file):
         try:
-            return self._load(file)
+            return self._load(file), None
         except EOFError:
             # file is empty
-            return {}
+            return {}, None
     
-    def write(self, file, values):
+    def write(self, file, values, context=None):
         if values:
             self._dump(values, file, self.protocol)
         else:
