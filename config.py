@@ -299,21 +299,6 @@ class ConfigSection(collections.MutableMapping):
         this section."""
         for key in self:
             yield (key, self.section(key).value(convert))
-
-    def sync(self, source=None, format=None, include=None, exclude=None):
-        include = set(include or ())
-        exclude = set(exclude or ())
-        
-        # adjust for subsections
-        sep = self.sep
-        for clude in (include, exclude):
-            for c in clude.copy():
-                clude.remove(c)
-                clude.add(sep.join([self.key, c]))
-        # for subsections, use self as an include filter
-        include.add(self.key)
-
-        self._root.sync(source, format, include, exclude)
     
     def adapt(self, value, type):
         return self._root._coercer.adapt(value, type)
@@ -446,20 +431,10 @@ class Config(ConfigSection):
         super().__init__(None, None)
     
     def set_format(self, format):
-        if isinstance(format, str):
-            try:
-                cls = Config._formats[format]
-            except KeyError as e:
-                raise UnknownFormatError(e)
-            self._format = cls(self)
-        elif isinstance(format, Format):
-            self._format = format
-        else:
-            self._format = format(self)
+        self._format = self._process_format(format)
     
     def sync(self, *sources, format=None, include=None, exclude=None):
-        """Writes changes to sources and reloads any external changes
-        from sources.
+        """Reads from sources and writes any changes back to the first source.
 
         If *source* is provided, syncs only that source. Otherwise,
         syncs the sources in `self.sources`.
@@ -493,6 +468,15 @@ class Config(ConfigSection):
                     rejected.add(x)
             return result - rejected
         
+        # adjust for subsections
+        #sep = self.sep
+        #for clude in (include, exclude):
+            #for c in clude.copy():
+                #clude.remove(c)
+                #clude.add(sep.join([self.key, c]))
+        ## for subsections, use self as an include filter
+        #include.add(self.key)
+        
         include = fix_clude(include)
         exclude = fix_clude(exclude)
         
@@ -504,8 +488,23 @@ class Config(ConfigSection):
             format = self._format
         format.sync(sources, include, exclude)
     
-    def reset(self):
-        super().reset()
+    def read(self, source=None, format=None):
+        """
+        Reads config values.
+        
+        If *source* is provided, read only from that source. A format for
+        *source* can be set using *format*. *format* is otherwise ignored.
+        """
+        pass
+    
+    def write(self, source=None, format=None, include=None, exclude=None):
+        """
+        Writes config values.
+        
+        If *source* is provided, write only to that source. A format for
+        *source* can be set using *format*. *format* is otherwise ignored.
+        """
+        pass
     
     def _keystr(self, key):
         return self.sep.join(key)
@@ -531,6 +530,26 @@ class Config(ConfigSection):
                 result.extend(get_source(fname, scope) for scope in scopes)
         return result
     
+    def _process_format(self, format):
+        """
+        Returns a :class:`~config.Format` instance.
+        Accepts a name, class, or instance as the *format* argument.
+        """
+        if not format:
+            if not self._format:
+                raise UnknownFormatError('No format is set')
+            return self._format
+        elif isinstance(format, str):
+            try:
+                cls = Config._formats[format]
+            except KeyError as e:
+                raise UnknownFormatError(e)
+            return cls(self)
+        elif isinstance(format, Format):
+            return format
+        else:
+            return format(self)
+    
     def _dump(self, indent=2): # pragma: no cover
         for section in sorted(self.children(recurse=True)):
             spaces = ' ' * ((len(section._key) - 1) * indent)
@@ -552,11 +571,11 @@ class MetaFormat(type):
     """
     def __init__(cls, name, bases, dct):
         if name is not 'Format':
-            Config._formats[cls.tag] = cls
+            Config._formats[cls.name] = cls
         return super().__init__(name, bases, dct)
 
 class Format(object, metaclass=MetaFormat):
-    tag = None
+    name = None
     extension = None
     
     def __init__(self, config):
@@ -574,25 +593,27 @@ class Format(object, metaclass=MetaFormat):
         # read unchanged values from sources
         for source in reversed(sources):
             file = self._open(source)
-            if file:
-                # read file
-                try:
-                    values = self.read(file)
-                except IOError:
-                    # XXX: there should be a way of indicating that there
-                    # was an error without causing the sync to fail for
-                    # other sources
-                    continue
-                finally:
-                    # only close files that were opened from the filesystem
-                    if isinstance(source, str):
-                        file.close()
-                
-                # process values
-                for key, value in values.items():
-                    section = self.config.root._create_section(key)
-                    if not section._dirty:
-                        section.set_value(value, adapt=False)
+            if not file:
+                continue
+            
+            # read file
+            try:
+                values = self.read(file)
+            except IOError:
+                # XXX: there should be a way of indicating that there
+                # was an error without causing the sync to fail for
+                # other sources
+                continue
+            finally:
+                # only close files that were opened from the filesystem
+                if isinstance(source, str):
+                    file.close()
+            
+            # process values
+            for key, value in values.items():
+                section = self.config.root._create_section(key)
+                if not section._dirty:
+                    section.set_value(value, adapt=False)
         
         values = self.filter_values(include, exclude)
         
@@ -681,16 +702,17 @@ class Format(object, metaclass=MetaFormat):
             else:
                 assert False
 
-class ConfigFormat(Format):
-    tag = 'config'
-    extension = 'cfg'
-    
+class OrderedFormat(Format):
     def sync(self, sources, include, exclude):
         self._source0 = True # False after the first pass through read
         self._lines = [] # line order for first source
         super().sync(sources, include, exclude)
         del self._source0
         del self._lines
+
+class ConfigFormat(OrderedFormat):
+    name = 'config'
+    extension = 'cfg'
     
     def read(self, file):
         values = {}
@@ -733,8 +755,8 @@ class ConfigFormat(Format):
             line = '{}: {}\n'.format(key, value)
             file.write(line)
 
-class JsonFormat(Format):
-    tag = 'json'
+class JsonFormat(OrderedFormat):
+    name = 'json'
     extension = 'json'
     
     def __init__(self, config):
@@ -762,17 +784,10 @@ class JsonFormat(Format):
         else:
             file.write('')
 
-class IniFormat(Format):
-    tag = 'ini'
+class IniFormat(OrderedFormat):
+    name = 'ini'
     extension = 'ini'
     _rx_section_header = re.compile('\[(.*)\]')
-    
-    def sync(self, sources, include, exclude):
-        self._source0 = True # False after the first pass through read
-        self._lines = [] # line order for first source
-        super().sync(sources, include, exclude)
-        del self._source0
-        del self._lines
     
     def read(self, file):
         section = None
@@ -897,7 +912,7 @@ class IniFormat(Format):
                     file.write('\n')
 
 class PickleFormat(Format):
-    tag = 'pickle'
+    name = 'pickle'
     extension = 'pkl'
     
     def __init__(self, protocol=None):
