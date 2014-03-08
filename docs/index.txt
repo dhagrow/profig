@@ -10,7 +10,8 @@ Motivation
 Why another configuration library? The simple answer is that none of the
 available options gave me everything I wanted, with an API that I enjoyed using.
 This library is as close to my ideal as I have been able to come. It tries
-to provide some powerful functionality, without sacrificing ease-of-use.
+to provide some (but not too much) powerful functionality, without sacrificing
+ease-of-use.
 
 Features
 --------
