@@ -58,14 +58,16 @@ write values changed on the config object back to the first source.
 Formats
 -------
 
-The default output format is a simple list of "section.key = value" lines. The
-format to use can be set either in the call to :meth:`~config.Config.sync` or
-in the :class:`~config.Config` constructor.
+A :class:`~config.Format` subclass defines how a configuration should be
+read/written from/to a source.
 
 The following formats are available:
     
 :class:`~config.ConfigFormat`
-    The default format. Simple but expressive.
+    The default format. Simple but expressive::
+    
+        server.host: localhost
+        server.port: 8080
 
 :class:`~config.IniFormat`
     Mostly standard INI format. An INI section will be created for each
