@@ -93,6 +93,97 @@ class ConfigSection(collections.MutableMapping):
     
     ## methods ##
     
+    def sync(self, *sources, format=None, include=None, exclude=None):
+        """Reads from sources and writes any changes back to the first source.
+
+        If *source* is provided, syncs only that source. Otherwise,
+        syncs the sources in `self.sources`.
+
+        *include* or *exclude* can be used to filter the keys that
+        are written."""
+        
+        sources = sources or self.sources
+        if not sources:
+            raise NoSourcesError()
+        
+        # if caching, adapt cached values
+        if self.cache_values:
+            for child in self.children(recurse=True):
+                child._adapt_cache()
+        
+        # remove redundant entries
+        def fix_clude(clude):
+            clude = set(clude or [])
+            if len(clude) < 2:
+                return clude
+            result = set()
+            rejected = set()
+            # get a set of unique pairs
+            perms = set(frozenset(i) for i in itertools.permutations(clude, 2))
+            for x, y in perms:
+                result |= set([x, y])
+                if x.startswith(y):
+                    rejected.add(y)
+                elif y.startswith(x):
+                    rejected.add(x)
+            return result - rejected
+        
+        # adjust for subsections
+        #sep = self.sep
+        #for clude in (include, exclude):
+            #for c in clude.copy():
+                #clude.remove(c)
+                #clude.add(sep.join([self.key, c]))
+        ## for subsections, use self as an include filter
+        #include.add(self.key)
+        
+        include = fix_clude(include)
+        exclude = fix_clude(exclude)
+        
+        # sync
+        if format:
+            if not issubclass(format, Format):
+                format = Config._formats[format](self)
+        else:
+            format = self._format
+        format.sync(sources, include, exclude)
+    
+    def read(self, source=None, format=None):
+        """
+        Reads config values.
+        
+        If *source* is provided, read only from that source. A format for
+        *source* can be set using *format*. *format* is otherwise ignored.
+        """
+        source = source or self.source
+        if not source:
+            raise NoSourcesError()
+        format = format or self._format
+            
+        values, context = self._format.read(source)
+        
+        # process values
+        for key, value in values.items():
+            section = self.root._create_section(key)
+            section.set_value(value, adapt=False)
+    
+    def write(self, source=None, format=None, include=None, exclude=None):
+        """
+        Writes config values.
+        
+        If *source* is provided, write only to that source. A format for
+        *source* can be set using *format*. *format* is otherwise ignored.
+        """
+        source = source or self.source
+        if not source:
+            raise NoSourcesError()
+        format = format or self._format
+        
+        values = self.as_dict(flat=True, convert=False,
+            include=include, exclude=exclude)
+        
+        format.write(source, values)
+    
     def init(self, key, default, type=None):
         """Initializes a key to the given default value. If *type* is not
         provided, the type of the default value will be used."""
@@ -432,79 +523,6 @@ class Config(ConfigSection):
     
     def set_format(self, format):
         self._format = self._process_format(format)
-    
-    def sync(self, *sources, format=None, include=None, exclude=None):
-        """Reads from sources and writes any changes back to the first source.
-
-        If *source* is provided, syncs only that source. Otherwise,
-        syncs the sources in `self.sources`.
-
-        *include* or *exclude* can be used to filter the keys that
-        are written."""
-        
-        sources = sources or self.sources
-        if not sources:
-            raise NoSourcesError()
-        
-        # if caching, adapt cached values
-        if self.cache_values:
-            for child in self.children(recurse=True):
-                child._adapt_cache()
-        
-        # remove redundant entries
-        def fix_clude(clude):
-            clude = set(clude or [])
-            if len(clude) < 2:
-                return clude
-            result = set()
-            rejected = set()
-            # get a set of unique pairs
-            perms = set(frozenset(i) for i in itertools.permutations(clude, 2))
-            for x, y in perms:
-                result |= set([x, y])
-                if x.startswith(y):
-                    rejected.add(y)
-                elif y.startswith(x):
-                    rejected.add(x)
-            return result - rejected
-        
-        # adjust for subsections
-        #sep = self.sep
-        #for clude in (include, exclude):
-            #for c in clude.copy():
-                #clude.remove(c)
-                #clude.add(sep.join([self.key, c]))
-        ## for subsections, use self as an include filter
-        #include.add(self.key)
-        
-        include = fix_clude(include)
-        exclude = fix_clude(exclude)
-        
-        # sync
-        if format:
-            if not issubclass(format, Format):
-                format = Config._formats[format](self)
-        else:
-            format = self._format
-        format.sync(sources, include, exclude)
-    
-    def read(self, source=None, format=None):
-        """
-        Reads config values.
-        
-        If *source* is provided, read only from that source. A format for
-        *source* can be set using *format*. *format* is otherwise ignored.
-        """
-        pass
-    
-    def write(self, source=None, format=None, include=None, exclude=None):
-        """
-        Writes config values.
-        
-        If *source* is provided, write only to that source. A format for
-        *source* can be set using *format*. *format* is otherwise ignored.
-        """
-        pass
     
     def _keystr(self, key):
         return self.sep.join(key)
