@@ -16,7 +16,7 @@ keys within the section.
 For a quick look at the hierarchical structure of the options, you can easily
 get the dict representation::
     
-    >>> print(cfg.as_dict())
+    >>> cfg.as_dict()
     {'server': {'host': '8.8.8.8', 'port': 8181}}
 
 Synchronization
@@ -55,6 +55,10 @@ If more than one `source` is provided then a sync will update the config
 object with values from each of the sources in the order given. Then it will
 write values changed on the config object back to the first source.
 
+Once sources have been provided, they will be used for any future syncs.
+
+    >>> cfg.sync()
+
 Formats
 -------
 
@@ -81,6 +85,22 @@ The following formats are available:
 
 Support for additional formats can be added easily by subclassing
 :class:`~config.Format`.
+
+Defining a new Format
+~~~~~~~~~~~~~~~~~~~~~
+
+To add support for a new format you must subclass :meth:`~config.Format` and
+override the, :meth:`~config.Format.read` and :meth:`~config.Format.write`
+methods.
+
+Read should return a `(values, context)` tuple. *values* must be a dict that
+maps keys to string values. Any *context* that is returned will be passed to
+:meth:`~config.Format.write` during a sync. It can be used, for example, to
+track comments and ordering of the source. `None` can be returned if no context
+is needed.
+
+Write accepts a dict of values from the :class:`~config.Config` object and any
+context returned from a call to :meth:`~config.Format.read`.
 
 Initialization
 --------------
@@ -115,13 +135,15 @@ Type information can be applied by initializing a key with a default value::
     >>> cfg.init('server.port', 8080)
     >>> cfg.sync()
     >>> port = cfg['server.port']
-    >>> print(port, type(port))
-    9090 <class 'int'>
+    >>> port
+    9090
+    >>> type(port)
+    <class 'int'>
 
 Nested Sections
 ---------------
 
 Values can be organized and accessed in hierarchies::
     
-    >>> print(cfg.section('server').as_dict())
+    >>> cfg.section('server').as_dict()
     {'host': 'localhost', 'port': 8080}
