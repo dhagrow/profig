@@ -28,8 +28,8 @@ to initialize the options that are expected to be set on a
 
 If you were to sync the following config file without any initialization::
 
-    server.host = 127.0.0.1
-    server.port = 8080
+    server.host: 127.0.0.1
+    server.port: 8080
 
 The port number would be interpreted as a string, and you would have to
 convert it manually. You can avoid doing this each time you access the value
