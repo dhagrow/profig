@@ -19,8 +19,8 @@ Features
 * Automatic value conversion.
 * Simple section nesting.
 * Dict-like access.
-* Built-in support for INI, JSON, and Pickle formats.
-* Extensible input/output formats.
+* Built-in support for INI, JSON, and Pickle.
+* Easily extensible input/output formats.
 
 Example
 -------
