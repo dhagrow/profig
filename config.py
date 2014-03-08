@@ -421,7 +421,7 @@ class Config(ConfigSection):
         
         self._dict_type = dict_type or collections.OrderedDict
 
-        self.sources = self._process_sources(sources)
+        self.sources = list(sources)
         self.set_format(format or 'config')
         
         self.sep = '.'
@@ -442,7 +442,7 @@ class Config(ConfigSection):
         *include* or *exclude* can be used to filter the keys that
         are written."""
         
-        sources = self._process_sources(sources) if sources else self.sources
+        sources = sources or self.sources
         if not sources:
             raise NoSourcesError()
         
@@ -508,27 +508,6 @@ class Config(ConfigSection):
     
     def _keystr(self, key):
         return self.sep.join(key)
-    
-    def _process_sources(self, sources):
-        """Process user-entered paths and return absolute paths.
-        
-        If a source is not a string, assume it is a file object and return it.
-        If a filename (has extension) or path is entered, return it.
-        Otherwise, consider the source a base name and generate an
-        OS-specific set of paths.
-        """
-        result = []
-        for source in sources:
-            if not isinstance(source, str):
-                result.append(source)
-                continue
-            elif os.path.isabs(source) or '.' in source:
-                result.append(source)
-            else:
-                fname = os.extsep.join([source, self._format.extension])
-                scopes = ('script', 'user')
-                result.extend(get_source(fname, scope) for scope in scopes)
-        return result
     
     def _process_format(self, format):
         """
