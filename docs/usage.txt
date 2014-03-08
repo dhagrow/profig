@@ -1,5 +1,5 @@
-Usage Guide
-===========
+Guide
+=====
 
 A :class:`~config.Config` object can be used directly without any initialization::
     
@@ -78,7 +78,7 @@ The following formats are available:
     Dumps straight to pickle files.
 
 Support for additional formats can be added easily by subclassing
-:class:`~config.BaseFormat`.
+:class:`~config.Format`.
 
 Initialization
 --------------
@@ -105,10 +105,10 @@ value for the option. The third argument is optional and is used by the
 for the option. If the third is not provided, the type of the default value
 will be used to select the correct coercer.
 
-Coercion
---------
+Automatic Typing
+----------------
 
-Coercion is the automatic de/serialization of values::
+Type information can be applied by initializing a key with a default value::
     
     >>> cfg.init('server.port', 8080)
     >>> cfg.sync()
@@ -119,20 +119,7 @@ Coercion is the automatic de/serialization of values::
 Nested Sections
 ---------------
 
-Values can be organized into hierarchies::
+Values can be organized and accessed in hierarchies::
     
     >>> print(cfg.section('server').as_dict())
     {'host': 'localhost', 'port': 8080}
-
-Format Strings
---------------
-
-:class:`~config.Config` objects can be used directly in format strings in
-several ways::
-    
-    >>> '{0[server.host]}:{0[server.port]}'.format(cfg)
-    localhost:8080
-    >>> '{c[server.host]}:{c[server.port]}'.format(c=cfg)
-    localhost:8080
-    >>> '{host}:{port}'.format(**c.section('server'))
-    localhost:8080

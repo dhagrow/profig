@@ -15,14 +15,10 @@ to provide some powerful functionality, without sacrificing ease-of-use.
 Features
 --------
 
-Coercion
-    Automatic value de/serialization.
-
-Nested sections
-    Values can be organized into hierarchies.
-
-dict-like access
-    Values can be retrieved and stored directly using keys.
+* Automatic value conversion.
+* Simple section nesting.
+* Dict-like access.
+* Extensible input/output formats.
 
 Example
 -------
@@ -46,6 +42,7 @@ Usage
     
     usage
     api
+    recipes
 
 Alternatives
 ------------

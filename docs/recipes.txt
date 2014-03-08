@@ -1,0 +1,29 @@
+Recipes
+=======
+
+Multiprocess Sychronization
+---------------------------
+
+One way to synchronize a config file across multiple processes is to use a
+lock file. This allows processes to make a modifications to a config file
+in a safe way and have that change be reflected across all other processes
+when they sync again.
+
+Here is an example using the `lockfile` module::
+    
+    >>> lock = lockfile.FileLock('.cfglock')
+    >>> with lock:
+    ...     cfg.sync()
+
+Format Strings
+--------------
+
+:class:`~config.Config` objects can be used directly in format strings in
+several ways::
+    
+    >>> '{0[server.host]}:{0[server.port]}'.format(cfg)
+    localhost:8080
+    >>> '{c[server.host]}:{c[server.port]}'.format(c=cfg)
+    localhost:8080
+    >>> '{host}:{port}'.format(**c.section('server'))
+    localhost:8080

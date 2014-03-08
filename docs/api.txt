@@ -1,5 +1,10 @@
-config API
-==========
+API
+===
+
+Config
+------
+
+The primary API classes.
 
 .. autoclass:: config.Config
 
@@ -8,7 +13,9 @@ config API
 Formats
 -------
 
-.. autoclass:: config.BaseFormat
+Formats define de/serialization specifics.
+
+.. autoclass:: config.Format
 
 .. autoclass:: config.ConfigFormat
 
@@ -20,5 +27,8 @@ Formats
 
 Coercer
 -------
+
+A Coercer handles the conversion of values to/from a human-readable
+string representation.
 
 .. autoclass:: config.Coercer
