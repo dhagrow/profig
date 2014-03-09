@@ -35,7 +35,10 @@ _type = type
 ## Config ##
 
 class ConfigSection(collections.MutableMapping):
-    """A `ConfigSection` object represents a group of configuration options."""
+    """
+    Represents a group of configuration options.
+    This class is not meant to be instantiated directly.
+    """
     
     def __init__(self, name, parent):
         self._name = name
@@ -502,7 +505,19 @@ class ConfigSection(collections.MutableMapping):
             print(spaces, repr(section))
 
 class Config(ConfigSection):
-    """Configuration Root object"""
+    """
+    The root configuration object.
+    
+    Any number of sources can be set using *sources*. These are the sources
+    that will be using when calling :meth:`sync`.
+    
+    The format of the sources can be set using *format*. This can be either
+    the registered name of a format, such as "ini", or an instance of a
+    :class:`~Format` class.
+    
+    The dict class used internally can be set using *dict_type*. By default
+    an OrderedDict is used.
+    """
     
     _formats = {}
     
@@ -520,6 +535,11 @@ class Config(ConfigSection):
         self.coerce_values = True
         
         super().__init__(None, None)
+    
+    @property
+    def known_formats(self):
+        """Returns the formats registered with this class."""
+        return tuple(self._formats.keys())
     
     def set_format(self, format):
         self._format = self._process_format(format)
