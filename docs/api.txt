@@ -6,24 +6,24 @@ Config
 
 The primary API classes.
 
-.. autoclass:: config.Config
+.. autoclass:: fig.Config
 
-.. autoclass:: config.ConfigSection
+.. autoclass:: fig.ConfigSection
 
 Formats
 -------
 
 Formats define de/serialization specifics.
 
-.. autoclass:: config.Format
+.. autoclass:: fig.Format
 
-.. autoclass:: config.ConfigFormat
+.. autoclass:: fig.ConfigFormat
 
-.. autoclass:: config.IniFormat
+.. autoclass:: fig.IniFormat
 
-.. autoclass:: config.JsonFormat
+.. autoclass:: fig.JsonFormat
 
-.. autoclass:: config.PickleFormat
+.. autoclass:: fig.PickleFormat
 
 Coercer
 -------
@@ -31,4 +31,4 @@ Coercer
 A Coercer handles the conversion of values to/from a human-readable
 string representation.
 
-.. autoclass:: config.Coercer
+.. autoclass:: fig.Coercer

@@ -1,10 +1,10 @@
 Guide
 =====
 
-A :class:`~config.Config` object can be used directly without any initialization::
+A :class:`~fig.Config` object can be used directly without any initialization::
     
-    import config
-    cfg = config.Config()
+    import fig
+    cfg = fig.Config()
     cfg['server.host'] = '8.8.8.8'
     cfg['server.port'] = 8181
 
@@ -22,9 +22,9 @@ get the dict representation::
 Initialization
 --------------
 
-One of the most useful features of the :mod:`config` module is the ability
+One of the most useful features of the :mod:`fig` library is the ability
 to initialize the options that are expected to be set on a
-:class:`~config.Config` object.
+:class:`~fig.Config` object.
 
 If you were to sync the following config file without any initialization::
 
@@ -33,12 +33,12 @@ If you were to sync the following config file without any initialization::
 
 The port number would be interpreted as a string, and you would have to
 convert it manually. You can avoid doing this each time you access the value
-by using the :meth:`~config.Config.init` method::
+by using the :meth:`~fig.Config.init` method::
     
     >>> cfg.init('server.host', '127.0.0.1')
     >>> cfg.init('server.port', 8080, int)
 
-The second argument to :meth:`~config.Config.init` specifies a default
+The second argument to :meth:`~fig.Config.init` specifies a default
 value for the option. The third argument is optional and is used by the
 :mod:`coerce` module to automatically (de)serialize any value that is set
 for the option. If the third is not provided, the type of the default value
@@ -76,12 +76,12 @@ following order:
     2. Write any values changed on the config object back to the primary
        source.
 
-The configuration can be serialized using the :meth:`~config.Config.sync`
+The configuration can be serialized using the :meth:`~fig.Config.sync`
 method::
 
     >>> cfg.sync('app.cfg')
 
-After the call to :meth:`~config.Config.sync`, a new file with the following
+After the call to :meth:`~fig.Config.sync`, a new file with the following
 contents will be created in the current working directory::
 
     server.host: 127.0.0.1
@@ -91,9 +91,9 @@ Sources
 -------
 
 The sources a config object uses when it syncs can also be set in the
-:class:`~config.Config` constructor::
+:class:`~fig.Config` constructor::
     
-    >>> cfg = config.Config('app.cfg')
+    >>> cfg = fig.Config('app.cfg')
 
 Sources can be either paths or file objects.
 
@@ -108,42 +108,42 @@ Once sources have been provided, they will be used for any future syncs.
 Formats
 -------
 
-A :class:`~config.Format` subclass defines how a configuration should be
+A :class:`~fig.Format` subclass defines how a configuration should be
 read/written from/to a source.
 
 The following formats are available:
     
-:class:`~config.ConfigFormat`
+:class:`~fig.ConfigFormat`
     The default format. Simple but expressive::
     
         server.host: localhost
         server.port: 8080
 
-:class:`~config.IniFormat`
+:class:`~fig.IniFormat`
     Mostly standard INI format. An INI section will be created for each
     subsection in the config object.
     
-:class:`~config.JsonFormat`
+:class:`~fig.JsonFormat`
     Standard JSON format.
     
-:class:`~config.PickleFormat`
+:class:`~fig.PickleFormat`
     Dumps straight to pickle files.
 
 Support for additional formats can be added easily by subclassing
-:class:`~config.Format`.
+:class:`~fig.Format`.
 
 Defining a new Format
 ~~~~~~~~~~~~~~~~~~~~~
 
-To add support for a new format you must subclass :meth:`~config.Format` and
-override the, :meth:`~config.Format.read` and :meth:`~config.Format.write`
+To add support for a new format you must subclass :meth:`~fig.Format` and
+override the, :meth:`~fig.Format.read` and :meth:`~fig.Format.write`
 methods.
 
 Read should return a `(values, context)` tuple. *values* must be a dict that
 maps keys to string values. Any *context* that is returned will be passed to
-:meth:`~config.Format.write` during a sync. It can be used, for example, to
+:meth:`~fig.Format.write` during a sync. It can be used, for example, to
 track comments and ordering of the source. `None` can be returned if no context
 is needed.
 
-Write accepts a dict of values from the :class:`~config.Config` object and any
-context returned from a call to :meth:`~config.Format.read`.
+Write accepts a dict of values from the :class:`~fig.Config` object and any
+context returned from a call to :meth:`~fig.Format.read`.

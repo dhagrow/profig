@@ -2,17 +2,17 @@ import io
 import os
 import unittest
 
-import config
+import fig
 
 class TestBasic(unittest.TestCase):
     def test_init(self):
-        c = config.Config()
+        c = fig.Config()
 
         self.assertEqual(dict(c), {})
         self.assertEqual(c.sources, [])
     
     def test_root(self):
-        c = config.Config()
+        c = fig.Config()
         c['a'] = 1
         
         self.assertEqual(c.root, c)
@@ -22,12 +22,12 @@ class TestBasic(unittest.TestCase):
         self.assertNotEqual(s.root, s)
     
     def test_sync(self):
-        c = config.Config()
-        with self.assertRaises(config.NoSourcesError):
+        c = fig.Config()
+        with self.assertRaises(fig.NoSourcesError):
             c.sync()
     
     def test_len(self):
-        c = config.Config()
+        c = fig.Config()
         self.assertEqual(len(c), 0)
         
         c['a'] = 1
@@ -38,7 +38,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(len(c.section('a')), 1)
     
     def test_get(self):
-        c = config.Config()
+        c = fig.Config()
         c['a'] = 1
         c.init('a.1', 1)
         
@@ -49,7 +49,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c.get('a.2', 2), 2)
     
     def test_value(self):
-        c = config.Config()
+        c = fig.Config()
         c['a'] = 1
         c.init('b', 1)
         
@@ -60,12 +60,12 @@ class TestBasic(unittest.TestCase):
             self.assertEqual(s.value(type=str), '1')
     
     def test_default(self):
-        c = config.Config()
+        c = fig.Config()
         c['a'] = 1
         c.init('b', 1)
         
         s = c.section('a')
-        with self.assertRaises(config.NoDefaultError):
+        with self.assertRaises(fig.NoDefaultError):
             s.default()
         
         s = c.section('b')
@@ -74,9 +74,9 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(s.default(type=str), '1')
     
     def test_section(self):
-        c = config.Config()
+        c = fig.Config()
         
-        with self.assertRaises(config.InvalidSectionError):
+        with self.assertRaises(fig.InvalidSectionError):
             c.section('a')
         
         c['a'] = 1
@@ -88,7 +88,7 @@ class TestBasic(unittest.TestCase):
         self.assertIs(c.section('a').section('a').section('a'), child)
     
     def test_as_dict(self):
-        c = config.Config(dict_type=dict)
+        c = fig.Config(dict_type=dict)
         self.assertEqual(c.as_dict(), {})
         
         c['a'] = 1
@@ -104,7 +104,7 @@ class TestBasic(unittest.TestCase):
             {'a': '1', 'a.a': '1', 'b': '1'})
     
     def test_reset(self):
-        c = config.Config(dict_type=dict)
+        c = fig.Config(dict_type=dict)
         c.init('a', 1)
         c.init('a.a', 1)
         c['a'] = 2
@@ -123,7 +123,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1})
     
     def test_filter(self):
-        c = config.Config(dict_type=dict)
+        c = fig.Config(dict_type=dict)
         c['a'] = 1
         c['a.a'] = 1
         c['a.b'] = 2
@@ -136,7 +136,7 @@ class TestBasic(unittest.TestCase):
 
 class TestConfigFormat(unittest.TestCase):
     def setUp(self):
-        self.c = config.Config()
+        self.c = fig.Config()
 
         self.c.init('a', 1)
         self.c.init('b', 'value')
@@ -155,7 +155,7 @@ b: newvalue
         self.assertEqual(self.c['a.1'], 3)
 
     def test_sync_read_blank(self):
-        c = config.Config()
+        c = fig.Config()
         buf = io.StringIO("""\
 a: 2
 a.1: 3
@@ -179,7 +179,7 @@ b: value
 
 class TestIniFormat(unittest.TestCase):
     def setUp(self):
-        self.c = config.Config(format='ini')
+        self.c = fig.Config(format='ini')
 
         self.c.init('a', 1)
         self.c.init('b', 'value')
@@ -198,7 +198,7 @@ b = value
 """)
     
     def test_sync_read_blank(self):
-        c = config.Config(format=config.IniFormat)
+        c = fig.Config(format=fig.IniFormat)
         buf = io.StringIO("""\
 [DEFAULT]
 b = value
@@ -229,7 +229,7 @@ b = value
 
 class TestJsonFormat(unittest.TestCase):
     def setUp(self):
-        self.c = config.Config(format='json')
+        self.c = fig.Config(format='json')
 
         self.c.init('a', 1)
         self.c.init('b', 'value')
@@ -253,23 +253,23 @@ class TestJsonFormat(unittest.TestCase):
 
 class TestErrors(unittest.TestCase):
     def test_ReadError(self):
-        c = config.Config()
+        c = fig.Config()
         c._format.read_errors = 'exception'
         
         buf = io.StringIO("""a""")
-        with self.assertRaises(config.ReadError):
+        with self.assertRaises(fig.ReadError):
             c.sync(buf)
 
 class TestMisc(unittest.TestCase):
     def test_NoValue(self):
-        self.assertEqual(repr(config.NoValue), 'NoValue')
+        self.assertEqual(repr(fig.NoValue), 'NoValue')
     
     def test_get_source(self):
         path = os.path.dirname(__file__)
-        self.assertEqual(config.get_source('test'), os.path.join(path, 'test'))
+        self.assertEqual(fig.get_source('test'), os.path.join(path, 'test'))
         
         path = '~/.config'
-        self.assertEqual(config.get_source('test', 'user'), os.path.join(path, 'test'))
+        self.assertEqual(fig.get_source('test', 'user'), os.path.join(path, 'test'))
 
 if __name__ == '__main__':
     unittest.main()

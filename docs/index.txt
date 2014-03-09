@@ -1,8 +1,10 @@
-.. config documentation master file, created by
+.. fig documentation master file, created by
    sphinx-quickstart on Sat Jun  8 01:16:06 2013.
 
-Welcome to config's documentation!
-==================================
+Welcome to fig's documentation!
+===============================
+
+*fig* is a configuration management library for Python.
 
 Motivation
 ----------
@@ -27,7 +29,7 @@ Example
 
 Basic usage is cake::
     
-    >>> cfg = config.Config('server.cfg')
+    >>> cfg = fig.Config('server.cfg')
     >>> cfg.init('server.host', 'localhost')
     >>> cfg.init('server.port', 8080)
     >>> cfg.sync()
@@ -50,6 +52,6 @@ Alternatives
 ------------
 
 There is no shortage of configuration libraries for Python. The Python wiki
-keeps a list of contenders that sought to replace the standard libraries'
+keeps a list of contenders that sought to replace the standard library's
 ConfigParser:
 `ConfigParserShootout <https://wiki.python.org/moin/ConfigParserShootout>`_.

@@ -7,17 +7,17 @@ try:
 except ImportError:
     from distutils.core import setup
 
-import config
+import fig
 
 setup(
-    name='config',
-    version=config.__version__,
-    description='Configuration management.',
-    long_description=config.__doc__,
-    author=config.__author__,
+    name='fig',
+    version=fig.__version__,
+    description='A configuration management library.',
+    long_description=fig.__doc__,
+    author=fig.__author__,
     author_email='cymrow@gmail.com',
-    url='http://config.dhagrow.org/',
-    py_modules=['config'],
+    url='https://bitbucket.org/dhagrow/fig/',
+    py_modules=['fig'],
     license='MIT',
     platforms = 'any',
     classifiers=[

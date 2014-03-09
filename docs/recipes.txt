@@ -18,7 +18,7 @@ Here is an example using the `lockfile` module::
 Format Strings
 --------------
 
-:class:`~config.Config` objects can be used directly in format strings in
+:class:`~fig.Config` objects can be used directly in format strings in
 several ways::
     
     >>> '{0[server.host]}:{0[server.port]}'.format(cfg)
