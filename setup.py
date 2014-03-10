@@ -10,7 +10,7 @@ except ImportError:
 import fig
 
 setup(
-    name='fig',
+    name='figpy',
     version=fig.__version__,
     description='A configuration management library.',
     long_description=fig.__doc__,
