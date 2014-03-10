@@ -323,8 +323,7 @@ class ConfigSection(collections.MutableMapping):
             return self._cache
         elif self._value is not NoValue:
             value = self._convert(self._value, type)
-            if self._should_cache(value, self._value):
-                self._cache = value
+            self._cache = self._cache_value(value)
             return value
         
         return self.default(convert, type)
@@ -334,18 +333,16 @@ class ConfigSection(collections.MutableMapping):
         Set the section's value.
         To set the underlying string value, set *adapt* to `False`.
         """
-        if not adapt:
-            if value != self._value:
-                self._value = value
-                if self._cache is not NoValue:
-                    self._cache = NoValue
+        if adapt:
+            strvalue = self._adapt(value)
+            if strvalue != self._value:
+                self._value = strvalue
+                self._cache = self._cache_value(value)
                 self._dirty = True
         
-        strvalue = self._adapt(value)
-        if strvalue != self._value:
-            self._value = strvalue
-            if self._should_cache(value, self._value):
-                self._cache = value
+        elif value != self._value:
+            self._value = value
+            self._cache = NoValue
             self._dirty = True
     
     def default(self, convert=True, type=None):
@@ -363,10 +360,9 @@ class ConfigSection(collections.MutableMapping):
                 return self._cache
             else:
                 value = self._convert(self._default, type)
-                if (self._should_cache(value, self._default)
-                    and self._value is NoValue):
-                    # only set cache if self._value hasn't been set
-                    self._cache = value
+                # only set cache if self._value hasn't been set
+                if self._value is NoValue:
+                    self._cache = self._cache_value(value)
                 return value
         
         raise NoDefaultError(self.key)
@@ -376,17 +372,16 @@ class ConfigSection(collections.MutableMapping):
         Set the section's default value.
         To set the underlying string value, set *adapt* to `False`.
         """
-        if not adapt:
+        if adapt:
+            self._default = self._adapt(default)
+            # only set cache if self._value hasn't been set
+            if self._value is NoValue:
+                self._cache = self._cache_value(default)
+        else:
             self._default = default
             # only clear cache if self._value hasn't been set
-            if self._cache is not NoValue and self._value is NoValue:
+            if self._value is NoValue:
                 self._cache = NoValue
-        
-        self._default = self._adapt(default)
-        if (self._should_cache(default, self._default)
-            and self._value is NoValue):
-            # only set cache if self._value hasn't been set
-            self._cache = default
     
     def items(self, convert=True):
         """Returns a (key, value) iterator over the unprocessed values of
@@ -494,9 +489,10 @@ class ConfigSection(collections.MutableMapping):
         else:
             return True
     
-    def _should_cache(self, value, strvalue):
+    def _cache_value(self, value):
         # no point in caching a string
-        return self._root.cache_values and not isinstance(value, str)
+        should_cache = self._root.cache_values and not isinstance(value, str)
+        return value if should_cache else NoValue
     
     def _dump(self, indent=2): # pragma: no cover
         rootlen = len(self._key)
@@ -568,7 +564,7 @@ class Config(ConfigSection):
             return format(self)
     
     def _dump(self, indent=2): # pragma: no cover
-        for section in sorted(self.children(recurse=True)):
+        for section in self.children(recurse=True):
             spaces = ' ' * ((len(section._key) - 1) * indent)
             print(spaces, repr(section), sep='')
     
