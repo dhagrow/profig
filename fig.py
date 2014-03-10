@@ -1,8 +1,8 @@
 """
 A simple-to-use configuration management library.
 
-    import config
-    cfg = config.Config()
+    import fig
+    cfg = fig.Config('server.cfg')
     cfg['server.host'] = '8.8.8.8'
     cfg['server.port'] = 8181
     cfg.sync()
