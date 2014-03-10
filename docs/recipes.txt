@@ -1,6 +1,42 @@
 Recipes
 =======
 
+Setting Values from the Command-Line
+------------------------------------
+
+It can be convenient to provide users with the ability to override config
+options using command-line switches. Here is an example of how that can
+be done using `argparse`::
+    
+    cfg = fig.Config()
+    cfg.init('server.host', 'localhost')
+    cfg.init('server.port', 8080)
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-O', dest='options', action='append',
+        metavar='<key>:<value>', help='Overrides an option in the config file')
+    
+    args = parser.parse_args(['-O', 'server.port:9090'])
+    
+    # update option values
+    cfg.update(opt.split(':') for opt in args.options)
+    
+    print(cfg['server.port']) # -> 9090
+
+If you need to provide a list of available options to the user, you can
+simply iterate over the config object::
+    
+    >>> for k in cfg:
+    ...     print(k)
+    server.host
+    server.port
+
+You can also restrict the options that can be set from the command-line to a
+specific section::
+    
+    args = parser.parse_args(['-O', 'port:9090'])
+    cfg.section('server').update(opt.split(':') for opt in args.options)
+
 Multiprocess Sychronization
 ---------------------------
 

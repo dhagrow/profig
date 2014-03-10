@@ -37,6 +37,7 @@ _type = type
 class ConfigSection(collections.MutableMapping):
     """
     Represents a group of configuration options.
+    
     This class is not meant to be instantiated directly.
     """
     
@@ -505,14 +506,16 @@ class Config(ConfigSection):
     The root configuration object.
     
     Any number of sources can be set using *sources*. These are the sources
-    that will be using when calling :meth:`sync`.
+    that will be using when calling :meth:`~fig.ConfigSection.sync`.
     
     The format of the sources can be set using *format*. This can be either
-    the registered name of a format, such as "ini", or an instance of a
-    :class:`~Format` class.
+    the registered name of a format, such as "ini", or a
+    :class:`~fig.Format` class or instance.
     
     The dict class used internally can be set using *dict_type*. By default
     an OrderedDict is used.
+    
+    This is a subclass of :class:`~fig.ConfigSection`.
     """
     
     _formats = {}
