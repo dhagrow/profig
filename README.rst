@@ -21,11 +21,22 @@ Features
 * Built-in support for INI, JSON, and Pickle.
 * Easily extensible input/output formats.
 
+Installation
+------------
+
+`fig` installs easily using `easy_install` or `pip`::
+    
+    $ pip install figpy
+
+NOTE: The package exists as `figpy` on PyPI due to a naming conflict. The
+installed package name is `fig`.
+
 Example
 -------
 
 Basic usage is cake::
     
+    >>> import fig
     >>> cfg = fig.Config('server.cfg')
     >>> cfg.init('server.host', 'localhost')
     >>> cfg.init('server.port', 8080)
