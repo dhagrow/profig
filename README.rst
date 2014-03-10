@@ -24,12 +24,12 @@ Features
 Installation
 ------------
 
-`fig` installs easily using `easy_install` or `pip`::
+*fig* installs easily using *easy_install* or *pip*::
     
     $ pip install figpy
 
-NOTE: The package exists as `figpy` on PyPI due to a naming conflict. The
-installed package name is `fig`.
+NOTE: The package exists as *figpy* on PyPI due to a naming conflict. The
+installed package name is *fig*.
 
 Documentation
 -------------
