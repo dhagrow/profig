@@ -31,6 +31,11 @@ Installation
 NOTE: The package exists as `figpy` on PyPI due to a naming conflict. The
 installed package name is `fig`.
 
+Documentation
+-------------
+
+Full documentation is available at: http://fig.rtfd.org/.
+
 Example
 -------
 
