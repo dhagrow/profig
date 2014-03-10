@@ -134,7 +134,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c.as_dict(flat=True, exclude=['b']), {'a': 1, 'a.a': 1, 'a.b': 2})
         self.assertEqual(c.as_dict(exclude=['b']), {'a': {'': 1, 'a': 1, 'b': 2}})
 
-class TestConfigFormat(unittest.TestCase):
+class TestFigFormat(unittest.TestCase):
     def setUp(self):
         self.c = fig.Config()
 
@@ -198,7 +198,7 @@ b = value
 """)
     
     def test_sync_read_blank(self):
-        c = fig.Config(format=fig.IniFormat)
+        c = fig.Config(format='ini')
         buf = io.StringIO("""\
 [DEFAULT]
 b = value

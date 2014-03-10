@@ -24,7 +24,7 @@ __version__ = '0.2.0'
 
 __all__ = [
     'Config',
-    'ConfigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat',
+    'FigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat',
     'ConfigError',
     'Coercer', 'CoerceError',
     ]
@@ -527,7 +527,7 @@ class Config(ConfigSection):
         self._dict_type = dict_type or collections.OrderedDict
 
         self.sources = list(sources)
-        self.set_format(format or 'config')
+        self.set_format(format or 'fig')
         
         self.sep = '.'
         self.cache_values = True
@@ -723,8 +723,8 @@ class Format(object, metaclass=MetaFormat):
             else:
                 assert False
 
-class ConfigFormat(Format):
-    name = 'config'
+class FigFormat(Format):
+    name = 'fig'
     
     def read(self, file):
         values = {}
