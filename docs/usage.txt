@@ -1,6 +1,9 @@
 Guide
 =====
 
+Keys
+----
+
 A :class:`~fig.Config` object can be used directly without any initialization::
     
     import fig

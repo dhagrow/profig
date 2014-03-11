@@ -167,7 +167,7 @@ class ConfigSection(collections.MutableMapping):
         if not source:
             raise NoSourcesError()
         format = format or self._format
-            
+        
         values, context = self._format.read(source)
         
         # process values
@@ -207,7 +207,7 @@ class ConfigSection(collections.MutableMapping):
         Return the value for key if key is in the dictionary,
         else default. If *default* is not given, it defaults to
         `None`, so that this method never raises an
-        :exc:`InvalidSectionError`. If *type* is provided,
+        :exc:`~fig.InvalidSectionError`. If *type* is provided,
         it will be used as the type to convert the value from text.
         If *convert* is `False`, *type* will be ignored.
         """
@@ -272,8 +272,8 @@ class ConfigSection(collections.MutableMapping):
 
     def section(self, key, create=False):
         """Returns a section object for *key*.
-        If there is no existing section for *key*, and
-        :exc:`InvalidSectionError` is thrown."""
+        If there is no existing section for *key*, an
+        :exc:`~fig.InvalidSectionError` is thrown."""
         
         section = self
         for name in self._make_key(key):
@@ -519,7 +519,7 @@ class Config(ConfigSection):
     :class:`~fig.Format` class or instance.
     
     The dict class used internally can be set using *dict_type*. By default
-    an OrderedDict is used.
+    an `OrderedDict` is used.
     
     This is a subclass of :class:`~fig.ConfigSection`.
     """
@@ -588,8 +588,8 @@ class Config(ConfigSection):
 
 class MetaFormat(type):
     """
-    Metaclass that registers a :class:`~config.Format` with the
-    :class:`~config.Config` class.
+    Metaclass that registers a :class:`~fig.Format` with the
+    :class:`~fig.Config` class.
     """
     def __init__(cls, name, bases, dct):
         if name is not 'Format':
@@ -608,20 +608,20 @@ class Format(object, metaclass=MetaFormat):
     
     def sync(self, sources, include, exclude):
         """Performs a sync on *sources* with the values in a
-        :class:`ConfigSection` instance. *include* and *exclude* must be
+        :class:`~fig.ConfigSection` instance. *include* and *exclude* must be
         lists of keys."""
         
         write_context = None
         
         # read unchanged values from sources
         for i, source in enumerate(reversed(sources)):
-            file = self._open(source)
+            file = self.open(source)
             if not file:
                 continue
             
             # read file
             try:
-                values, context = self.read(file)
+                values, context = self.read_file(file)
             except IOError:
                 # XXX: there should be a way of indicating that there
                 # was an error without causing the sync to fail for
@@ -646,9 +646,9 @@ class Format(object, metaclass=MetaFormat):
         
         # write changed values to the first source
         source = sources[0]
-        file = self._open(source, 'w')
+        file = self.open(source, 'w')
         try:
-            self.write(file, values, write_context)
+            self.write_file(file, values, write_context)
         finally:
             # only close files that were opened from the filesystem
             if isinstance(source, str):
@@ -661,29 +661,34 @@ class Format(object, metaclass=MetaFormat):
     
     def filter_values(self, include, exclude):
         """
-        Returns section values to be passed to :meth:`Format.write`.
+        Returns section values to be passed to :meth:`~fig.Format.write_file`.
         Also returns a list of keys that should have their dirty flags
         cleared after a successful write.
         """
         return self.config.as_dict(flat=True, convert=False,
             include=include, exclude=exclude)
     
-    def read(self, file): # pragma: no cover
+    def read(self, source):
+        """Reads *source* and returns a dict."""
+        with self.open(source) as file:
+            return self.read_file(file)
+    
+    def write(self, source, values, context=None):
+        """Writes the dict *values* to source."""
+        with self.open(source, 'w') as file:
+            self.write_file(file, values, context)
+    
+    def read_file(self, file): # pragma: no cover
         """Reads *file* and returns a dict. Must be implemented
         in a subclass."""
         raise NotImplementedError('abstract')
     
-    def write(self, file, values, context=None): # pragma: no cover
+    def write_file(self, file, values, context=None): # pragma: no cover
         """Writes the dict *values* to file. Must be implemented
         in a subclass."""
         raise NotImplementedError('abstract')
     
     def open(self, source, mode='r', *args):
-        """Opens a source. Arguments are the same as those accepted
-        by :func:`io.open`."""
-        return open(source, mode, *args)
-    
-    def _open(self, source, mode='r', *args):
         """Returns a file object.
         
         If *source* is a file object, returns *source*. If *mode* is 'w',
@@ -694,17 +699,11 @@ class Format(object, metaclass=MetaFormat):
             if self.ensure_dirs is not None and 'w' in mode:
                 # ensure the path exists if any writing is to be done
                 ensure_dirs(os.path.dirname(source), self.ensure_dirs)
-            elif 'r' in mode and not os.path.exists(source):
-                # if reading and path doesn't exist
-                return None
-            
-            return self.open(source, mode, *args)
+            return open(source, mode, *args)
         else:
+            source.seek(0)
             if 'w' in mode:
-                source.seek(0)
                 source.truncate()
-            else:
-                source.seek(0)
             return source
     
     def _read_error(self, file, lineno=None, text='', message=''):
@@ -732,7 +731,7 @@ class Format(object, metaclass=MetaFormat):
 class FigFormat(Format):
     name = 'fig'
     
-    def read(self, file):
+    def read_file(self, file):
         values = {}
         lines = []
         for i, orgline in enumerate(file, 1):
@@ -755,7 +754,7 @@ class FigFormat(Format):
         
         return values, lines
     
-    def write(self, file, values, context=None):
+    def write_file(self, file, values, context=None):
         # first write back values in the order they were read
         lines = context or []
         for line, iskey in lines:
@@ -786,14 +785,14 @@ class JsonFormat(Format):
         return self.config.as_dict(flat=False, convert=False,
             include=include, exclude=exclude)
     
-    def read(self, file):
+    def read_file(self, file):
         try:
             return self._load(file), None
         except ValueError:
             # file is empty, or invalid json
             return {}, None
     
-    def write(self, file, values, context=None):
+    def write_file(self, file, values, context=None):
         if values:
             self._dump(values, file)
         else:
@@ -803,7 +802,7 @@ class IniFormat(Format):
     name = 'ini'
     _rx_section_header = re.compile('\[(.*)\]')
     
-    def read(self, file):
+    def read_file(self, file):
         section = None
         values = {}
         lines = []
@@ -847,7 +846,7 @@ class IniFormat(Format):
         
         return values, lines
     
-    def write(self, file, values, context=None):
+    def write_file(self, file, values, context=None):
         stripbase = lambda k: self.config._keystr(self.config._make_key(k)[1:])
         
         # sort values by section
@@ -933,21 +932,26 @@ class PickleFormat(Format):
         self._dump = pickle.dump
         self.protocol = protocol or pickle.HIGHEST_PROTOCOL
     
-    def read(self, file):
+    def read(self, source):
+        with self.open(source, 'rb') as file:
+            return self.read_file(file)
+    
+    def write(self, source, values, context=None):
+        with self.open(source, 'wb') as file:
+            self.write_file(file, values, context)
+    
+    def read_file(self, file):
         try:
             return self._load(file), None
         except EOFError:
             # file is empty
             return {}, None
     
-    def write(self, file, values, context=None):
+    def write_file(self, file, values, context=None):
         if values:
             self._dump(values, file, self.protocol)
         else:
             file.write(b'')
-    
-    def open(self, source, mode='r', *args):
-        return open(source, mode + 'b', *args)
 
 ## Config Errors ##
 
@@ -1189,9 +1193,10 @@ class Coercer:
     
     def register_choice(self, type, choices):
         """Registers an adapter and converter for a choice of values.
-        Values passed into :meth:`adapt` or :meth:`convert` for *type* will
-        have to be one of the choices. *choices* must be a dict that maps
-        converted->adapted representations."""
+        Values passed into :meth:`~fig.Coercer.adapt` or
+        :meth:`~fig.Coercer.convert` for *type* will have to be one of the
+        choices. *choices* must be a dict that maps converted->adapted
+        representations."""
         def verify(x, c=choices):
             if x not in c:
                 err = "invalid choice {!r}, must be one of: {}"
