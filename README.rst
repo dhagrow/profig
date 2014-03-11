@@ -28,13 +28,8 @@ Installation
     
     $ pip install figpy
 
-NOTE: The package exists as *figpy* on PyPI due to a naming conflict. The
+NOTE: The package exists as figpy_ on PyPI due to a naming conflict. The
 installed package name is *fig*.
-
-Documentation
--------------
-
-Full documentation is available at: http://fig.rtfd.org/.
 
 Example
 -------
@@ -50,3 +45,15 @@ Basic usage is cake::
     '192.168.1.1'
     >>> cfg.section('server')['port']
     9090
+
+Resources
+---------
+
+* PyPI_
+* Repository_
+* Documentation_
+
+.. _figpy: https://pypi.python.org/pypi/figpy
+.. _PyPI: https://pypi.python.org/pypi/figpy
+.. _Repository: https://bitbucket.org/dhagrow/fig
+.. _Documentation: http://fig.rtfd.org/

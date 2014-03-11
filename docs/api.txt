@@ -17,7 +17,7 @@ Formats define de/serialization specifics.
 
 .. autoclass:: fig.Format
 
-.. autoclass:: fig.ConfigFormat
+.. autoclass:: fig.FigFormat
 
 .. autoclass:: fig.IniFormat
 

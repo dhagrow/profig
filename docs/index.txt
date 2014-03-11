@@ -1,8 +1,8 @@
 .. fig documentation master file, created by
    sphinx-quickstart on Sat Jun  8 01:16:06 2013.
 
-Welcome to fig's documentation!
-===============================
+Behold, fig's documentation!
+============================
 
 *fig* is a configuration management library for Python.
 
@@ -31,7 +31,7 @@ Installation
     
     $ pip install figpy
 
-NOTE: The package exists as *figpy* on PyPI due to a naming conflict. The
+NOTE: The package exists as figpy_ on PyPI due to a naming conflict. The
 installed package name is *fig*.
 
 Example
@@ -58,6 +58,13 @@ Usage
     api
     recipes
 
+Resources
+---------
+
+* PyPI_
+* Repository_
+* Documentation_
+
 Alternatives
 ------------
 
@@ -65,3 +72,8 @@ There is no shortage of configuration libraries for Python. The Python wiki
 keeps a list of contenders that sought to replace the standard library's
 ConfigParser:
 `ConfigParserShootout <https://wiki.python.org/moin/ConfigParserShootout>`_.
+
+.. _figpy: https://pypi.python.org/pypi/figpy
+.. _PyPI: https://pypi.python.org/pypi/figpy
+.. _Repository: https://bitbucket.org/dhagrow/fig
+.. _Documentation: http://fig.rtfd.org/
