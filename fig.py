@@ -95,6 +95,10 @@ class ConfigSection(collections.MutableMapping):
         """`True` if this section has a valid value. Read-only."""
         return not (self._value is NoValue and self._default is NoValue)
     
+    @property
+    def is_default(self):
+        return (self._value is NoValue and self._default is not NoValue)
+    
     ## methods ##
     
     def sync(self, *sources, format=None, include=None, exclude=None):
@@ -266,18 +270,20 @@ class ConfigSection(collections.MutableMapping):
         else:
             return dtype()
 
-    def section(self, key):
+    def section(self, key, create=False):
         """Returns a section object for *key*.
         If there is no existing section for *key*, and
         :exc:`InvalidSectionError` is thrown."""
         
-        config = self
+        section = self
         for name in self._make_key(key):
             try:
-                config = config._children[name]
+                section = section._children[name]
             except KeyError:
+                if create:
+                    return self._create_section(key)
                 raise InvalidSectionError(key)
-        return config
+        return section
     
     def reset(self, recurse=True):
         """Resets this section to it's default value, leaving it
@@ -391,10 +397,10 @@ class ConfigSection(collections.MutableMapping):
             yield (key, self.section(key).value(convert))
     
     def adapt(self, value, type):
-        return self._root._coercer.adapt(value, type)
+        return self._root.coercer.adapt(value, type)
     
     def convert(self, value, type):
-        return self._root._coercer.convert(value, type)
+        return self._root.coercer.convert(value, type)
     
     def clear_cache(self, recurse=False):
         """Clears cached values for this section. If *recurse* is
@@ -457,7 +463,7 @@ class ConfigSection(collections.MutableMapping):
         if self._cache is not NoValue:
             strvalue = self._adapt(self._cache)
             if strvalue != self.value(convert=False):
-                self.setvalue(strvalue, adapt=False)
+                self.set_value(strvalue, adapt=False)
                 self._dirty = True
     
     def _should_include(self, include, exclude):
@@ -521,8 +527,8 @@ class Config(ConfigSection):
     _formats = {}
     
     def __init__(self, *sources, format=None, dict_type=None):
-        self._coercer = Coercer()
-        register_booleans(self._coercer)
+        self.coercer = Coercer()
+        register_booleans(self.coercer)
         
         self._dict_type = dict_type or collections.OrderedDict
 
