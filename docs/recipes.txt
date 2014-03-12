@@ -51,6 +51,25 @@ Here is an example using the `lockfile` module::
     >>> with lock:
     ...     cfg.sync()
 
+Serialization
+-------------
+
+Because :class:`~fig.ConfigSection` objects are based on dicts, it is easy to
+read/write configs from a serialization format such as JSON or msgpack::
+    
+    >>> import json
+    >>> s = json.dumps(cfg.as_dict())
+    >>> cfg.update(json.loads(s))
+
+Pickling
+--------
+
+:class:`~fig.ConfigSection` objects can be pickled directly::
+    
+    >>> import pickle
+    >>> s = pickle.dumps(cfg)
+    >>> cfg = pickle.loads(s)
+
 Format Strings
 --------------
 

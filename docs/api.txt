@@ -21,10 +21,6 @@ Formats define de/serialization specifics.
 
 .. autoclass:: fig.IniFormat
 
-.. autoclass:: fig.JsonFormat
-
-.. autoclass:: fig.PickleFormat
-
 Coercer
 -------
 

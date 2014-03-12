@@ -116,7 +116,7 @@ read/written from/to a source.
 
 The following formats are available:
     
-:class:`~fig.ConfigFormat`
+:class:`~fig.FigFormat`
     The default format. Simple but expressive::
     
         server.host: localhost
@@ -125,12 +125,6 @@ The following formats are available:
 :class:`~fig.IniFormat`
     Mostly standard INI format. An INI section will be created for each
     subsection in the config object.
-    
-:class:`~fig.JsonFormat`
-    Standard JSON format.
-    
-:class:`~fig.PickleFormat`
-    Dumps straight to pickle files.
 
 Support for additional formats can be added easily by subclassing
 :class:`~fig.Format`.
