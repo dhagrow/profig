@@ -173,7 +173,11 @@ class ConfigSection(collections.MutableMapping):
         return self.section(key, create=False).value()
     
     def __setitem__(self, key, value):
-        self._create_section(key).set_value(value)
+        section = self._create_section(key)
+        if isinstance(value, collections.Mapping):
+            section.update(value)
+        else:
+            section.set_value(value)
     
     def __delitem__(self, key):
         section = self.section(key)
