@@ -141,6 +141,35 @@ class TestFigFormat(unittest.TestCase):
         self.c.init('a', 1)
         self.c.init('b', 'value')
         self.c.init('a.1', 2)
+    
+    def test_read(self):
+        buf = io.StringIO("""\
+a: 2
+a.1: 3
+b: newvalue
+""")
+        c = fig.Config(buf)
+        c.read()
+        
+        self.assertEqual(c['a'], '2')
+        self.assertEqual(c['b'], 'newvalue')
+        self.assertEqual(c['a.1'], '3')
+    
+    def test_write(self):
+        buf = io.StringIO()
+        c = fig.Config(buf)
+        
+        c.init('a', 1)
+        c.init('b', 'value')
+        c.init('a.1', 2)
+        
+        c.write()
+
+        self.assertEqual(buf.getvalue(), """\
+a: 1
+a.1: 2
+b: value
+""")
 
     def test_sync_read(self):
         buf = io.StringIO("""\
@@ -226,30 +255,6 @@ b = value
  = 1
 1 = 2
 """)
-
-class TestJsonFormat(unittest.TestCase):
-    def setUp(self):
-        self.c = fig.Config(format='json')
-
-        self.c.init('a', 1)
-        self.c.init('b', 'value')
-        self.c.init('a.1', 2)
-
-        self.b = io.StringIO()
-
-    def test_basic(self):
-        del self.c['a.1']
-
-        self.c.sync(self.b)
-        
-        self.assertEqual(self.b.getvalue(), """\
-{"a": "1", "b": "value"}""")
-
-    def test_subsection(self):
-        self.c.sync(self.b)
-        
-        self.assertEqual(self.b.getvalue(),
-            """{"a": {"": "1", "1": "2"}, "b": "value"}""")
 
 class TestErrors(unittest.TestCase):
     def test_ReadError(self):
