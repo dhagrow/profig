@@ -368,8 +368,9 @@ class ConfigSection(collections.MutableMapping):
         
         # read unchanged values from sources
         for i, source in enumerate(reversed(sources)):
-            file = format.open(source)
-            if not file:
+            try:
+                file = format.open(source)
+            except FileNotFoundError:
                 continue
             
             # read file
