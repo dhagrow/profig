@@ -18,7 +18,6 @@ Features
 * Automatic value conversion.
 * Simple section nesting.
 * Dict-like access.
-* Built-in support for INI, JSON, and Pickle.
 * Easily extensible input/output formats.
 
 Installation

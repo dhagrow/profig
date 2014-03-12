@@ -61,15 +61,6 @@ read/write configs from a serialization format such as JSON or msgpack::
     >>> s = json.dumps(cfg.as_dict())
     >>> cfg.update(json.loads(s))
 
-Pickling
---------
-
-:class:`~fig.ConfigSection` objects can be pickled directly::
-    
-    >>> import pickle
-    >>> s = pickle.dumps(cfg)
-    >>> cfg = pickle.loads(s)
-
 Format Strings
 --------------
 
