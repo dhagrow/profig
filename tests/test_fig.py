@@ -21,6 +21,38 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(s.root, c)
         self.assertNotEqual(s.root, s)
     
+    def test_formats(self):
+        self.assertEqual(sorted(fig.Config.known_formats()), ['fig', 'ini'])
+        
+        c = fig.Config()
+        self.assertIsInstance(c._format, fig.FigFormat)
+        
+        c = fig.Config(format='fig')
+        self.assertIsInstance(c._format, fig.FigFormat)
+        
+        c = fig.Config(format='ini')
+        self.assertIsInstance(c._format, fig.IniFormat)
+        
+        c = fig.Config(format=fig.IniFormat)
+        self.assertIsInstance(c._format, fig.IniFormat)
+        
+        c = fig.Config()
+        c.set_format(fig.IniFormat(c))
+        self.assertIsInstance(c._format, fig.IniFormat)
+        
+        with self.assertRaises(fig.UnknownFormatError):
+            c = fig.Config(format='marshmallow')
+    
+    def test_keys(self):
+        c = fig.Config()
+        c['a'] = 1
+        c['a.a'] = 1
+        c[('a', 'a')] = 1
+        c[('a', ('a', 'a'))] = 1
+        
+        with self.assertRaises(TypeError):
+            c[1] = 1
+    
     def test_sync(self):
         c = fig.Config()
         with self.assertRaises(fig.NoSourcesError):

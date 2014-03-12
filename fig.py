@@ -77,7 +77,7 @@ class ConfigSection(collections.MutableMapping):
     @property
     def key(self):
         """The section's key. Read-only."""
-        return self._root._keystr(self._key)
+        return self._keystr(self._key)
     
     @property
     def name(self):
@@ -424,14 +424,26 @@ class ConfigSection(collections.MutableMapping):
         sources = sources or self.sources
         if not sources:
             raise NoSourcesError()
-        
-        if format:
-            if not issubclass(format, Format):
-                format = Config._formats[format](self)
-        else:
-            format = self._format
-        
+        format = self._process_format(format)
         return sources, format
+    
+    def _process_format(self, format):
+        """
+        Returns a :class:`~config.Format` instance.
+        Accepts a name, class, or instance as the *format* argument.
+        """
+        if not format:
+            return self._format
+        elif isinstance(format, str):
+            try:
+                cls = Config._formats[format]
+            except KeyError as e:
+                raise UnknownFormatError(e)
+            return cls(self)
+        elif isinstance(format, Format):
+            return format
+        else:
+            return format(self)
     
     def _create_section(self, key):
         section = self
@@ -459,7 +471,10 @@ class ConfigSection(collections.MutableMapping):
                 err = "invalid value for key: '{}'"
                 raise TypeError(err.format(p))
         return tuple(key)
-        
+    
+    def _keystr(self, key):
+        return self._root.sep.join(key)
+    
     def _reset(self):
         if self._value is not NoValue:
             self._value = NoValue
@@ -564,36 +579,13 @@ class Config(ConfigSection):
         
         super().__init__(None, None)
     
-    @property
-    def known_formats(self):
+    @classmethod
+    def known_formats(cls):
         """Returns the formats registered with this class."""
-        return tuple(self._formats.keys())
+        return tuple(cls._formats)
     
     def set_format(self, format):
         self._format = self._process_format(format)
-    
-    def _keystr(self, key):
-        return self.sep.join(key)
-    
-    def _process_format(self, format):
-        """
-        Returns a :class:`~config.Format` instance.
-        Accepts a name, class, or instance as the *format* argument.
-        """
-        if not format:
-            if not self._format:
-                raise UnknownFormatError('No format is set')
-            return self._format
-        elif isinstance(format, str):
-            try:
-                cls = Config._formats[format]
-            except KeyError as e:
-                raise UnknownFormatError(e)
-            return cls(self)
-        elif isinstance(format, Format):
-            return format
-        else:
-            return format(self)
     
     def _dump(self, indent=2): # pragma: no cover
         for section in self.children(recurse=True):
