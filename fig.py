@@ -104,15 +104,13 @@ class ConfigSection(collections.MutableMapping):
     def sync(self, *sources, format=None, include=None, exclude=None):
         """Reads from sources and writes any changes back to the first source.
 
-        If *source* is provided, syncs only that source. Otherwise,
-        syncs the sources in `self.sources`.
+        If *sources* are provided, syncs only those sources. Otherwise,
+        syncs the sources in :attr:`~config.Config.sources`.
 
         *include* or *exclude* can be used to filter the keys that
         are written."""
         
-        sources = sources or self.sources
-        if not sources:
-            raise NoSourcesError()
+        sources, format = self._process_sources(sources, format)
         
         # if caching, adapt cached values
         if self.cache_values:
@@ -149,48 +147,31 @@ class ConfigSection(collections.MutableMapping):
         exclude = fix_clude(exclude)
         
         # sync
-        if format:
-            if not issubclass(format, Format):
-                format = Config._formats[format](self)
-        else:
-            format = self._format
-        format.sync(sources, include, exclude)
+        context = self._read(sources, format)
+        self._write(sources[0], format, context, include, exclude)
     
-    def read(self, source=None, format=None):
+    def read(self, *sources, format=None):
         """
         Reads config values.
         
-        If *source* is provided, read only from that source. A format for
-        *source* can be set using *format*. *format* is otherwise ignored.
+        If *sources* are provided, read only from those sources. Otherwise,
+        write to the sources in :attr:`~config.Config.sources`. A format for
+        *sources* can be set using *format*.
         """
-        source = source or self.source
-        if not source:
-            raise NoSourcesError()
-        format = format or self._format
-        
-        values, context = self._format.read(source)
-        
-        # process values
-        for key, value in values.items():
-            section = self.root._create_section(key)
-            section.set_value(value, adapt=False)
+        sources, format = self._process_sources(sources, format)
+        self._read(sources, format)
     
     def write(self, source=None, format=None, include=None, exclude=None):
         """
         Writes config values.
         
-        If *source* is provided, write only to that source. A format for
+        If *source* is provided, write only to that source. Otherwise, write to
+        the first source in :attr:`~config.Config.sources`. A format for
         *source* can be set using *format*. *format* is otherwise ignored.
         """
-        source = source or self.source
-        if not source:
-            raise NoSourcesError()
-        format = format or self._format
-        
-        values = self.as_dict(flat=True, convert=False,
-            include=include, exclude=exclude)
-        
-        format.write(source, values)
+        sources = [source] if source else []
+        sources, format = self._process_sources(sources, format)
+        self._write(sources[0], format, include, exclude)
     
     def init(self, key, default, type=None):
         """Initializes a key to the given default value. If *type* is not
@@ -410,6 +391,70 @@ class ConfigSection(collections.MutableMapping):
     
     ## utilities ##
     
+    def _read(self, sources, format):
+        write_context = None
+        
+        # read unchanged values from sources
+        for i, source in enumerate(reversed(sources)):
+            file = format.open(source)
+            if not file:
+                continue
+            
+            # read file
+            try:
+                values, context = format.read(file)
+            except IOError:
+                # XXX: there should be a way of indicating that there
+                # was an error without causing the sync to fail for
+                # other sources
+                continue
+            finally:
+                # only close files that were opened from the filesystem
+                if isinstance(source, str):
+                    file.close()
+            
+            # context
+            if i == 0:
+                write_context = context
+            
+            # process values
+            for key, value in values.items():
+                section = self._root._create_section(key)
+                if not section._dirty:
+                    section.set_value(value, adapt=False)
+        
+        return write_context
+    
+    def _write(self, source, format, context=None, include=None, exclude=None):
+        values = self.as_dict(flat=True, convert=False,
+            include=include, exclude=exclude)
+        
+        file = format.open(source, 'w')
+        try:
+            format.write(file, values, context)
+        finally:
+            # only close files that were opened from the filesystem
+            if isinstance(source, str):
+                file.close()
+            else:
+                file.flush()
+        
+        # clean values
+        self.set_dirty(values.keys(), False)
+    
+    def _process_sources(self, sources, format):
+        sources = sources or self.sources
+        if not sources:
+            raise NoSourcesError()
+        
+        if format:
+            if not issubclass(format, Format):
+                format = Config._formats[format](self)
+        else:
+            format = self._format
+        
+        return sources, format
+    
     def _create_section(self, key):
         section = self
         for name in self._make_key(key):
@@ -606,84 +651,12 @@ class Format(object, metaclass=MetaFormat):
         self.read_errors = 'error'
         self.write_errors = 'error'
     
-    def sync(self, sources, include, exclude):
-        """Performs a sync on *sources* with the values in a
-        :class:`~fig.ConfigSection` instance. *include* and *exclude* must be
-        lists of keys."""
-        
-        write_context = None
-        
-        # read unchanged values from sources
-        for i, source in enumerate(reversed(sources)):
-            file = self.open(source)
-            if not file:
-                continue
-            
-            # read file
-            try:
-                values, context = self.read_file(file)
-            except IOError:
-                # XXX: there should be a way of indicating that there
-                # was an error without causing the sync to fail for
-                # other sources
-                continue
-            finally:
-                # only close files that were opened from the filesystem
-                if isinstance(source, str):
-                    file.close()
-            
-            # context
-            if i == 0:
-                write_context = context
-            
-            # process values
-            for key, value in values.items():
-                section = self.config.root._create_section(key)
-                if not section._dirty:
-                    section.set_value(value, adapt=False)
-        
-        values = self.filter_values(include, exclude)
-        
-        # write changed values to the first source
-        source = sources[0]
-        file = self.open(source, 'w')
-        try:
-            self.write_file(file, values, write_context)
-        finally:
-            # only close files that were opened from the filesystem
-            if isinstance(source, str):
-                file.close()
-            else:
-                file.flush()
-        
-        # clean values
-        self.config.set_dirty(values.keys(), False)
-    
-    def filter_values(self, include, exclude):
-        """
-        Returns section values to be passed to :meth:`~fig.Format.write_file`.
-        Also returns a list of keys that should have their dirty flags
-        cleared after a successful write.
-        """
-        return self.config.as_dict(flat=True, convert=False,
-            include=include, exclude=exclude)
-    
-    def read(self, source):
-        """Reads *source* and returns a dict."""
-        with self.open(source) as file:
-            return self.read_file(file)
-    
-    def write(self, source, values, context=None):
-        """Writes the dict *values* to source."""
-        with self.open(source, 'w') as file:
-            self.write_file(file, values, context)
-    
-    def read_file(self, file): # pragma: no cover
+    def read(self, file): # pragma: no cover
         """Reads *file* and returns a dict. Must be implemented
         in a subclass."""
         raise NotImplementedError('abstract')
     
-    def write_file(self, file, values, context=None): # pragma: no cover
+    def write(self, file, values, context=None): # pragma: no cover
         """Writes the dict *values* to file. Must be implemented
         in a subclass."""
         raise NotImplementedError('abstract')
@@ -731,7 +704,7 @@ class Format(object, metaclass=MetaFormat):
 class FigFormat(Format):
     name = 'fig'
     
-    def read_file(self, file):
+    def read(self, file):
         values = {}
         lines = []
         for i, orgline in enumerate(file, 1):
@@ -754,7 +727,7 @@ class FigFormat(Format):
         
         return values, lines
     
-    def write_file(self, file, values, context=None):
+    def write(self, file, values, context=None):
         # first write back values in the order they were read
         lines = context or []
         for line, iskey in lines:
@@ -770,39 +743,11 @@ class FigFormat(Format):
             line = '{}: {}\n'.format(key, value)
             file.write(line)
 
-class JsonFormat(Format):
-    name = 'json'
-    
-    def __init__(self, config):
-        import json
-        
-        super().__init__(config)
-        
-        self._load = json.load
-        self._dump = json.dump
-    
-    def filter_values(self, include, exclude):
-        return self.config.as_dict(flat=False, convert=False,
-            include=include, exclude=exclude)
-    
-    def read_file(self, file):
-        try:
-            return self._load(file), None
-        except ValueError:
-            # file is empty, or invalid json
-            return {}, None
-    
-    def write_file(self, file, values, context=None):
-        if values:
-            self._dump(values, file)
-        else:
-            file.write('')
-
 class IniFormat(Format):
     name = 'ini'
     _rx_section_header = re.compile('\[(.*)\]')
     
-    def read_file(self, file):
+    def read(self, file):
         section = None
         values = {}
         lines = []
@@ -846,7 +791,7 @@ class IniFormat(Format):
         
         return values, lines
     
-    def write_file(self, file, values, context=None):
+    def write(self, file, values, context=None):
         stripbase = lambda k: self.config._keystr(self.config._make_key(k)[1:])
         
         # sort values by section
@@ -922,36 +867,6 @@ class IniFormat(Format):
                     file.write(line)
                 if section != end:
                     file.write('\n')
-
-class PickleFormat(Format):
-    name = 'pickle'
-    
-    def __init__(self, protocol=None):
-        import pickle
-        self._load = pickle.load
-        self._dump = pickle.dump
-        self.protocol = protocol or pickle.HIGHEST_PROTOCOL
-    
-    def read(self, source):
-        with self.open(source, 'rb') as file:
-            return self.read_file(file)
-    
-    def write(self, source, values, context=None):
-        with self.open(source, 'wb') as file:
-            self.write_file(file, values, context)
-    
-    def read_file(self, file):
-        try:
-            return self._load(file), None
-        except EOFError:
-            # file is empty
-            return {}, None
-    
-    def write_file(self, file, values, context=None):
-        if values:
-            self._dump(values, file, self.protocol)
-        else:
-            file.write(b'')
 
 ## Config Errors ##
 
