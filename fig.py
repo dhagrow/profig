@@ -110,41 +110,12 @@ class ConfigSection(collections.MutableMapping):
         *include* or *exclude* can be used to filter the keys that
         are written."""
         
-        sources, format = self._process_sources(sources, format)
-        
         # if caching, adapt cached values
         if self.cache_values:
             for child in self.children(recurse=True):
                 child._adapt_cache()
         
-        # remove redundant entries
-        def fix_clude(clude):
-            clude = set(clude or [])
-            if len(clude) < 2:
-                return clude
-            result = set()
-            rejected = set()
-            # get a set of unique pairs
-            perms = set(frozenset(i) for i in itertools.permutations(clude, 2))
-            for x, y in perms:
-                result |= set([x, y])
-                if x.startswith(y):
-                    rejected.add(y)
-                elif y.startswith(x):
-                    rejected.add(x)
-            return result - rejected
-        
-        # adjust for subsections
-        #sep = self.sep
-        #for clude in (include, exclude):
-            #for c in clude.copy():
-                #clude.remove(c)
-                #clude.add(sep.join([self.key, c]))
-        ## for subsections, use self as an include filter
-        #include.add(self.key)
-        
-        include = fix_clude(include)
-        exclude = fix_clude(exclude)
+        sources, format = self._process_sources(sources, format)
         
         # sync
         context = self._read(sources, format)
@@ -193,13 +164,13 @@ class ConfigSection(collections.MutableMapping):
         If *convert* is `False`, *type* will be ignored.
         """
         try:
-            section = self.section(key)
+            section = self.section(key, create=False)
             return section.value(convert, type)
         except InvalidSectionError:
             return default
     
     def __getitem__(self, key):
-        return self.section(key).value()
+        return self.section(key, create=False).value()
     
     def __setitem__(self, key, value):
         self._create_section(key).set_value(value)
@@ -251,9 +222,10 @@ class ConfigSection(collections.MutableMapping):
         else:
             return dtype()
 
-    def section(self, key, create=False):
+    def section(self, key, create=True):
         """Returns a section object for *key*.
-        If there is no existing section for *key*, an
+        
+        If there is no existing section for *key*, and *create* is `False`, an
         :exc:`~fig.InvalidSectionError` is thrown."""
         
         section = self
@@ -316,12 +288,9 @@ class ConfigSection(collections.MutableMapping):
         
         return self.default(convert, type)
     
-    def set_value(self, value, adapt=True):
-        """
-        Set the section's value.
-        To set the underlying string value, set *adapt* to `False`.
-        """
-        if adapt:
+    def set_value(self, value):
+        """Set the section's value."""
+        if not isinstance(value, str):
             strvalue = self._adapt(value)
             if strvalue != self._value:
                 self._value = strvalue
@@ -355,12 +324,11 @@ class ConfigSection(collections.MutableMapping):
         
         raise NoDefaultError(self.key)
     
-    def set_default(self, default, adapt=True):
+    def set_default(self, default):
         """
         Set the section's default value.
-        To set the underlying string value, set *adapt* to `False`.
         """
-        if adapt:
+        if not isinstance(default, str):
             self._default = self._adapt(default)
             # only set cache if self._value hasn't been set
             if self._value is NoValue:
@@ -421,11 +389,21 @@ class ConfigSection(collections.MutableMapping):
             for key, value in values.items():
                 section = self._root._create_section(key)
                 if not section._dirty:
-                    section.set_value(value, adapt=False)
+                    section.set_value(value)
         
         return write_context
     
     def _write(self, source, format, context=None, include=None, exclude=None):
+        # adjust for subsections
+        if self is not self._root:
+            sep = self.sep
+            for clude in (include, exclude):
+                for c in clude.copy():
+                    clude.remove(c)
+                    clude.add(sep.join([self.key, c]))
+            # for subsections, use self as an include filter
+            include.add(self.key)
+        
         values = self.as_dict(flat=True, convert=False,
             include=include, exclude=exclude)
         

@@ -73,13 +73,38 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(s.default(convert=False), '1')
         self.assertEqual(s.default(type=str), '1')
     
+    def test_set_value(self):
+        c = fig.Config()
+        c.init('c', 1)
+        
+        c.section('a').set_value(2)
+        self.assertEqual(c['a'], 2)
+        
+        c.section('b').set_value('3')
+        self.assertEqual(c['b'], '3')
+        
+        c.section('c').set_value('4')
+        self.assertEqual(c['c'], 4)
+    
+    def test_set_value(self):
+        c = fig.Config()
+        c.init('c', 1)
+        
+        c.section('a').set_default(2)
+        self.assertEqual(c['a'], 2)
+        
+        c.section('b').set_default('3')
+        self.assertEqual(c['b'], '3')
+        
+        c.section('c').set_default('4')
+        self.assertEqual(c['c'], 4)
+    
     def test_section(self):
         c = fig.Config()
         
         with self.assertRaises(fig.InvalidSectionError):
-            c.section('a')
+            c.section('a', create=False)
         
-        c['a'] = 1
         self.assertIs(c.section('a'), c._children['a'])
         
         c['a.a.a'] = 1
