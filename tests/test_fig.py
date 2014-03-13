@@ -351,6 +351,23 @@ paths: path1:path2:path3
 """)
         c.sync(buf)
         self.assertEqual(c['paths'], ['path1', 'path2', 'path3'])
+    
+    def test_choice(self):
+        c = fig.Config()
+        c.coercer.register_choice('color', {1: 'red', 2: 'green', 3: 'blue'})
+        c.init('color', 1, 'color')
+        
+        buf = io.StringIO()
+        c.sync(buf)
+        self.assertEqual(buf.getvalue(), """\
+color: red
+""")
+        
+        buf = io.StringIO("""\
+color: blue
+""")
+        c.sync(buf)
+        self.assertEqual(c['color'], 3)
 
 class TestErrors(unittest.TestCase):
     def test_ReadError(self):
