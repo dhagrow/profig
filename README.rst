@@ -1,7 +1,7 @@
 fig
 ===
 
-*fig* is a configuration management library for Python.
+*fig* is a configuration library for Python.
 
 Motivation
 ----------

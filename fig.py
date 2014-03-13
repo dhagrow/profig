@@ -1,5 +1,5 @@
 """
-A simple-to-use configuration management library.
+A simple-to-use configuration library.
 
     import fig
     cfg = fig.Config('server.cfg')

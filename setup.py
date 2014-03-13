@@ -12,7 +12,7 @@ import fig
 setup(
     name='figpy',
     version=fig.__version__,
-    description='A configuration management library.',
+    description='A configuration library.',
     long_description=open('README.rst').read(),
     author=fig.__author__,
     author_email='cymrow@gmail.com',
