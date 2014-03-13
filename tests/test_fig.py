@@ -2,6 +2,12 @@ import io
 import os
 import unittest
 
+# attempt Qt coercer testing
+try:
+    import PySide
+except ImportError:
+    pass
+
 import fig
 
 class TestBasic(unittest.TestCase):
@@ -85,6 +91,10 @@ class TestBasic(unittest.TestCase):
         c['a'] = 1
         c.init('b', 1)
         
+        s = c.section('c')
+        with self.assertRaises(fig.NoValueError):
+            s.value()
+        
         for key in ['a', 'b']:
             s = c.section(key)
             self.assertEqual(s.value(), 1)
@@ -97,7 +107,7 @@ class TestBasic(unittest.TestCase):
         c.init('b', 1)
         
         s = c.section('a')
-        with self.assertRaises(fig.NoDefaultError):
+        with self.assertRaises(fig.NoValueError):
             s.default()
         
         s = c.section('b')
@@ -312,6 +322,35 @@ b = value
  = 1
 1 = 2
 """)
+
+class TestCoercer(unittest.TestCase):
+    def test_list_value(self):
+        c = fig.Config()
+        c.init('colors', ['red', 'blue'])
+        
+        buf = io.StringIO()
+        c.sync(buf)
+        
+        self.assertEqual(buf.getvalue(), """\
+colors: red,blue
+""")
+    
+    def test_tuple_type(self):
+        c = fig.Config()
+        c.init('paths', ['path1', 'path2'], (list, 'path'))
+        
+        buf = io.StringIO()
+        c.sync(buf)
+        
+        self.assertEqual(buf.getvalue(), """\
+paths: path1:path2
+""")
+        
+        buf = io.StringIO("""\
+paths: path1:path2:path3
+""")
+        c.sync(buf)
+        self.assertEqual(c['paths'], ['path1', 'path2', 'path3'])
 
 class TestErrors(unittest.TestCase):
     def test_ReadError(self):
