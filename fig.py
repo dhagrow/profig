@@ -528,7 +528,7 @@ class ConfigSection(collections.MutableMapping):
         if self._cache is not NoValue:
             strvalue = self._adapt(self._cache)
             if strvalue != self.value(convert=False):
-                self.set_value(strvalue, adapt=False)
+                self.set_value(strvalue)
                 self._dirty = True
     
     def _should_include(self, include, exclude):
