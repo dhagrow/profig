@@ -207,7 +207,24 @@ class ConfigSection(collections.MutableMapping):
             self.key, value, list(self))
     
     def as_dict(self, *, flat=False, recurse=True, convert=True,
-            include=None, exclude=None, dict_type=None):
+        include=None, exclude=None, dict_type=None):
+        """
+        Returns the configuration's keys and values as a dictionary.
+        
+        If *flat* is `True`, returns a single-depth dict with :samp:`.`
+        delimited keys.
+        
+        If *convert* is `True`, all values will be converted. Otherwise, their
+        string representations will be returned.
+        
+        *include* and *exclude* should be lists of key prefixes used to filter
+        the values that are returned.
+        
+        If *dict_type* is not `None`, it should be the mapping class to use
+        for the result. Otherwise, the *dict_type* set by
+        :meth:`~config.Config.__init__` will be used (the default is
+        `OrderedDict`).
+        """
         dtype = dict_type or self._root._dict_type
         valid = self is not self._root and self.valid and self._should_include(include, exclude)
         
