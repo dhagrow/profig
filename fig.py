@@ -1119,33 +1119,6 @@ class Coercer:
         self.register_adapter(type, adapt)
         self.register_converter(type, convert)
     
-    def clear_coercers(self):
-        """Clears all registered adapters and converters."""
-        self.unregister_adapters()
-        self.unregister_converters()
-    
-    def unregister_adapters(self, *types):
-        """
-        Unregister one or more adapters.
-        Unregisters all adapters if no arguments are given.
-        """
-        if not types:
-            self._adapters.clear()
-        else:
-            for type in types:
-                del self._adapters[self._typename(type)]
-    
-    def unregister_converters(self, *types):
-        """
-        Unregister one or more converters.
-        Unregisters all converters if no arguments are given.
-        """
-        if not types:
-            self._converters.clear()
-        else:
-            for type in types:
-                del self._converters[self._typename(type)]
-    
     def _typename(self, type):
         if isinstance(type, str):
             if '.' in type:
