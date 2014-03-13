@@ -33,16 +33,32 @@ installed package name is *fig*.
 Example
 -------
 
-Basic usage is cake::
+Basic usage is cake. Assuming our config file looks like this (INI formatting
+is also supported)::
     
-    >>> import fig
+    server.host: localhost
+    server.port: 9090
+
+First we specify the defaults and types to expect::
+    
     >>> cfg = fig.Config('server.cfg')
     >>> cfg.init('server.host', 'localhost')
     >>> cfg.init('server.port', 8080)
+
+Then we sync our current state with the state of the config file::
+
     >>> cfg.sync()
+
+Then we can access the values directly without any extra effort, either
+directly::
+
     >>> cfg['server.host']
     '192.168.1.1'
-    >>> cfg.section('server')['port']
+
+Or by section::
+    
+    >>> server_cfg = cfg.section('server')
+    >>> server_cfg['port']
     9090
 
 Resources
