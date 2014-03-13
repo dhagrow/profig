@@ -166,7 +166,7 @@ class ConfigSection(collections.MutableMapping):
         try:
             section = self.section(key, create=False)
             return section.value(convert, type)
-        except InvalidSectionError:
+        except (InvalidSectionError, NoValueError):
             return default
     
     def __getitem__(self, key):
@@ -198,12 +198,17 @@ class ConfigSection(collections.MutableMapping):
                 else:
                     yield child._name
     
-    def __repr__(self):
-        return "{}('{}', {!r}, default={!r})".format(
-            self.__class__.__name__, self.key, self._value, self._default)
+    def __repr__(self): # pragma: no cover
+        try:
+            value = self.value()
+        except NoValueError:
+            value = NoValue
+        return "{}('{}', value={!r}, keys={})".format(self.__class__.__name__,
+            self.key, value, list(self))
     
-    def as_dict(self, flat=False, recurse=True, convert=True, include=None, exclude=None):
-        dtype = self._root._dict_type
+    def as_dict(self, *, flat=False, recurse=True, convert=True,
+            include=None, exclude=None, dict_type=None):
+        dtype = dict_type or self._root._dict_type
         valid = self is not self._root and self.valid and self._should_include(include, exclude)
         
         if flat:
@@ -217,8 +222,8 @@ class ConfigSection(collections.MutableMapping):
                 d[''] = self.value(convert)
             for child in self.children():
                 if child._should_include(include, exclude):
-                    d.update(child.as_dict(
-                        convert=convert, include=include, exclude=exclude))
+                    d.update(child.as_dict(convert=convert,
+                        include=include, exclude=exclude, dict_type=dict_type))
             
             return d if self is self._root else dtype({self.name: d})
         elif valid:
@@ -326,7 +331,7 @@ class ConfigSection(collections.MutableMapping):
                     self._cache = self._cache_value(value)
                 return value
         
-        raise NoDefaultError(self.key)
+        raise NoValueError(self.key)
     
     def set_default(self, default):
         """
@@ -597,12 +602,9 @@ class Config(ConfigSection):
             spaces = ' ' * ((len(section._key) - 1) * indent)
             print(spaces, repr(section), sep='')
     
-    def __repr__(self):
-        s = [self.__class__.__name__, '(']
-        if self.sources:
-            s.append('sources={}'.format(self._sources))
-        s.append(')')
-        return ''.join(s)
+    def __repr__(self): # pragma: no cover
+        return '{}(sources={}, keys={})'.format(self.__class__.__name__,
+            self.sources, list(self))
 
 ## Config Formats ##
 
@@ -852,13 +854,13 @@ class UnknownFormatError(ConfigError):
     """Raised when a format is set that has not been registered."""
 
 class InvalidSectionError(KeyError, ConfigError):
-    """Raised when a given section has never been given a value"""
+    """Raised when a section was never created."""
 
-class NoDefaultError(ValueError, ConfigError):
-    """Raised when a given section has no default value"""
+class NoValueError(ValueError, ConfigError):
+    """Raised when a section has no set value or default value."""
 
 class SyncError(ConfigError):
-    """Base class for errors that can occur when syncing"""
+    """Base class for errors that can occur when syncing."""
     def __init__(self, filename=None, message=''):
         self.filename = filename
         self.message = message
@@ -873,7 +875,7 @@ class SyncError(ConfigError):
             return self.message
 
 class ReadError(SyncError):
-    """Raised when a value could not be read from a source"""
+    """Raised when a value could not be read from a source."""
     def __init__(self, filename=None, lineno=None, text='', message=''):
         super().__init__(filename, message)
         self.lineno = lineno
@@ -892,10 +894,10 @@ class ReadError(SyncError):
             return self.message
 
 class WriteError(SyncError):
-    """Raised when a value could not be written to a source"""
+    """Raised when a value could not be written to a source."""
 
 class NoSourcesError(ConfigError):
-    """Raised when there are no sources for a config object"""
+    """Raised when there are no sources for a config object."""
 
 ## Config Utilities ##
 
