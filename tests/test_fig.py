@@ -1,5 +1,8 @@
+from __future__ import unicode_literals
+
 import io
 import os
+import sys
 import unittest
 
 # attempt Qt coercer testing
@@ -9,6 +12,10 @@ except ImportError:
     pass
 
 import fig
+
+# use str for unicode data and bytes for binary data
+if sys.version_info.major < 3:
+    str = unicode
 
 class TestBasic(unittest.TestCase):
     def test_init(self):

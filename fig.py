@@ -9,7 +9,7 @@ A simple-to-use configuration library.
 
 """
 
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import io
 import os
@@ -28,6 +28,10 @@ __all__ = [
     'ConfigError',
     'Coercer', 'CoerceError',
     ]
+
+# use str for unicode data and bytes for binary data
+if sys.version_info.major < 3:
+    str = unicode
 
 # the name *type* is used often so give type() an alias rather than use *typ*
 _type = type
@@ -641,7 +645,7 @@ class MetaFormat(type):
             Config._formats[cls.name] = cls
         return super(MetaFormat, cls).__init__(name, bases, dct)
 
-BaseFormat = MetaFormat('BaseFormat', (object, ), {})
+BaseFormat = MetaFormat(b'BaseFormat', (object, ), {})
 
 class Format(BaseFormat):
     name = None
