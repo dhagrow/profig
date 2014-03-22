@@ -101,7 +101,7 @@ class ConfigSection(collections.MutableMapping):
     
     ## methods ##
     
-    def sync(self, *sources, format=None, include=None, exclude=None):
+    def sync(self, *sources, **kwargs):
         """Reads from sources and writes any changes back to the first source.
 
         If *sources* are provided, syncs only those sources. Otherwise,
@@ -109,6 +109,10 @@ class ConfigSection(collections.MutableMapping):
 
         *include* or *exclude* can be used to filter the keys that
         are written."""
+        
+        format = kwargs.pop('format', None)
+        include = kwargs.pop('include', None)
+        exclude = kwargs.pop('exlude', None)
         
         # if caching, adapt cached values
         if self.cache_values:
@@ -121,7 +125,7 @@ class ConfigSection(collections.MutableMapping):
         context = self._read(sources, format)
         self._write(sources[0], format, context, include, exclude)
     
-    def read(self, *sources, format=None):
+    def read(self, *sources, **kwargs):
         """
         Reads config values.
         
@@ -129,6 +133,7 @@ class ConfigSection(collections.MutableMapping):
         write to the sources in :attr:`~config.Config.sources`. A format for
         *sources* can be set using *format*.
         """
+        format = kwargs.pop('format', None)
         sources, format = self._process_sources(sources, format)
         self._read(sources, format)
     
@@ -206,7 +211,7 @@ class ConfigSection(collections.MutableMapping):
         return "{}('{}', value={!r}, keys={})".format(self.__class__.__name__,
             self.key, value, list(self))
     
-    def as_dict(self, *, flat=False, recurse=True, convert=True,
+    def as_dict(self, flat=False, recurse=True, convert=True,
         include=None, exclude=None, dict_type=None):
         """
         Returns the configuration's keys and values as a dictionary.
@@ -591,20 +596,21 @@ class Config(ConfigSection):
     
     _formats = {}
     
-    def __init__(self, *sources, format=None, dict_type=None):
+    def __init__(self, *sources, **kwargs):
+        format = kwargs.pop('format', 'fig')
+        self._dict_type = kwargs.pop('dict_type', collections.OrderedDict)
+        
         self.coercer = Coercer()
         register_booleans(self.coercer)
-        
-        self._dict_type = dict_type or collections.OrderedDict
 
         self.sources = list(sources)
-        self.set_format(format or 'fig')
+        self.set_format(format)
         
         self.sep = '.'
         self.cache_values = True
         self.coerce_values = True
         
-        super().__init__(None, None)
+        super(Config, self).__init__(None, None)
     
     @classmethod
     def known_formats(cls):
@@ -631,11 +637,13 @@ class MetaFormat(type):
     :class:`~fig.Config` class.
     """
     def __init__(cls, name, bases, dct):
-        if name is not 'Format':
+        if name not in ('BaseFormat', 'Format'):
             Config._formats[cls.name] = cls
-        return super().__init__(name, bases, dct)
+        return super(MetaFormat, cls).__init__(name, bases, dct)
 
-class Format(object, metaclass=MetaFormat):
+BaseFormat = MetaFormat('BaseFormat', (object, ), {})
+
+class Format(BaseFormat):
     name = None
     
     def __init__(self, config):
@@ -894,7 +902,7 @@ class SyncError(ConfigError):
 class ReadError(SyncError):
     """Raised when a value could not be read from a source."""
     def __init__(self, filename=None, lineno=None, text='', message=''):
-        super().__init__(filename, message)
+        super(ReadError, self).__init__(filename, message)
         self.lineno = lineno
         self.text = text
     
