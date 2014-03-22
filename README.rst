@@ -36,7 +36,7 @@ Example
 Basic usage is cake. Assuming our config file looks like this (INI formatting
 is also supported)::
     
-    server.host: localhost
+    server.host: 192.168.1.1
     server.port: 9090
 
 First we specify the defaults and types to expect::
