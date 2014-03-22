@@ -29,8 +29,10 @@ __all__ = [
     'Coercer', 'CoerceError',
     ]
 
+PY3 = sys.version_info.major >= 3
+
 # use str for unicode data and bytes for binary data
-if sys.version_info.major < 3:
+if not PY3:
     str = unicode
 
 # the name *type* is used often so give type() an alias rather than use *typ*
@@ -645,7 +647,7 @@ class MetaFormat(type):
             Config._formats[cls.name] = cls
         return super(MetaFormat, cls).__init__(name, bases, dct)
 
-BaseFormat = MetaFormat(b'BaseFormat', (object, ), {})
+BaseFormat = MetaFormat('BaseFormat' if PY3 else b'BaseFormat', (object, ), {})
 
 class Format(BaseFormat):
     name = None
