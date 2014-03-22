@@ -1,0 +1,6 @@
+0.2.4 (03-21-14)
+- added support for Python 2
+- bugfixes
+
+0.2.3 and earlier (03-12-14)
+- initial releases
