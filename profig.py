@@ -24,7 +24,7 @@ __version__ = '0.2.5'
 
 __all__ = [
     'Config',
-    'FigFormat', 'JsonFormat', 'IniFormat', 'PickleFormat',
+    'ProfigFormat', 'IniFormat',
     'ConfigError',
     'Coercer', 'CoerceError',
     ]
@@ -709,7 +709,7 @@ class Format(BaseFormat):
             else:
                 assert False
 
-class FigFormat(Format):
+class ProfigFormat(Format):
     name = 'profig'
     
     def read(self, file):
