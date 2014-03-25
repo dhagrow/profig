@@ -1,5 +1,5 @@
 profig
-===
+======
 
 *profig* is a configuration library for Python.
 
@@ -10,7 +10,7 @@ Why another configuration library? The simple answer is that none of the
 available options gave me everything I wanted, with an API that I enjoyed using.
 This library is as close to my ideal as I have been able to come. It tries
 to provide some (but not too much) powerful functionality, without sacrificing
-ease-of-use.
+simplicity.
 
 Features
 --------
@@ -25,10 +25,7 @@ Installation
 
 *profig* installs easily using *easy_install* or *pip*::
     
-    $ pip install figpy
-
-NOTE: The package exists as figpy_ on PyPI due to a naming conflict. The
-installed package name is *profig*.
+    $ pip install profig
 
 Example
 -------
@@ -68,7 +65,7 @@ Resources
 * Repository_
 * Documentation_
 
-.. _figpy: https://pypi.python.org/pypi/figpy
-.. _PyPI: https://pypi.python.org/pypi/figpy
+.. _PyPI: https://pypi.python.org/pypi/profig
 .. _Repository: https://bitbucket.org/dhagrow/profig
 .. _Documentation: http://profig.rtfd.org/
+

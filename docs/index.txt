@@ -2,7 +2,7 @@
    sphinx-quickstart on Sat Jun  8 01:16:06 2013.
 
 Behold, profig's documentation!
-============================
+===============================
 
 *profig* is a configuration library for Python.
 
@@ -28,10 +28,7 @@ Installation
 
 *profig* installs easily using *easy_install* or *pip*::
     
-    $ pip install figpy
-
-NOTE: The package exists as figpy_ on PyPI due to a naming conflict. The
-installed package name is *profig*.
+    $ pip install profig
 
 Example
 -------
@@ -89,7 +86,7 @@ keeps a list of contenders that sought to replace the standard library's
 ConfigParser:
 `ConfigParserShootout <https://wiki.python.org/moin/ConfigParserShootout>`_.
 
-.. _figpy: https://pypi.python.org/pypi/figpy
-.. _PyPI: https://pypi.python.org/pypi/figpy
+.. _PyPI: https://pypi.python.org/pypi/profig
 .. _Repository: https://bitbucket.org/dhagrow/profig
 .. _Documentation: http://profig.rtfd.org/
+

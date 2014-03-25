@@ -10,7 +10,7 @@ except ImportError:
 import profig
 
 setup(
-    name='figpy',
+    name='profig',
     version=profig.__version__,
     description='A configuration library.',
     long_description=open('README.rst').read(),
