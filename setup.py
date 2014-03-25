@@ -7,17 +7,17 @@ try:
 except ImportError:
     from distutils.core import setup
 
-import fig
+import profig
 
 setup(
     name='figpy',
-    version=fig.__version__,
+    version=profig.__version__,
     description='A configuration library.',
     long_description=open('README.rst').read(),
-    author=fig.__author__,
+    author=profig.__author__,
     author_email='cymrow@gmail.com',
-    url='https://bitbucket.org/dhagrow/fig/',
-    py_modules=['fig'],
+    url='https://bitbucket.org/dhagrow/profig/',
+    py_modules=['profig'],
     license='MIT',
     platforms = 'any',
     keywords=['config', 'configuration', 'options', 'settings'],

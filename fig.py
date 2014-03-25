@@ -1,8 +1,8 @@
 """
 A simple-to-use configuration library.
 
-    import fig
-    cfg = fig.Config('server.cfg')
+    import profig
+    cfg = profig.Config('server.cfg')
     cfg['server.host'] = '8.8.8.8'
     cfg['server.port'] = 8181
     cfg.sync()
@@ -170,7 +170,7 @@ class ConfigSection(collections.MutableMapping):
         Return the value for key if key is in the dictionary,
         else default. If *default* is not given, it defaults to
         `None`, so that this method never raises an
-        :exc:`~fig.InvalidSectionError`. If *type* is provided,
+        :exc:`~profig.InvalidSectionError`. If *type* is provided,
         it will be used as the type to convert the value from text.
         If *convert* is `False`, *type* will be ignored.
         """
@@ -263,7 +263,7 @@ class ConfigSection(collections.MutableMapping):
         """Returns a section object for *key*.
         
         If there is no existing section for *key*, and *create* is `False`, an
-        :exc:`~fig.InvalidSectionError` is thrown."""
+        :exc:`~profig.InvalidSectionError` is thrown."""
         
         section = self
         for name in self._make_key(key):
@@ -588,22 +588,22 @@ class Config(ConfigSection):
     The root configuration object.
     
     Any number of sources can be set using *sources*. These are the sources
-    that will be using when calling :meth:`~fig.ConfigSection.sync`.
+    that will be using when calling :meth:`~profig.ConfigSection.sync`.
     
     The format of the sources can be set using *format*. This can be either
     the registered name of a format, such as "ini", or a
-    :class:`~fig.Format` class or instance.
+    :class:`~profig.Format` class or instance.
     
     The dict class used internally can be set using *dict_type*. By default
     an `OrderedDict` is used.
     
-    This is a subclass of :class:`~fig.ConfigSection`.
+    This is a subclass of :class:`~profig.ConfigSection`.
     """
     
     _formats = {}
     
     def __init__(self, *sources, **kwargs):
-        format = kwargs.pop('format', 'fig')
+        format = kwargs.pop('format', 'profig')
         self._dict_type = kwargs.pop('dict_type', collections.OrderedDict)
         
         self.coercer = Coercer()
@@ -639,8 +639,8 @@ class Config(ConfigSection):
 
 class MetaFormat(type):
     """
-    Metaclass that registers a :class:`~fig.Format` with the
-    :class:`~fig.Config` class.
+    Metaclass that registers a :class:`~profig.Format` with the
+    :class:`~profig.Config` class.
     """
     def __init__(cls, name, bases, dct):
         if name not in ('BaseFormat', 'Format'):
@@ -710,7 +710,7 @@ class Format(BaseFormat):
                 assert False
 
 class FigFormat(Format):
-    name = 'fig'
+    name = 'profig'
     
     def read(self, file):
         values = {}
@@ -1116,8 +1116,8 @@ class Coercer:
     
     def register_choice(self, type, choices):
         """Registers an adapter and converter for a choice of values.
-        Values passed into :meth:`~fig.Coercer.adapt` or
-        :meth:`~fig.Coercer.convert` for *type* will have to be one of the
+        Values passed into :meth:`~profig.Coercer.adapt` or
+        :meth:`~profig.Coercer.convert` for *type* will have to be one of the
         choices. *choices* must be a dict that maps converted->adapted
         representations."""
         def verify(x, c=choices):

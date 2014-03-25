@@ -8,7 +8,7 @@ It can be convenient to provide users with the ability to override config
 options using command-line switches. Here is an example of how that can
 be done using `argparse`::
     
-    cfg = fig.Config()
+    cfg = profig.Config()
     cfg.init('server.host', 'localhost')
     cfg.init('server.port', 8080)
     
@@ -54,7 +54,7 @@ Here is an example using the `lockfile` module::
 Serialization
 -------------
 
-Because :class:`~fig.ConfigSection` objects are based on dicts, it is easy to
+Because :class:`~profig.ConfigSection` objects are based on dicts, it is easy to
 read/write configs from a serialization format such as JSON or msgpack::
     
     >>> import json
@@ -64,7 +64,7 @@ read/write configs from a serialization format such as JSON or msgpack::
 Format Strings
 --------------
 
-:class:`~fig.Config` objects can be used directly in format strings in
+:class:`~profig.Config` objects can be used directly in format strings in
 several ways::
     
     >>> '{0[server.host]}:{0[server.port]}'.format(cfg)

@@ -1,10 +1,10 @@
-import fig
+import profig
 
 print('Sync')
 print('====')
 
 print('--[Config()]--')
-cfg = fig.Config()
+cfg = profig.Config()
 cfg['server.host'] = '8.8.8.8'
 cfg['server.port'] = 8181
 print(cfg.as_dict())
@@ -37,7 +37,7 @@ print('Initialization')
 print('==============\n')
 
 print('--[Config(app.cfg, app2.cfg)]--')
-cfg = fig.Config('app.cfg', 'app2.cfg')
+cfg = profig.Config('app.cfg', 'app2.cfg')
 
 cfg.init('server.host', '127.0.0.1')
 cfg.init('server.port', 8080, int)
@@ -54,7 +54,7 @@ print('>>app2.cfg<<')
 print()
 
 print('--[Config(app.cfg, app2.cfg)]--')
-cfg = fig.Config('app.cfg', 'app2.cfg')
+cfg = profig.Config('app.cfg', 'app2.cfg')
 cfg['server.host'] = '1.1.1.1'
 cfg['server.ssl'] = True
 

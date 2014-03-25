@@ -1,7 +1,7 @@
-fig
+profig
 ===
 
-*fig* is a configuration library for Python.
+*profig* is a configuration library for Python.
 
 Motivation
 ----------
@@ -23,12 +23,12 @@ Features
 Installation
 ------------
 
-*fig* installs easily using *easy_install* or *pip*::
+*profig* installs easily using *easy_install* or *pip*::
     
     $ pip install figpy
 
 NOTE: The package exists as figpy_ on PyPI due to a naming conflict. The
-installed package name is *fig*.
+installed package name is *profig*.
 
 Example
 -------
@@ -41,7 +41,7 @@ is also supported)::
 
 First we specify the defaults and types to expect::
     
-    >>> cfg = fig.Config('server.cfg')
+    >>> cfg = profig.Config('server.cfg')
     >>> cfg.init('server.host', 'localhost')
     >>> cfg.init('server.port', 8080)
 
@@ -70,5 +70,5 @@ Resources
 
 .. _figpy: https://pypi.python.org/pypi/figpy
 .. _PyPI: https://pypi.python.org/pypi/figpy
-.. _Repository: https://bitbucket.org/dhagrow/fig
-.. _Documentation: http://fig.rtfd.org/
+.. _Repository: https://bitbucket.org/dhagrow/profig
+.. _Documentation: http://profig.rtfd.org/

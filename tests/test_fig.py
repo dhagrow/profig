@@ -11,7 +11,7 @@ try:
 except ImportError:
     pass
 
-import fig
+import profig
 
 # use str for unicode data and bytes for binary data
 if sys.version_info.major < 3:
@@ -19,13 +19,13 @@ if sys.version_info.major < 3:
 
 class TestBasic(unittest.TestCase):
     def test_init(self):
-        c = fig.Config()
+        c = profig.Config()
 
         self.assertEqual(dict(c), {})
         self.assertEqual(c.sources, [])
     
     def test_root(self):
-        c = fig.Config()
+        c = profig.Config()
         c['a'] = 1
         
         self.assertEqual(c.root, c)
@@ -35,29 +35,29 @@ class TestBasic(unittest.TestCase):
         self.assertNotEqual(s.root, s)
     
     def test_formats(self):
-        self.assertEqual(sorted(fig.Config.known_formats()), ['fig', 'ini'])
+        self.assertEqual(sorted(profig.Config.known_formats()), ['profig', 'ini'])
         
-        c = fig.Config()
-        self.assertIsInstance(c._format, fig.FigFormat)
+        c = profig.Config()
+        self.assertIsInstance(c._format, profig.FigFormat)
         
-        c = fig.Config(format='fig')
-        self.assertIsInstance(c._format, fig.FigFormat)
+        c = profig.Config(format='profig')
+        self.assertIsInstance(c._format, profig.FigFormat)
         
-        c = fig.Config(format='ini')
-        self.assertIsInstance(c._format, fig.IniFormat)
+        c = profig.Config(format='ini')
+        self.assertIsInstance(c._format, profig.IniFormat)
         
-        c = fig.Config(format=fig.IniFormat)
-        self.assertIsInstance(c._format, fig.IniFormat)
+        c = profig.Config(format=profig.IniFormat)
+        self.assertIsInstance(c._format, profig.IniFormat)
         
-        c = fig.Config()
-        c.set_format(fig.IniFormat(c))
-        self.assertIsInstance(c._format, fig.IniFormat)
+        c = profig.Config()
+        c.set_format(profig.IniFormat(c))
+        self.assertIsInstance(c._format, profig.IniFormat)
         
-        with self.assertRaises(fig.UnknownFormatError):
-            c = fig.Config(format='marshmallow')
+        with self.assertRaises(profig.UnknownFormatError):
+            c = profig.Config(format='marshmallow')
     
     def test_keys(self):
-        c = fig.Config()
+        c = profig.Config()
         c['a'] = 1
         c['a.a'] = 1
         c[('a', 'a')] = 1
@@ -67,12 +67,12 @@ class TestBasic(unittest.TestCase):
             c[1] = 1
     
     def test_sync(self):
-        c = fig.Config()
-        with self.assertRaises(fig.NoSourcesError):
+        c = profig.Config()
+        with self.assertRaises(profig.NoSourcesError):
             c.sync()
     
     def test_len(self):
-        c = fig.Config()
+        c = profig.Config()
         self.assertEqual(len(c), 0)
         
         c['a'] = 1
@@ -83,7 +83,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(len(c.section('a')), 1)
     
     def test_get(self):
-        c = fig.Config()
+        c = profig.Config()
         c['a'] = 1
         c.init('a.1', 1)
         
@@ -94,12 +94,12 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c.get('a.2', 2), 2)
     
     def test_value(self):
-        c = fig.Config()
+        c = profig.Config()
         c['a'] = 1
         c.init('b', 1)
         
         s = c.section('c')
-        with self.assertRaises(fig.NoValueError):
+        with self.assertRaises(profig.NoValueError):
             s.value()
         
         for key in ['a', 'b']:
@@ -109,12 +109,12 @@ class TestBasic(unittest.TestCase):
             self.assertEqual(s.value(type=str), '1')
     
     def test_default(self):
-        c = fig.Config()
+        c = profig.Config()
         c['a'] = 1
         c.init('b', 1)
         
         s = c.section('a')
-        with self.assertRaises(fig.NoValueError):
+        with self.assertRaises(profig.NoValueError):
             s.default()
         
         s = c.section('b')
@@ -123,7 +123,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(s.default(type=str), '1')
     
     def test_set_value(self):
-        c = fig.Config()
+        c = profig.Config()
         c.init('c', 1)
         
         c.section('a').set_value(2)
@@ -136,7 +136,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c['c'], 4)
     
     def test_set_value(self):
-        c = fig.Config()
+        c = profig.Config()
         c.init('c', 1)
         
         c.section('a').set_default(2)
@@ -149,9 +149,9 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c['c'], 4)
     
     def test_section(self):
-        c = fig.Config()
+        c = profig.Config()
         
-        with self.assertRaises(fig.InvalidSectionError):
+        with self.assertRaises(profig.InvalidSectionError):
             c.section('a', create=False)
         
         self.assertIs(c.section('a'), c._children['a'])
@@ -162,7 +162,7 @@ class TestBasic(unittest.TestCase):
         self.assertIs(c.section('a').section('a').section('a'), child)
     
     def test_as_dict(self):
-        c = fig.Config(dict_type=dict)
+        c = profig.Config(dict_type=dict)
         self.assertEqual(c.as_dict(), {})
         
         c['a'] = 1
@@ -178,7 +178,7 @@ class TestBasic(unittest.TestCase):
             {'a': '1', 'a.a': '1', 'b': '1'})
     
     def test_reset(self):
-        c = fig.Config(dict_type=dict)
+        c = profig.Config(dict_type=dict)
         c.init('a', 1)
         c.init('a.a', 1)
         c['a'] = 2
@@ -197,7 +197,7 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1})
     
     def test_filter(self):
-        c = fig.Config(dict_type=dict)
+        c = profig.Config(dict_type=dict)
         c['a'] = 1
         c['a.a'] = 1
         c['a.b'] = 2
@@ -210,7 +210,7 @@ class TestBasic(unittest.TestCase):
 
 class TestFigFormat(unittest.TestCase):
     def setUp(self):
-        self.c = fig.Config()
+        self.c = profig.Config()
 
         self.c.init('a', 1)
         self.c.init('b', 'value')
@@ -222,7 +222,7 @@ a: 2
 a.1: 3
 b: newvalue
 """)
-        c = fig.Config(buf)
+        c = profig.Config(buf)
         c.read()
         
         self.assertEqual(c['a'], '2')
@@ -231,7 +231,7 @@ b: newvalue
     
     def test_write(self):
         buf = io.StringIO()
-        c = fig.Config(buf)
+        c = profig.Config(buf)
         
         c.init('a', 1)
         c.init('b', 'value')
@@ -258,7 +258,7 @@ b: newvalue
         self.assertEqual(self.c['a.1'], 3)
 
     def test_sync_read_blank(self):
-        c = fig.Config()
+        c = profig.Config()
         buf = io.StringIO("""\
 a: 2
 a.1: 3
@@ -282,7 +282,7 @@ b: value
 
 class TestIniFormat(unittest.TestCase):
     def setUp(self):
-        self.c = fig.Config(format='ini')
+        self.c = profig.Config(format='ini')
 
         self.c.init('a', 1)
         self.c.init('b', 'value')
@@ -301,7 +301,7 @@ b = value
 """)
     
     def test_sync_read_blank(self):
-        c = fig.Config(format='ini')
+        c = profig.Config(format='ini')
         buf = io.StringIO("""\
 [DEFAULT]
 b = value
@@ -332,7 +332,7 @@ b = value
 
 class TestCoercer(unittest.TestCase):
     def test_list_value(self):
-        c = fig.Config()
+        c = profig.Config()
         c.init('colors', ['red', 'blue'])
         
         buf = io.StringIO()
@@ -343,7 +343,7 @@ colors: red,blue
 """)
     
     def test_tuple_type(self):
-        c = fig.Config()
+        c = profig.Config()
         c.init('paths', ['path1', 'path2'], (list, 'path'))
         
         buf = io.StringIO()
@@ -360,7 +360,7 @@ paths: path1:path2:path3
         self.assertEqual(c['paths'], ['path1', 'path2', 'path3'])
     
     def test_choice(self):
-        c = fig.Config()
+        c = profig.Config()
         c.coercer.register_choice('color', {1: 'red', 2: 'green', 3: 'blue'})
         c.init('color', 1, 'color')
         
@@ -378,23 +378,23 @@ color: blue
 
 class TestErrors(unittest.TestCase):
     def test_ReadError(self):
-        c = fig.Config()
+        c = profig.Config()
         c._format.read_errors = 'exception'
         
         buf = io.StringIO("""a""")
-        with self.assertRaises(fig.ReadError):
+        with self.assertRaises(profig.ReadError):
             c.sync(buf)
 
 class TestMisc(unittest.TestCase):
     def test_NoValue(self):
-        self.assertEqual(repr(fig.NoValue), 'NoValue')
+        self.assertEqual(repr(profig.NoValue), 'NoValue')
     
     def test_get_source(self):
         path = os.path.dirname(__file__)
-        self.assertEqual(fig.get_source('test'), os.path.join(path, 'test'))
+        self.assertEqual(profig.get_source('test'), os.path.join(path, 'test'))
         
         path = '~/.config'
-        self.assertEqual(fig.get_source('test', 'user'), os.path.join(path, 'test'))
+        self.assertEqual(profig.get_source('test', 'user'), os.path.join(path, 'test'))
 
 if __name__ == '__main__':
     unittest.main()
