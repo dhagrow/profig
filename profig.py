@@ -595,6 +595,9 @@ class Config(ConfigSection):
     the registered name of a format, such as "ini", or a
     :class:`~profig.Format` class or instance.
     
+    An encoding can be set using *encoding*. If *encoding* is not specified
+    the encoding used is platform dependent: locale.getpreferredencoding(False).
+    
     The dict class used internally can be set using *dict_type*. By default
     an `OrderedDict` is used.
     
