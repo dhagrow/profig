@@ -168,7 +168,7 @@ coercer for byte-strings converts the value to a hex string.
 So, if we consider the following examples using a Python 2 interpreter,
 where `str` objects are byte-strings::
     
-    >>> c['a'] = 'asdf'
+    >>> cfg['a'] = 'asdf'
 
 Will be stored to a config file as::
     
@@ -177,8 +177,8 @@ Will be stored to a config file as::
 If this is not the desired behavior, there are two options. First, we can
 set the type of the value to `unicode` using :meth:`~profig.Config.init`::
     
-    >>> c.init('a', 'asdf', unicode)
+    >>> cfg.init('a', 'asdf', unicode)
 
 Or, we can register different coercers for byte-strings::
     
-    >>> c.coercer.register(str, str, str)
+    >>> cfg.coercer.register(str, str, str)
