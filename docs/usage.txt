@@ -144,3 +144,41 @@ is needed.
 
 Write accepts a dict of values from the :class:`~profig.Config` object and any
 context returned from a call to :meth:`~profig.Format.read`.
+
+Unicode
+-------
+
+*profig* fully supports unicode. The encoding to use for all
+encoding/decoding operations can be set in the :class:`~profig.Config`
+constructor::
+    
+    >>> cfg = profig.Config(encoding='utf-8')
+
+The default is to use the system's preferred encoding.
+
+Keys are handled in a special way. Both byte-string keys and unicode keys
+are considered equivalent, but are stored internally as unicode keys. If
+a byte-string key is used, it will be decoded using the configured encoding.
+
+Values are coerced into a unicode representation before being output to a
+config file. Note that this means that by specifically storing a byte-string
+as a value, *profig* will assume the value is binary data. The default
+coercer for byte-strings converts the value to a hex string.
+
+So, if we consider the following examples using a Python 2 interpreter,
+where `str` objects are byte-strings::
+    
+    >>> c['a'] = 'asdf'
+
+Will be stored to a config file as::
+    
+    a: 61736466
+
+If this is not the desired behavior, there are two options. First, we can
+set the type of the value to `unicode` using :meth:`~profig.Config.init`::
+    
+    >>> c.init('a', 'asdf', unicode)
+
+Or, we can register different coercers for byte-strings::
+    
+    >>> c.coercer.register(str, str, str)
