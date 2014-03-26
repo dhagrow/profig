@@ -402,7 +402,10 @@ class ConfigSection(collections.MutableMapping):
         
         # read unchanged values from sources
         for i, source in enumerate(reversed(sources)):
-            file = format.open(source)
+            try:
+                file = format.open(source)
+            except IOError:
+                continue
             
             # read file
             try:
