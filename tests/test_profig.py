@@ -67,6 +67,14 @@ class TestBasic(unittest.TestCase):
         with self.assertRaises(TypeError):
             c[1] = 1
     
+    def test_unicode_keys(self):
+        c = profig.Config(encoding='shiftjis')
+        c[b'\xdc'] = 1
+        c[b'\xdc.\xdc'] = b'\xdc'
+        
+        self.assertEqual(c[b'\xdc'], c[u'\uff9c'], 1)
+        self.assertEqual(c[b'\xdc.\xdc'], c[u'\uff9c.\uff9c'], b'\uff9c')
+    
     def test_sync(self):
         c = profig.Config()
         with self.assertRaises(profig.NoSourcesError):
@@ -209,47 +217,6 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c.as_dict(flat=True, exclude=['b']), {'a': 1, 'a.a': 1, 'a.b': 2})
         self.assertEqual(c.as_dict(exclude=['b']), {'a': {'': 1, 'a': 1, 'b': 2}})
 
-class TestUnicode(unittest.TestCase):
-    def test_keys(self):
-        c = profig.Config()
-        c[b'a'] = 1
-        c[b'a.b'] = b'x'
-        
-        self.assertEqual(c[b'a'], c[u'a'], 1)
-        self.assertEqual(c[b'a.b'], c[u'a.b'], b'x')
-    
-    def test_read(self):
-        fd, temppath = tempfile.mkstemp()
-        try:
-            with io.open(fd, 'wb') as file:
-                file.write(b"""\
-a: \xdc
-""")
-            
-            c = profig.Config(temppath, encoding='shiftjis')
-            c.read()
-            
-            self.assertEqual(c['a'], '\uff9c')
-        finally:
-            os.remove(temppath)
-    
-    def test_write(self):
-        fd, temppath = tempfile.mkstemp()
-        try:
-            c = profig.Config(temppath, encoding='shiftjis')
-            
-            c['a'] = '\uff9c'
-            c.write()
-            
-            with io.open(fd, 'rb') as file:
-                result = file.read()
-            
-            self.assertEqual(result, b"""\
-a: \xdc
-""")
-        finally:
-            os.remove(temppath)
-
 class TestProfigFormat(unittest.TestCase):
     def setUp(self):
         self.c = profig.Config()
@@ -321,6 +288,38 @@ a: 1
 a.1: 2
 b: value
 """)
+    
+    def test_unicode_read(self):
+        fd, temppath = tempfile.mkstemp()
+        try:
+            with io.open(fd, 'wb') as file:
+                file.write(b"""\
+\xdc: \xdc
+""")
+            
+            c = profig.Config(temppath, encoding='shiftjis')
+            c.read()
+            
+            self.assertEqual(c['\uff9c'], '\uff9c')
+        finally:
+            os.remove(temppath)
+    
+    def test_unicode_write(self):
+        fd, temppath = tempfile.mkstemp()
+        try:
+            c = profig.Config(temppath, encoding='shiftjis')
+            
+            c['\uff9c'] = '\uff9c'
+            c.write()
+            
+            with io.open(fd, 'rb') as file:
+                result = file.read()
+            
+            self.assertEqual(result, b"""\
+\xdc: \xdc
+""")
+        finally:
+            os.remove(temppath)
 
 class TestIniFormat(unittest.TestCase):
     def setUp(self):
@@ -371,6 +370,40 @@ b = value
  = 1
 1 = 2
 """)
+    
+    def test_unicode_read(self):
+        fd, temppath = tempfile.mkstemp()
+        try:
+            with io.open(fd, 'wb') as file:
+                file.write(b"""\
+[DEFAULT]
+\xdc = \xdc
+""")
+            
+            c = profig.Config(temppath, format='ini', encoding='shiftjis')
+            c.read()
+            
+            self.assertEqual(c['\uff9c'], '\uff9c')
+        finally:
+            os.remove(temppath)
+    
+    def test_unicode_write(self):
+        fd, temppath = tempfile.mkstemp()
+        try:
+            c = profig.Config(temppath, format='ini', encoding='shiftjis')
+            
+            c['\uff9c'] = '\uff9c'
+            c.write()
+            
+            with io.open(fd, 'rb') as file:
+                result = file.read()
+            
+            self.assertEqual(result, b"""\
+[DEFAULT]
+\xdc = \xdc
+""")
+        finally:
+            os.remove(temppath)
 
 class TestCoercer(unittest.TestCase):
     def test_list_value(self):
