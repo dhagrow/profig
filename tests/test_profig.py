@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import io
 import os
 import sys
+import tempfile
 import unittest
 
 # attempt Qt coercer testing
@@ -216,6 +217,38 @@ class TestUnicode(unittest.TestCase):
         
         self.assertEqual(c[b'a'], c[u'a'], 1)
         self.assertEqual(c[b'a.b'], c[u'a.b'], b'x')
+    
+    def test_read(self):
+        fd, temppath = tempfile.mkstemp()
+        try:
+            with io.open(fd, 'wb') as file:
+                file.write(b"""\
+a: \xdc
+""")
+            
+            c = profig.Config(temppath, encoding='shiftjis')
+            c.read()
+            
+            self.assertEqual(c['a'], '\uff9c')
+        finally:
+            os.remove(temppath)
+    
+    def test_write(self):
+        fd, temppath = tempfile.mkstemp()
+        try:
+            c = profig.Config(temppath, encoding='shiftjis')
+            
+            c['a'] = '\uff9c'
+            c.write()
+            
+            with io.open(fd, 'rb') as file:
+                result = file.read()
+            
+            self.assertEqual(result, b"""\
+a: \xdc
+""")
+        finally:
+            os.remove(temppath)
 
 class TestProfigFormat(unittest.TestCase):
     def setUp(self):

@@ -16,6 +16,7 @@ import os
 import re
 import sys
 import errno
+import locale
 import itertools
 import collections
 
@@ -401,10 +402,7 @@ class ConfigSection(collections.MutableMapping):
         
         # read unchanged values from sources
         for i, source in enumerate(reversed(sources)):
-            try:
-                file = format.open(source)
-            except FileNotFoundError:
-                continue
+            file = format.open(source)
             
             # read file
             try:
@@ -606,21 +604,21 @@ class Config(ConfigSection):
     _formats = {}
     
     def __init__(self, *sources, **kwargs):
-        format = kwargs.pop('format', 'profig')
-        self.encoding = kwargs.pop('encoding', 'utf-8')
         self._dict_type = kwargs.pop('dict_type', collections.OrderedDict)
+        super(Config, self).__init__(None, None)
+
+        self.sources = list(sources)
+        self.encoding = kwargs.pop('encoding', locale.getpreferredencoding(False))
+        
+        format = kwargs.pop('format', 'profig')
+        self.set_format(format)
         
         self.coercer = Coercer()
         register_booleans(self.coercer)
-
-        self.sources = list(sources)
-        self.set_format(format)
         
         self.sep = '.'
         self.cache_values = True
         self.coerce_values = True
-        
-        super(Config, self).__init__(None, None)
     
     @classmethod
     def known_formats(cls):
@@ -659,6 +657,7 @@ class Format(BaseFormat):
     def __init__(self, config):
         self.config = config
         
+        self.encoding = config.root.encoding
         self.ensure_dirs = 0o744
         self.read_errors = 'error'
         self.write_errors = 'error'
@@ -680,11 +679,14 @@ class Format(BaseFormat):
         The file object will be truncated.
         This method assumes either read or write/append access, but not both.
         """
+        if isinstance(source, bytes):
+            source = source.decode(self.encoding)
+        
         if isinstance(source, str):
             if self.ensure_dirs is not None and 'w' in mode:
                 # ensure the path exists if any writing is to be done
                 ensure_dirs(os.path.dirname(source), self.ensure_dirs)
-            return open(source, mode, *args)
+            return io.open(source, mode, *args, encoding=self.encoding)
         else:
             source.seek(0)
             if 'w' in mode:
