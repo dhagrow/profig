@@ -208,6 +208,15 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c.as_dict(flat=True, exclude=['b']), {'a': 1, 'a.a': 1, 'a.b': 2})
         self.assertEqual(c.as_dict(exclude=['b']), {'a': {'': 1, 'a': 1, 'b': 2}})
 
+class TestUnicode(unittest.TestCase):
+    def test_keys(self):
+        c = profig.Config()
+        c[b'a'] = 1
+        c[b'a.b'] = b'x'
+        
+        self.assertEqual(c[b'a'], c[u'a'], 1)
+        self.assertEqual(c[b'a.b'], c[u'a.b'], b'x')
+
 class TestProfigFormat(unittest.TestCase):
     def setUp(self):
         self.c = profig.Config()

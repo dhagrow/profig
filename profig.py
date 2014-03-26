@@ -498,7 +498,10 @@ class ConfigSection(collections.MutableMapping):
     def _make_key(self, *path):
         key = []
         sep = self._root.sep
+        encoding = self._root.encoding
         for p in path:
+            if p and isinstance(p, bytes):
+                p = p.decode(encoding)
             if p and isinstance(p, str):
                 key.extend(p.split(sep))
             elif isinstance(p, collections.Sequence):
@@ -604,6 +607,7 @@ class Config(ConfigSection):
     
     def __init__(self, *sources, **kwargs):
         format = kwargs.pop('format', 'profig')
+        self.encoding = kwargs.pop('encoding', 'utf-8')
         self._dict_type = kwargs.pop('dict_type', collections.OrderedDict)
         
         self.coercer = Coercer()
