@@ -160,7 +160,6 @@ class ConfigSection(collections.MutableMapping):
         """Initializes a key to the given default value. If *type* is not
         provided, the type of the default value will be used."""
         section = self._create_section(key)
-        section._value = NoValue
         section._cache = NoValue
         section._type = type or default.__class__
         section._has_type = True
