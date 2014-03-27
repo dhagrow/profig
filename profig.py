@@ -194,6 +194,12 @@ class ConfigSection(collections.MutableMapping):
         section = self.section(key)
         del section._parent._children[section.name]
     
+    def __bool__(self):
+        return True
+    
+    def __nonzero__(self):
+        return True
+    
     def __len__(self):
         return len(self._children)
     
