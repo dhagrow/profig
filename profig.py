@@ -319,7 +319,7 @@ class ConfigSection(collections.MutableMapping):
         elif type is None and self._cache is not NoValue:
             return self._cache
         elif self._value is not NoValue:
-            value = self._convert(self._value, type)
+            value = self.convert(self._value, type)
             self._cache = self._cache_value(value)
             return value
         
@@ -328,7 +328,7 @@ class ConfigSection(collections.MutableMapping):
     def set_value(self, value):
         """Set the section's value."""
         if not isinstance(value, str):
-            strvalue = self._adapt(value)
+            strvalue = self.adapt(value)
             if strvalue != self._value:
                 self._value = strvalue
                 self._cache = self._cache_value(value)
@@ -353,7 +353,7 @@ class ConfigSection(collections.MutableMapping):
                 # only use cache if self._value hasn't been set
                 return self._cache
             else:
-                value = self._convert(self._default, type)
+                value = self.convert(self._default, type)
                 # only set cache if self._value hasn't been set
                 if self._value is NoValue:
                     self._cache = self._cache_value(value)
@@ -366,7 +366,7 @@ class ConfigSection(collections.MutableMapping):
         Set the section's default value.
         """
         if not isinstance(default, str):
-            self._default = self._adapt(default)
+            self._default = self.adapt(default)
             # only set cache if self._value hasn't been set
             if self._value is NoValue:
                 self._cache = self._cache_value(default)
@@ -382,11 +382,19 @@ class ConfigSection(collections.MutableMapping):
         for key in self:
             yield (key, self.section(key).value(convert))
     
-    def adapt(self, value, type):
-        return self._root.coercer.adapt(value, type)
+    def adapt(self, value):
+        if self._root.coerce_values:
+            if not self._has_type:
+                self._type = value.__class__
+            return self._root.coercer.adapt(value, self._type)
+        else:
+            return value
     
     def convert(self, value, type):
-        return self._root.coercer.convert(value, type)
+        if self._root.coerce_values:
+            return self._root.coercer.convert(value, type or self._type)
+        else:
+            return value
     
     def clear_cache(self, recurse=False):
         """Clears cached values for this section. If *recurse* is
@@ -524,23 +532,9 @@ class ConfigSection(collections.MutableMapping):
             if self._default is NoValue:
                 self._type = None
     
-    def _adapt(self, value):
-        if self._root.coerce_values:
-            if not self._has_type:
-                self._type = value.__class__
-            return self.adapt(value, self._type)
-        else:
-            return value
-    
-    def _convert(self, value, type=None):
-        if self._root.coerce_values:
-            return self.convert(value, type or self._type)
-        else:
-            return value
-    
     def _adapt_cache(self):
         if self._cache is not NoValue:
-            strvalue = self._adapt(self._cache)
+            strvalue = self.adapt(self._cache)
             if strvalue != self.value(convert=False):
                 self.set_value(strvalue)
                 self._dirty = True
