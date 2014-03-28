@@ -1076,6 +1076,8 @@ class Coercer:
         self.register_converter(type, convert)
     
     def _typename(self, type):
+        if isinstance(type, bytes):
+            type = type.decode('utf-8')
         if isinstance(type, str):
             if '.' in type:
                 return tuple(type.rsplit('.', 1))
@@ -1130,19 +1132,13 @@ def register_default_coercers(coercer):
     coercer.register(list, lambda x: ','.join(x), split)
     coercer.register(set, lambda x: ','.join(x), lambda x: set(split(x)))
     coercer.register(tuple, lambda x: ','.join(x), lambda x: tuple(split(x)))
-    coercer.register(collections.deque, lambda x: ','.join(x),
-        lambda x: collections.deque(split(x)))
     
     # path coercers, os.pathsep delimited
-    coercer.register('path', str, str)
     sep = os.pathsep
     pathsplit = lambda x: x.split(sep) if x else []
-    coercer.register((list, 'path'), lambda x: sep.join(x), pathsplit)
-    coercer.register((set, 'path'), lambda x: sep.join(x), lambda x: set(pathsplit(x)))
-    coercer.register((tuple, 'path'), lambda x: sep.join(x),
-        lambda x: tuple(pathsplit(x)))
-    coercer.register((collections.deque, 'path'), lambda x: sep.join(x),
-        lambda x: collections.deque(pathsplit(x)))
+    coercer.register('path_list', lambda x: sep.join(x), pathsplit)
+    coercer.register('path_set', lambda x: sep.join(x), lambda x: set(pathsplit(x)))
+    coercer.register('path_tuple', lambda x: sep.join(x), lambda x: tuple(pathsplit(x)))
 
 def register_booleans(coercer):
     ## override boolean coercers ##

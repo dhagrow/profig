@@ -417,9 +417,9 @@ class TestCoercer(unittest.TestCase):
 colors: red,blue
 """)
     
-    def test_tuple_type(self):
+    def test_path_value(self):
         c = profig.Config()
-        c.init('paths', ['path1', 'path2'], (list, 'path'))
+        c.init('paths', ['path1', 'path2'], 'path_list')
         
         buf = io.StringIO()
         c.sync(buf)
