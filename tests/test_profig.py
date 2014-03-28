@@ -450,6 +450,9 @@ color: blue
 """)
         c.sync(buf)
         self.assertEqual(c['color'], 3)
+        
+        with self.assertRaises(profig.AdaptError):
+            c['color'] = 4
 
 class TestErrors(unittest.TestCase):
     def test_ReadError(self):
