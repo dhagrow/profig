@@ -1014,80 +1014,34 @@ class Coercer:
     def adapt(self, value, type=None):
         """Adapt a *value* from the given *type* (type to string). If
         *type* is not provided the type of the value will be used."""
+        
         if not type:
             type = _type(value)
         
-        if isinstance(type, tuple):
-            try:
-                try:
-                    # try and get an adapter for the full type sequence
-                    seq_adapter = self._get_adapter(type)
-                except KeyError:
-                    # otherwise use the first type to get the adapter
-                    seq_adapter = self._get_adapter(type[0])
-                
-                # str is default if no other type is given
-                seq_types = type[1:]
-                if not seq_types:
-                    seq_types = [str]
-                
-                ads = itertools.cycle(self._get_adapter(t) for t in seq_types)
-            except KeyError:
-                err = "no adapter registered for '{}'"
-                raise NotRegisteredError(err.format(type))
-            
-            try:
-                return seq_adapter(next(ads)(v) for v in value)
-            except Exception as e:
-                raise AdaptError(e)
-        else:
-            try:
-                func = self._get_adapter(type)
-            except KeyError:
-                err = "no adapter registered for '{}'"
-                raise NotRegisteredError(err.format(type))
-            
-            try:
-                return func(value)
-            except Exception as e:
-                raise AdaptError(e)
+        try:
+            func = self._adapters[self._typename(type)]
+        except KeyError:
+            err = 'no adapter for: {}'
+            raise NotRegisteredError(err.format(type))
+        
+        try:
+            return func(value)
+        except Exception as e:
+            raise AdaptError(e)
     
     def convert(self, value, type):
         """Convert a *value* to the given *type* (string to type)."""
-        if isinstance(type, tuple):
-            try:
-                try:
-                    # try and get a converter for the full type sequence
-                    seq_converter = self._get_converter(type)
-                except KeyError:
-                    # otherwise try the first type to get the converter
-                    seq_converter = self._get_converter(type[0])
-                
-                # str is default if no other type is given
-                seq_types = type[1:]
-                if not seq_types:
-                    seq_types = [str]
-                
-                cons = itertools.cycle(self._get_converter(t) for t in seq_types)
-            except KeyError:
-                err = "no converter registered for '{}'"
-                raise NotRegisteredError(err.format(type))
-            
-            try:
-                return type[0](next(cons)(v) for v in seq_converter(value))
-            except Exception as e:
-                raise ConvertError(e)
-        else:
-            try:
-                func = self._get_converter(type)
-            except KeyError:
-                err = "no converter registered for '{}'"
-                raise NotRegisteredError(err.format(type))
-            
-            try:
-                return func(value)
-            except Exception as e:
-                raise ConvertError(e)
+        
+        try:
+            func = self._converters[self._typename(type)]
+        except KeyError:
+            err = "no converter for: {}"
+            raise NotRegisteredError(err.format(type))
+        
+        try:
+            return func(value)
+        except Exception as e:
+            raise ConvertError(e)
     
     def register(self, type, adapter, converter):
         """Register an adapter and converter for the given type."""
@@ -1137,12 +1091,6 @@ class Coercer:
         else:
             t = _type(type)
             return (t.__module__, t.__name__)
-    
-    def _get_adapter(self, type):
-        return self._adapters[self._typename(type)]
-    
-    def _get_converter(self, type):
-        return self._converters[self._typename(type)]
 
 ## Coercer Errors ##
 
