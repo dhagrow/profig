@@ -1000,11 +1000,6 @@ class Coercer:
     The coercer class, with which adapters and converters can be registered.
     """
     def __init__(self, register_defaults=True, register_qt=None):
-        #: An adapter to fallback to when no other adapter is found.
-        self.adapt_fallback = None
-        #: An converter to fallback to when no other converter is found.
-        self.convert_fallback = None
-        
         self._adapters = {}
         self._converters = {}
         
@@ -1038,33 +1033,24 @@ class Coercer:
                 
                 ads = itertools.cycle(self._get_adapter(t) for t in seq_types)
             except KeyError:
-                # fallback
-                pass
-            else:
-                try:
-                    return seq_adapter(next(ads)(v) for v in value)
-                except Exception as e:
-                    raise AdaptError(e)
+                err = "no adapter registered for '{}'"
+                raise NotRegisteredError(err.format(type))
+            
+            try:
+                return seq_adapter(next(ads)(v) for v in value)
+            except Exception as e:
+                raise AdaptError(e)
         else:
             try:
                 func = self._get_adapter(type)
             except KeyError:
-                # fallback
-                pass
-            else:
-                try:
-                    return func(value)
-                except Exception as e:
-                    raise AdaptError(e)
-        
-        if self.adapt_fallback:
+                err = "no adapter registered for '{}'"
+                raise NotRegisteredError(err.format(type))
+            
             try:
-                return self.adapt_fallback(value)
+                return func(value)
             except Exception as e:
                 raise AdaptError(e)
-        else:
-            err = "no adapter registered for '{}'"
-            raise NotRegisteredError(err.format(type))
     
     def convert(self, value, type):
         """Convert a *value* to the given *type* (string to type)."""
@@ -1084,33 +1070,24 @@ class Coercer:
                 
                 cons = itertools.cycle(self._get_converter(t) for t in seq_types)
             except KeyError:
-                # fallback
-                pass
-            else:
-                try:
-                    return type[0](next(cons)(v) for v in seq_converter(value))
-                except Exception as e:
-                    raise ConvertError(e)
+                err = "no converter registered for '{}'"
+                raise NotRegisteredError(err.format(type))
+            
+            try:
+                return type[0](next(cons)(v) for v in seq_converter(value))
+            except Exception as e:
+                raise ConvertError(e)
         else:
             try:
                 func = self._get_converter(type)
             except KeyError:
-                # fallback
-                pass
-            else:
-                try:
-                    return func(value)
-                except Exception as e:
-                    raise ConvertError(e)
-        
-        if self.convert_fallback:
+                err = "no converter registered for '{}'"
+                raise NotRegisteredError(err.format(type))
+            
             try:
-                return self.convert_fallback(value)
+                return func(value)
             except Exception as e:
                 raise ConvertError(e)
-        else:
-            err = "no converter registered for '{}'"
-            raise NotRegisteredError(err.format(type))
     
     def register(self, type, adapter, converter):
         """Register an adapter and converter for the given type."""
