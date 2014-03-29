@@ -776,14 +776,14 @@ class IniFormat(Format):
                 # blank or comment line
                 lines.append((orgline, False, False))
                 continue
-            else:
-                match = IniFormat._rx_section_header.match(line)
-                if match:
-                    section = match.group(1)
-                    if section.lower() == 'default':
-                        section = ''
-                    lines.append(((section, orgline), False, True))
-                    continue
+            
+            match = IniFormat._rx_section_header.match(line)
+            if match:
+                section = match.group(1)
+                if section.lower() == 'default':
+                    section = ''
+                lines.append(((section, orgline), False, True))
+                continue
             
             if section is None:
                 self._read_error(file, i, line)
@@ -840,7 +840,7 @@ class IniFormat(Format):
                         for key, value in sec.items():
                             if section:
                                 key = stripbase(key)
-                            file.write('{} = {}\n'.format(key, value))
+                            file.write('{}={}\n'.format(key, value))
                         del sections[section]
                         file.write('\n')
                 # new section
@@ -866,7 +866,7 @@ class IniFormat(Format):
                     wkey = key
                     if section:
                         wkey = stripbase(key)
-                    line = '{} = {}\n'.format(wkey, values[key])
+                    line = '{}={}\n'.format(wkey, values[key])
                     del sec[key]
                     if not sec:
                         del sections[section]
@@ -885,7 +885,7 @@ class IniFormat(Format):
                 for key, value in values.items():
                     if section:
                         key = stripbase(key)
-                    line = '{} = {}\n'.format(key, value)
+                    line = '{}={}\n'.format(key, value)
                     file.write(line)
                 if section != end:
                     file.write('\n')

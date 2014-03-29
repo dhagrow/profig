@@ -337,8 +337,8 @@ class TestIniFormat(unittest.TestCase):
         
         self.assertEqual(buf.getvalue(), """\
 [DEFAULT]
-a = 1
-b = value
+a=1
+b=value
 """)
     
     def test_sync_read_blank(self):
@@ -348,7 +348,7 @@ b = value
 b = value
 
 [a]
- = 1
+=1
 1 = 2
 """)
         c.sync(buf)
@@ -363,11 +363,33 @@ b = value
         
         self.assertEqual(buf.getvalue(), """\
 [DEFAULT]
-b = value
+b=value
 
 [a]
- = 1
-1 = 2
+=1
+1=2
+""")
+
+    def test_preserve_order(self):
+        buf = io.StringIO("""\
+[a]
+1=2
+=1
+[DEFAULT]
+b=value
+""")
+        self.c['a.1'] = 3
+        self.c['a'] = 2
+        self.c['b'] = 'test'
+        
+        self.c.sync(buf)
+        
+        self.assertEqual(buf.getvalue(), """\
+[a]
+1=3
+=2
+[DEFAULT]
+b=test
 """)
     
     def test_unicode_read(self):
@@ -376,7 +398,7 @@ b = value
             with io.open(fd, 'wb') as file:
                 file.write(b"""\
 [DEFAULT]
-\xdc = \xdc
+\xdc =\xdc
 """)
             
             c = profig.Config(temppath, format='ini', encoding='shiftjis')
@@ -399,7 +421,7 @@ b = value
             
             self.assertEqual(result, b"""\
 [DEFAULT]
-\xdc = \xdc
+\xdc=\xdc
 """)
         finally:
             os.remove(temppath)
