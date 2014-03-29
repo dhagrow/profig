@@ -356,9 +356,8 @@ b = value
         self.assertEqual(c['a'], '1')
         self.assertEqual(c['b'], 'value')
         self.assertEqual(c['a.1'], '2')
-
-    # XXX: disabled. by default, DEFAULT should be the first section
-    def xtest_subsection(self):
+    
+    def test_subsection(self):
         buf = io.StringIO()
         self.c.sync(buf)
         

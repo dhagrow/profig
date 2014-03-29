@@ -874,11 +874,14 @@ class IniFormat(Format):
         
         # write remaining values
         if sections:
-            last = section
-            end = list(sections.keys())[-1]
-            for section, values in sections.items():
+            last = None
+            key = lambda item: (item[0] == 'DEFAULT', item[0])
+            sects = sorted(sections.items(), key=key)
+            end = sects[-1][0]
+            for section, values in sects:
                 if section != last:
                     file.write('[{}]\n'.format(section or 'DEFAULT'))
+                    last = section
                 for key, value in values.items():
                     if section:
                         key = stripbase(key)
