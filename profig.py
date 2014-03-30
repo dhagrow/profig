@@ -772,7 +772,7 @@ class IniFormat(Format):
         lines = []
         for i, orgline in enumerate(file, 1):
             line = orgline.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith(';'):
                 # blank or comment line
                 lines.append((orgline, False, False))
                 continue

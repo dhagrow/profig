@@ -392,6 +392,36 @@ b=value
 b=test
 """)
     
+    def test_preserve_comments(self):
+        buf = io.StringIO("""\
+;a comment
+[a]
+; another comment
+1=2
+=1
+; yet more comments?
+[DEFAULT]
+b=value
+;arrrrgh!
+""")
+        self.c['a.1'] = 3
+        self.c['a'] = 2
+        self.c['b'] = 'test'
+        
+        self.c.sync(buf)
+        
+        self.assertEqual(buf.getvalue(), """\
+;a comment
+[a]
+; another comment
+1=3
+=2
+; yet more comments?
+[DEFAULT]
+b=test
+;arrrrgh!
+""")
+    
     def test_unicode_read(self):
         fd, temppath = tempfile.mkstemp()
         try:
