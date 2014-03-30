@@ -52,6 +52,8 @@ Nested Sections
 
 Values can be organized and accessed in hierarchies::
     
+    >>> cfg['server.port']
+    8080
     >>> cfg.section('server').as_dict()
     {'host': 'localhost', 'port': 8080}
 
@@ -82,14 +84,12 @@ We can the sync the config file, and access the stored value::
     >>> cfg['editor.open_files']
     ['profig.py', 'test_profig.py']
 
-We can look at how the value is stored in the config file by acquiring the
+We can look at how the value is stored in the config file by using the
 section directly::
 
     >>> sect = cfg.section('editor.open_files')
     >>> sect.value(convert=False)
     'profig.py:test_profig.py'
-
-The following types have de
 
 Adding Coercers
 ---------------
