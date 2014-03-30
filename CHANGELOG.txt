@@ -1,3 +1,7 @@
+0.2.7 (03-29-14)
+- improved INI support
+- bugfixes
+
 0.2.6 (03-26-14)
 - full unicode support
 

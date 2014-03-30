@@ -21,7 +21,8 @@ import itertools
 import collections
 
 __author__  = 'Miguel Turner'
-__version__ = '0.2.6'
+__version__ = '0.2.7'
+__license__ = 'MIT'
 
 __all__ = [
     'Config',
