@@ -22,6 +22,7 @@ Features
 * Simple section nesting.
 * Dict-like access.
 * Easily extensible input/output formats.
+* Preserves ordering and comments of config files.
 
 Installation
 ------------

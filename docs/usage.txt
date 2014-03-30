@@ -47,8 +47,16 @@ value for the option. The third argument is optional and is used by the
 for the option. If the third is not provided, the type of the default value
 will be used to select the correct coercer.
 
-Automatic Typing
-----------------
+Nested Sections
+---------------
+
+Values can be organized and accessed in hierarchies::
+    
+    >>> cfg.section('server').as_dict()
+    {'host': 'localhost', 'port': 8080}
+
+Automatic Typing (Coercion)
+---------------------------
 
 Type information can be applied by initializing a key with a default value::
     
@@ -60,13 +68,57 @@ Type information can be applied by initializing a key with a default value::
     >>> type(port)
     <class 'int'>
 
-Nested Sections
+An alternate type can by specified as the third argument::
+    
+    >>> cfg.init('editor.open_files', [], 'path_list')
+
+Now, supposing we have the following in a config file::
+    
+    editor.open_files: profig.py:test_profig.py
+
+We can the sync the config file, and access the stored value::
+
+    >>> cfg.sync()
+    >>> cfg['editor.open_files']
+    ['profig.py', 'test_profig.py']
+
+We can look at how the value is stored in the config file by acquiring the
+section directly::
+
+    >>> sect = cfg.section('editor.open_files')
+    >>> sect.value(convert=False)
+    'profig.py:test_profig.py'
+
+The following types have de
+
+Adding Coercers
 ---------------
 
-Values can be organized and accessed in hierarchies::
+Functions that define how an object is adapted (object -> string) or converted
+(string -> object) are referred to as "coercers". They can be defined using
+a :class:`~profig.Coercer` object that is accessible as an attribute of the root
+:class:`~profig.Config` object.
+
+Defining a new coercer (or overriding an existing one) is as simple as passing
+two functions to :meth:`~profig.Coercer.register`. For example, a simple
+coercer for a *bool* type could be defined like this::
     
-    >>> cfg.section('server').as_dict()
-    {'host': 'localhost', 'port': 8080}
+    >>> cfg.coercer.register(bool, lambda x: str(int(x)), lambda x: bool(int(x)))
+
+The first argument to :meth:`~profig.Coercer.register` is a value that will be
+used to determine the correct coercer to use. A class object, when available, is
+most convenient, because it allows using a call to `type(obj)` to determine
+which coercer to use. However, any value can be used for the registration,
+including, e.g. strings or tuples.
+
+Using Coercers as Validators
+----------------------------
+
+By default, a coercer will only raise exceptions if there is a fundamental
+incompatibility in the values it is trying to coerce. They can easily be
+defined or overridden, however, to raise exceptions for unexpected ranges of
+inputs or other restrictions that should be in place for a given configuration
+value.
 
 Synchronization
 ---------------
