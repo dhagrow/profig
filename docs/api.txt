@@ -17,7 +17,7 @@ Formats define de/serialization specifics.
 
 .. autoclass:: profig.Format
 
-.. autoclass:: profig.FigFormat
+.. autoclass:: profig.ProfigFormat
 
 .. autoclass:: profig.IniFormat
 

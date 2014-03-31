@@ -23,7 +23,7 @@ c.sync(buf)
 print(buf.getvalue())
 print('len:', len(buf.getvalue()))
 
-print('\nFigFormat')
+print('\nProfigFormat')
 buf = io.StringIO()
 c.set_format('profig')
 c.sync(buf)

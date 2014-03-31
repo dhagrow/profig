@@ -60,7 +60,14 @@ Values can be organized and accessed in hierarchies::
 Automatic Typing (Coercion)
 ---------------------------
 
-Type information can be applied by initializing a key with a default value::
+Automatic typing is referred to as "coercion" within the :mod:`profig` library.
+Functions that adapt (object -> string) or convert (string -> object) values
+are referred to as "coercers".
+
+- Values are "adapted" into strings.
+- Strings are "converted" into values.
+
+Type information can be assigned by initializing a key with a default value::
     
     >>> cfg.init('server.port', 8080)
     >>> cfg.sync()
@@ -70,7 +77,7 @@ Type information can be applied by initializing a key with a default value::
     >>> type(port)
     <class 'int'>
 
-An alternate type can by specified as the third argument::
+A specific type can by specified as the third argument::
     
     >>> cfg.init('editor.open_files', [], 'path_list')
 
@@ -91,13 +98,19 @@ section directly::
     >>> sect.value(convert=False)
     'profig.py:test_profig.py'
 
+.. note:: A note regarding coercion
+    
+    A key consideration that must be taken into account when using coercion
+    is that, by default, no validation of the values is performed.
+    This can lead to errors at unexpected moments. See
+    `Using Coercers as Validators`_ for details.
+
 Adding Coercers
 ---------------
 
-Functions that define how an object is adapted (object -> string) or converted
-(string -> object) are referred to as "coercers". They can be defined using
-a :class:`~profig.Coercer` object that is accessible as an attribute of the root
-:class:`~profig.Config` object.
+Functions that define how an object is coerced (adapted or converted) can be
+defined using the :class:`~profig.Coercer` object that is accessible as an
+attribute of the root :class:`~profig.Config` object.
 
 Defining a new coercer (or overriding an existing one) is as simple as passing
 two functions to :meth:`~profig.Coercer.register`. For example, a simple
@@ -115,8 +128,26 @@ Using Coercers as Validators
 ----------------------------
 
 By default, a coercer will only raise exceptions if there is a fundamental
-incompatibility in the values it is trying to coerce. They can easily be
-defined or overridden, however, to raise exceptions for unexpected ranges of
+incompatibility in the values it is trying to coerce. What this means is that
+even if you register a key with a type of `int`, no restriction is placed on
+the value that can actually be set for the key. This can lead to unexpected
+errors::
+    
+    >>> cfg.init('value', 1) # sets the type of the key to 'int'
+    >>> cfg['value'] = 4.5   # a float value can be set
+    >>> buf = io.StringIO()
+    >>> cfg.sync(buf)
+    >>> buf.getvalue() # the float value is output to the config file
+    'value: 4.5\n'
+    >>> buf = io.StringIO('value: 5.6') # we change the float value
+    >>> cfg.sync(buf)
+    >>> cfg['value'] # this now raises an exception
+    Traceback (most recent call last):
+    ...
+    ConvertError: invalid literal for int() with base 10: '5.6'
+
+Fortunately, this behavior can easily be changed by defining or overriding
+coercers in order to, for example, raise exceptions for unexpected ranges of
 inputs or other restrictions that should be in place for a given configuration
 value.
 
@@ -168,7 +199,7 @@ read/written from/to a source.
 
 The following formats are available:
     
-:class:`~profig.FigFormat`
+:class:`~profig.ProfigFormat`
     The default format. Simple but expressive::
     
         server.host: localhost
