@@ -538,6 +538,21 @@ color: blue
         
         with self.assertRaises(profig.AdaptError):
             c['color'] = 4
+    
+    def test_not_exist_error(self):
+        c = profig.Config()
+        c.init('value', [])
+        
+        with self.assertRaises(profig.NotRegisteredError):
+            c.section('value').value(type='notexist')
+        
+        with self.assertRaises(profig.AdaptError):
+            c['value'] = 3
+        
+        c.init('value', 1)
+        c.section('value').set_value('badvalue')
+        with self.assertRaises(profig.ConvertError):
+            c['value']
 
 class TestErrors(unittest.TestCase):
     def test_ReadError(self):
