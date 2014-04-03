@@ -24,12 +24,7 @@ __author__  = 'Miguel Turner'
 __version__ = '0.2.7'
 __license__ = 'MIT'
 
-__all__ = [
-    'Config',
-    'ProfigFormat', 'IniFormat',
-    'ConfigError',
-    'Coercer', 'CoerceError',
-    ]
+__all__ = ['Config', 'IniFormat', 'ConfigError', 'Coercer', 'CoerceError']
 
 PY3 = sys.version_info.major >= 3
 
@@ -616,7 +611,7 @@ class Config(ConfigSection):
         self.sources = list(sources)
         self.encoding = kwargs.pop('encoding', locale.getpreferredencoding(False))
         
-        format = kwargs.pop('format', 'profig')
+        format = kwargs.pop('format', 'ini')
         self.set_format(format)
         
         self.coercer = Coercer()
@@ -721,50 +716,10 @@ class Format(BaseFormat):
             else:
                 assert False
 
-class ProfigFormat(Format):
-    name = 'profig'
-    
-    def read(self, file):
-        values = {}
-        lines = []
-        for i, orgline in enumerate(file, 1):
-            line = orgline.strip()
-            if not line or line.startswith('#'):
-                # blank or comment line
-                lines.append((orgline, False))
-                continue
-            
-            # get the value
-            try:
-                key, value = line.split(':', 1)
-            except ValueError:
-                self._read_error(file, i, line)
-                continue
-            
-            key = key.strip()
-            values[key] = value.strip()
-            lines.append(((key, orgline), True))
-        
-        return values, lines
-    
-    def write(self, file, values, context=None):
-        # first write back values in the order they were read
-        lines = context or []
-        for line, iskey in lines:
-            if iskey:
-                key, line = line
-                if key in values:
-                    line = '{}: {}\n'.format(key, values[key])
-                    del values[key]
-            file.write(line)
-        
-        # now write remaining (ie. new) values
-        for key, value in values.items():
-            line = '{}: {}\n'.format(key, value)
-            file.write(line)
-
 class IniFormat(Format):
     name = 'ini'
+    key_char = '='
+    comment_chars = (';', '#')
     _rx_section_header = re.compile('\[(.*)\]')
     
     def read(self, file):
@@ -773,16 +728,18 @@ class IniFormat(Format):
         lines = []
         for i, orgline in enumerate(file, 1):
             line = orgline.strip()
-            if not line or line.startswith(';'):
+            if not line or line.startswith(self.comment_chars):
                 # blank or comment line
+                # (orgline, iskey, issection)
                 lines.append((orgline, False, False))
                 continue
             
-            match = IniFormat._rx_section_header.match(line)
+            match = self._rx_section_header.match(line)
             if match:
                 section = match.group(1)
                 if section.lower() == 'default':
                     section = ''
+                # ((section, orgline), iskey, issection)
                 lines.append(((section, orgline), False, True))
                 continue
             
@@ -791,7 +748,7 @@ class IniFormat(Format):
             
             # get the value
             try:
-                key, value = line.split('=', 1)
+                key, value = line.split(self.key_char, 1)
             except ValueError:
                 self._read_error(file, i, line)
                 continue
@@ -807,6 +764,7 @@ class IniFormat(Format):
                 self.config.has_children(key)):
                 # key no longer belongs to the defaults so skip
                 continue
+            # ((key, orgline), iskey, issection)
             lines.append(((key, orgline), True, False))
         
         return values, lines
