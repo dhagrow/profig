@@ -718,7 +718,7 @@ class Format(BaseFormat):
 
 class IniFormat(Format):
     name = 'ini'
-    key_char = '='
+    delimeter = '='
     comment_chars = (';', '#')
     _rx_section_header = re.compile('\[(.*)\]')
     
@@ -748,7 +748,7 @@ class IniFormat(Format):
             
             # get the value
             try:
-                key, value = line.split(self.key_char, 1)
+                key, value = line.split(self.delimeter, 1)
             except ValueError:
                 self._read_error(file, i, line)
                 continue
@@ -799,7 +799,11 @@ class IniFormat(Format):
                         for key, value in sec.items():
                             if section:
                                 key = stripbase(key)
-                            file.write('{}={}\n'.format(key, value))
+                            if key:
+                                line = ' '.join([key, self.delimeter, value]) + '\n'
+                            else:
+                                line = ' '.join([self.delimeter, value]) + '\n'
+                            file.write(line)
                         del sections[section]
                         file.write('\n')
                 # new section
@@ -825,7 +829,10 @@ class IniFormat(Format):
                     wkey = key
                     if section:
                         wkey = stripbase(key)
-                    line = '{}={}\n'.format(wkey, values[key])
+                    if wkey:
+                        line = ' '.join([wkey, self.delimeter, values[key]]) + '\n'
+                    else:
+                        line = ' '.join([self.delimeter, values[key]]) + '\n'
                     del sec[key]
                     if not sec:
                         del sections[section]
@@ -844,7 +851,10 @@ class IniFormat(Format):
                 for key, value in values.items():
                     if section:
                         key = stripbase(key)
-                    line = '{}={}\n'.format(key, value)
+                    if key:
+                        line = ' '.join([key, self.delimeter, value]) + '\n'
+                    else:
+                        line = ' '.join([self.delimeter, value]) + '\n'
                     file.write(line)
                 if section != end:
                     file.write('\n')

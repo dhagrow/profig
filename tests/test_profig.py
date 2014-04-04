@@ -36,13 +36,10 @@ class TestBasic(unittest.TestCase):
         self.assertNotEqual(s.root, s)
     
     def test_formats(self):
-        self.assertEqual(sorted(profig.Config.known_formats()), ['ini', 'profig'])
+        self.assertEqual(sorted(profig.Config.known_formats()), ['ini'])
         
         c = profig.Config()
-        self.assertIsInstance(c._format, profig.ProfigFormat)
-        
-        c = profig.Config(format='profig')
-        self.assertIsInstance(c._format, profig.ProfigFormat)
+        self.assertIsInstance(c._format, profig.IniFormat)
         
         c = profig.Config(format='ini')
         self.assertIsInstance(c._format, profig.IniFormat)
@@ -217,110 +214,6 @@ class TestBasic(unittest.TestCase):
         self.assertEqual(c.as_dict(flat=True, exclude=['b']), {'a': 1, 'a.a': 1, 'a.b': 2})
         self.assertEqual(c.as_dict(exclude=['b']), {'a': {'': 1, 'a': 1, 'b': 2}})
 
-class TestProfigFormat(unittest.TestCase):
-    def setUp(self):
-        self.c = profig.Config()
-
-        self.c.init('a', 1)
-        self.c.init('b', 'value')
-        self.c.init('a.1', 2)
-    
-    def test_read(self):
-        buf = io.StringIO("""\
-a: 2
-a.1: 3
-b: newvalue
-""")
-        c = profig.Config(buf)
-        c.read()
-        
-        self.assertEqual(c['a'], '2')
-        self.assertEqual(c['b'], 'newvalue')
-        self.assertEqual(c['a.1'], '3')
-    
-    def test_write(self):
-        buf = io.StringIO()
-        c = profig.Config(buf)
-        
-        c.init('a', 1)
-        c.init('b', 'value')
-        c.init('a.1', 2)
-        
-        c.write()
-
-        self.assertEqual(buf.getvalue(), """\
-a: 1
-a.1: 2
-b: value
-""")
-
-    def test_sync_read(self):
-        buf = io.StringIO("""\
-a: 2
-a.1: 3
-b: newvalue
-""")
-        self.c.sync(buf)
-        
-        self.assertEqual(self.c['a'], 2)
-        self.assertEqual(self.c['b'], 'newvalue')
-        self.assertEqual(self.c['a.1'], 3)
-
-    def test_sync_read_blank(self):
-        c = profig.Config()
-        buf = io.StringIO("""\
-a: 2
-a.1: 3
-b: newvalue
-""")
-        c.sync(buf)
-        
-        self.assertEqual(c['a'], '2')
-        self.assertEqual(c['b'], 'newvalue')
-        self.assertEqual(c['a.1'], '3')
-
-    def test_sync_write(self):
-        buf = io.StringIO()
-        self.c.sync(buf)
-
-        self.assertEqual(buf.getvalue(), """\
-a: 1
-a.1: 2
-b: value
-""")
-    
-    def test_unicode_read(self):
-        fd, temppath = tempfile.mkstemp()
-        try:
-            with io.open(fd, 'wb') as file:
-                file.write(b"""\
-\xdc: \xdc
-""")
-            
-            c = profig.Config(temppath, encoding='shiftjis')
-            c.read()
-            
-            self.assertEqual(c['\uff9c'], '\uff9c')
-        finally:
-            os.remove(temppath)
-    
-    def test_unicode_write(self):
-        fd, temppath = tempfile.mkstemp()
-        try:
-            c = profig.Config(temppath, encoding='shiftjis')
-            
-            c['\uff9c'] = '\uff9c'
-            c.write()
-            
-            with io.open(fd, 'rb') as file:
-                result = file.read()
-            
-            self.assertEqual(result, b"""\
-\xdc: \xdc
-""")
-        finally:
-            os.remove(temppath)
-
 class TestIniFormat(unittest.TestCase):
     def setUp(self):
         self.c = profig.Config(format='ini')
@@ -337,8 +230,8 @@ class TestIniFormat(unittest.TestCase):
         
         self.assertEqual(buf.getvalue(), """\
 [DEFAULT]
-a=1
-b=value
+a = 1
+b = value
 """)
     
     def test_sync_read_blank(self):
@@ -348,7 +241,7 @@ b=value
 b = value
 
 [a]
-=1
+= 1
 1 = 2
 """)
         c.sync(buf)
@@ -363,21 +256,21 @@ b = value
         
         self.assertEqual(buf.getvalue(), """\
 [DEFAULT]
-b=value
+b = value
 
 [a]
-=1
-1=2
+= 1
+1 = 2
 """)
 
     def test_preserve_order(self):
         buf = io.StringIO("""\
 [a]
-1=2
-=1
+1 = 2
+= 1
 
 [DEFAULT]
-b=value
+b = value
 """)
         self.c['a.1'] = 3
         self.c['a'] = 2
@@ -387,11 +280,11 @@ b=value
         
         self.assertEqual(buf.getvalue(), """\
 [a]
-1=3
-=2
+1 = 3
+= 2
 
 [DEFAULT]
-b=test
+b = test
 """)
     
     def test_preserve_comments(self):
@@ -399,11 +292,11 @@ b=test
 ;a comment
 [a]
 ; another comment
-1=2
-=1
+1 = 2
+= 1
 ; yet more comments?
 [DEFAULT]
-b=value
+b = value
 ;arrrrgh!
 """)
         self.c['a.1'] = 3
@@ -416,11 +309,11 @@ b=value
 ;a comment
 [a]
 ; another comment
-1=3
-=2
+1 = 3
+= 2
 ; yet more comments?
 [DEFAULT]
-b=test
+b = test
 ;arrrrgh!
 """)
     
@@ -428,12 +321,12 @@ b=test
         buf = io.StringIO("""\
 
 [a]
-1=2
+1 = 2
 
 
-=1
+= 1
 [DEFAULT]
-b=value
+b = value
 
 
 """)
@@ -446,12 +339,12 @@ b=value
         self.assertEqual(buf.getvalue(), """\
 
 [a]
-1=3
+1 = 3
 
 
-=2
+= 2
 [DEFAULT]
-b=test
+b = test
 
 
 """)
@@ -485,7 +378,7 @@ b=test
             
             self.assertEqual(result, b"""\
 [DEFAULT]
-\xdc=\xdc
+\xdc = \xdc
 """)
         finally:
             os.remove(temppath)
@@ -499,7 +392,8 @@ class TestCoercer(unittest.TestCase):
         c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-colors: red,blue
+[DEFAULT]
+colors = red,blue
 """)
     
     def test_path_value(self):
@@ -510,11 +404,13 @@ colors: red,blue
         c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-paths: path1:path2
+[DEFAULT]
+paths = path1:path2
 """)
         
         buf = io.StringIO("""\
-paths: path1:path2:path3
+[DEFAULT]
+paths = path1:path2:path3
 """)
         c.sync(buf)
         self.assertEqual(c['paths'], ['path1', 'path2', 'path3'])
@@ -527,11 +423,13 @@ paths: path1:path2:path3
         buf = io.StringIO()
         c.sync(buf)
         self.assertEqual(buf.getvalue(), """\
-color: red
+[DEFAULT]
+color = red
 """)
         
         buf = io.StringIO("""\
-color: blue
+[DEFAULT]
+color = blue
 """)
         c.sync(buf)
         self.assertEqual(c['color'], 3)
