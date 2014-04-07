@@ -19,7 +19,7 @@ setup(
     url='https://bitbucket.org/dhagrow/profig/',
     py_modules=['profig'],
     license='MIT',
-    platforms = 'any',
+    platforms='any',
     keywords=['config', 'configuration', 'options', 'settings'],
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -34,4 +34,3 @@ setup(
         'Programming Language :: Python :: 3.3',
         ],
     )
-    
