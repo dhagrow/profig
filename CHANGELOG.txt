@@ -1,3 +1,10 @@
+0.2.8 (04-11-14)
+- INI format is now the default
+- custom ProfigFormat has been removed
+- can now get/set comments for keys
+- comments and whitespace read from sources are preserved
+- filtering of keys when syncing has been removed (temporarily?)
+
 0.2.7 (03-29-14)
 - improved INI support
 - bugfixes
