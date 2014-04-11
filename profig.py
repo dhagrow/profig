@@ -756,15 +756,20 @@ class IniFormat(Format):
         
         # write back values in the order they were read
         unseen = set(s.key for s in cfg.sections(recurse=True))
+        unseen_sections = set(s.key for s in cfg.sections())
         section_name = None
         lines = lines or []
+        last_line = None
         for i, line in enumerate(lines):
             if line.issection:
+                if line.name not in unseen_sections:
+                    continue
+                
                 # if there is a previous section, write it's remaining values
                 if section_name:
                     section = cfg.section(section_name)
                     for sec in section.sections(recurse=True, include_self=True):
-                        if sec.key in unseen:
+                        if sec.valid and sec.key in unseen:
                             write_section(sec)
                             unseen.discard(sec.key)
                 
@@ -775,25 +780,34 @@ class IniFormat(Format):
                 file.write('[{}]\n'.format(section.name))
                 
                 section_name = section.name
+                unseen_sections.discard(section_name)
             
             elif line.iskey:
+                if line.name not in unseen:
+                    continue
                 write_section(cfg.section(line.name))
                 unseen.discard(line.name)
             
             else:
                 file.write(line.line)
+            
+            last_line = line
+        
+        if last_line and not last_line.name:
+            file.seek(file.tell()-1)
+            file.truncate()
         
         # if there is a previous section, write it's remaining values
         if section_name:
             section = cfg.section(section_name)
             for sec in section.sections(recurse=True, include_self=True):
-                if sec.key in unseen:
+                if sec.valid and sec.key in unseen:
                     write_section(sec)
                     unseen.discard(sec.key)
         
         # write remaining values
         for section in cfg.sections():
-            if section.key in unseen:
+            if section.key in unseen_sections:
                 # section header
                 if section.comment:
                     file.write('{} {}\n'.format(self.comment_char, section.comment))
@@ -806,8 +820,9 @@ class IniFormat(Format):
                 
                 # subsection values
                 for sec in section.sections(recurse=True):
-                    write_section(sec)
-                    unseen.discard(sec.key)
+                    if sec.valid and sec.key in unseen:
+                        write_section(sec)
+                        unseen.discard(sec.key)
                 
                 file.write('\n')
         

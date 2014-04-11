@@ -336,7 +336,6 @@ class TestIniFormat(unittest.TestCase):
 [b]
 = test
 
-
 """)
     
     def test_unicode_read(self):
@@ -372,6 +371,53 @@ class TestIniFormat(unittest.TestCase):
 """)
         finally:
             os.remove(temppath)
+    
+    def test_repeated_values(self):
+        c = profig.Config(format='ini')
+        buf = io.StringIO("""\
+[a]
+b = 1
+b = 2
+""")
+        c.sync(buf)
+        
+        self.assertEqual(c['a.b'], '2')
+        self.assertEqual(buf.getvalue(), """\
+[a]
+b = 2
+""")
+        
+        c['a.b'] = '3'
+        c.sync(buf)
+        
+        self.assertEqual(buf.getvalue(), """\
+[a]
+b = 3
+""")
+    
+    def test_repeated_sections(self):
+        c = profig.Config(format='ini')
+        buf = io.StringIO("""\
+[a]
+b = 1
+b = 2
+
+[b]
+a = 1
+
+[a]
+b = 3
+""")
+        c.sync(buf)
+        
+        self.assertEqual(c['a.b'], '3')    
+        self.assertEqual(buf.getvalue(), """\
+[a]
+b = 3
+
+[b]
+a = 1
+""")
 
 class TestCoercer(unittest.TestCase):
     def test_list_value(self):
