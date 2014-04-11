@@ -727,6 +727,10 @@ class IniFormat(Format):
             
             lines.append(Line(orgline, key, iskey=True))
         
+        # comment left over
+        if comment:
+            lines.append(comment)
+        
         # file has been read. assign the values
         for key, value in values.items():
             section = cfg.section(key)
@@ -740,10 +744,10 @@ class IniFormat(Format):
     def write(self, file, lines=None):
         stripbase = lambda k: cfg._keystr(cfg._make_key(k)[1:])
         def write_section(section):
-            if section.comment:
-                file.write('{} {}\n'.format(self.comment_char, section.comment))
             # strip the first section of the key
             key = stripbase(section.key)
+            if key and section.comment:
+                file.write('{} {}\n'.format(self.comment_char, section.comment))
             parts = filter(None, [key, self.delimeter, section.value(convert=False)])
             file.write(' '.join(parts) + '\n')
             section.dirty = False
@@ -763,7 +767,6 @@ class IniFormat(Format):
                         if sec.key in unseen:
                             write_section(sec)
                             unseen.discard(sec.key)
-                    file.write('\n')
                 
                 # write current section header
                 section = cfg.section(line.name)
@@ -787,7 +790,6 @@ class IniFormat(Format):
                 if sec.key in unseen:
                     write_section(sec)
                     unseen.discard(sec.key)
-            file.write('\n')
         
         # write remaining values
         for section in cfg.sections():
@@ -809,8 +811,9 @@ class IniFormat(Format):
                 
                 file.write('\n')
         
-        file.seek(file.tell()-1)
-        file.truncate()
+        if not lines:
+            file.seek(file.tell()-1)
+            file.truncate()
 
 ## Config Errors ##
 

@@ -296,7 +296,7 @@ class TestIniFormat(unittest.TestCase):
         self.c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-;a comment
+; a comment
 [a]
 ; another comment
 1 = 3
