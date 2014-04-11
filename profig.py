@@ -51,8 +51,10 @@ class ConfigSection(collections.MutableMapping):
         self._default = NoValue
         self._type = None
         self._has_type = False
-        self._dirty = False
         self._parent = parent
+        
+        self.comment = None
+        self.dirty = False
         
         if parent is None:
             # root
@@ -80,6 +82,8 @@ class ConfigSection(collections.MutableMapping):
     @property
     def key(self):
         """The section's key. Read-only."""
+        if self._key is None:
+            return None
         return self._keystr(self._key)
     
     @property
@@ -109,24 +113,20 @@ class ConfigSection(collections.MutableMapping):
 
         If *sources* are provided, syncs only those sources. Otherwise,
         syncs the sources in :attr:`~config.Config.sources`.
-
-        *include* or *exclude* can be used to filter the keys that
-        are written."""
+        """
         
         format = kwargs.pop('format', None)
-        include = kwargs.pop('include', None)
-        exclude = kwargs.pop('exlude', None)
         
         # if caching, adapt cached values
         if self.cache_values:
-            for child in self.children(recurse=True):
-                child._adapt_cache()
+            for section in self.sections(recurse=True):
+                section._adapt_cache()
         
         sources, format = self._process_sources(sources, format)
         
         # sync
-        context = self._read(sources, format)
-        self._write(sources[0], format, context, include, exclude)
+        lines = self._read(sources, format)
+        self._write(sources[0], format, lines)
     
     def read(self, *sources, **kwargs):
         """
@@ -140,7 +140,7 @@ class ConfigSection(collections.MutableMapping):
         sources, format = self._process_sources(sources, format)
         self._read(sources, format)
     
-    def write(self, source=None, format=None, include=None, exclude=None):
+    def write(self, source=None, format=None):
         """
         Writes config values.
         
@@ -150,16 +150,22 @@ class ConfigSection(collections.MutableMapping):
         """
         sources = [source] if source else []
         sources, format = self._process_sources(sources, format)
-        self._write(sources[0], format, include, exclude)
+        self._write(sources[0], format)
     
-    def init(self, key, default, type=None):
-        """Initializes a key to the given default value. If *type* is not
-        provided, the type of the default value will be used."""
+    def init(self, key, default, type=None, comment=None):
+        """Initializes *key* to the given *default* value.
+        
+        If *type* is not provided, the type of the default value will be used.
+        
+        If a *comment* is provided, it may be written out to the config
+        file in a manner consistent with the active :class:`~profig.Format`.
+        """
         section = self._create_section(key)
         section._cache = NoValue
         section._type = type or default.__class__
         section._has_type = True
         section.set_default(default)
+        section.comment = comment
     
     def get(self, key, default=None, convert=True, type=None):
         """
@@ -216,13 +222,11 @@ class ConfigSection(collections.MutableMapping):
             value = self.value()
         except NoValueError:
             value = NoValue
-        return "{}('{}', value={!r}, keys={})".format(self.__class__.__name__,
-            self.key, value, list(self))
+        return "{}('{}', value={!r}, keys={}, comment={!r})".format(
+            self.__class__.__name__, self.key, value, list(self), self.comment)
     
-    def as_dict(self, flat=False, recurse=True, convert=True,
-        include=None, exclude=None, dict_type=None):
-        """
-        Returns the configuration's keys and values as a dictionary.
+    def as_dict(self, flat=False, recurse=True, convert=True, dict_type=None):
+        """Returns the configuration's keys and values as a dictionary.
         
         If *flat* is `True`, returns a single-depth dict with :samp:`.`
         delimited keys.
@@ -230,30 +234,24 @@ class ConfigSection(collections.MutableMapping):
         If *convert* is `True`, all values will be converted. Otherwise, their
         string representations will be returned.
         
-        *include* and *exclude* should be lists of key prefixes used to filter
-        the values that are returned.
-        
         If *dict_type* is not `None`, it should be the mapping class to use
         for the result. Otherwise, the *dict_type* set by
         :meth:`~config.Config.__init__` will be used (the default is
         `OrderedDict`).
         """
         dtype = dict_type or self._root._dict_type
-        valid = self is not self._root and self.valid and self._should_include(include, exclude)
+        valid = self is not self._root and self.valid
         
         if flat:
             sections = ((k, self.section(k)) for k in self)
-            return dtype((k, s.value(convert)) for k, s in sections
-                if s._should_include(include, exclude))
+            return dtype((k, s.value(convert)) for k, s in sections)
         
         if recurse and self._children:
             d = dtype()
             if valid:
                 d[''] = self.value(convert)
-            for child in self.children():
-                if child._should_include(include, exclude):
-                    d.update(child.as_dict(convert=convert,
-                        include=include, exclude=exclude, dict_type=dict_type))
+            for section in self.sections():
+                d.update(section.as_dict(convert=convert, dict_type=dict_type))
             
             return d if self is self._root else dtype({self.name: d})
         elif valid:
@@ -267,6 +265,8 @@ class ConfigSection(collections.MutableMapping):
         If there is no existing section for *key*, and *create* is `False`, an
         :exc:`~profig.InvalidSectionError` is thrown."""
         
+        if key is None:
+            raise InvalidSectionError(key)
         section = self
         for name in self._make_key(key):
             try:
@@ -276,6 +276,23 @@ class ConfigSection(collections.MutableMapping):
                     return self._create_section(key)
                 raise InvalidSectionError(key)
         return section
+
+    def sections(self, recurse=False, include_self=False):
+        """Returns the sections that are children to this section.
+        
+        If *recurse* is `True`, returns grandchildren as well.
+        If *include_self* is `True`, returns this section first.
+        """
+        if include_self:
+            yield self
+        for child in self._children.values():
+            yield child
+            if recurse:
+                for grand in child.sections(recurse):
+                    yield grand
+    
+    def has_children(self, key=None):
+        return self.section(key).has_children() if key else bool(self._children)
     
     def reset(self, recurse=True):
         """Resets this section to it's default value, leaving it
@@ -285,29 +302,8 @@ class ConfigSection(collections.MutableMapping):
         if self is not self._root:
             self._reset()
         if recurse:
-            for child in self.children(recurse):
-                child._reset()
-    
-    def has_children(self, key=None):
-        return self.section(key).has_children() if key else bool(self._children)
-
-    def children(self, recurse=False):
-        """Returns the sections that are children to this section.
-        If *recurse* is `True`, returns grandchildren as well."""
-        for child in self._children.values():
-            yield child
-            if recurse:
-                for grand in child.children(recurse):
-                    yield grand
-    
-    def set_dirty(self, keys, dirty=True):
-        """Sets the :attr:`dirty` flag for *keys*, which, if
-        `True`, will ensure that each key's value is synced.
-        *keys* can be a single key or a sequence of keys."""
-        if isinstance(keys, str):
-            keys = [keys]
-        for key in keys:
-            self.section(key)._dirty = dirty
+            for section in self.sections(recurse):
+                section._reset()
     
     def value(self, convert=True, type=None):
         """
@@ -334,12 +330,12 @@ class ConfigSection(collections.MutableMapping):
             if strvalue != self._value:
                 self._value = strvalue
                 self._cache = self._cache_value(value)
-                self._dirty = True
+                self.dirty = True
         
         elif value != self._value:
             self._value = value
             self._cache = NoValue
-            self._dirty = True
+            self.dirty = True
     
     def default(self, convert=True, type=None):
         """
@@ -401,13 +397,13 @@ class ConfigSection(collections.MutableMapping):
     def clear_cache(self, recurse=False):
         """Clears cached values for this section. If *recurse* is
         `True`, clears the cache for child sections as well."""
-        for section in self.children(recurse):
+        for section in self.sections(recurse):
             section._cache = NoValue
     
     ## utilities ##
     
     def _read(self, sources, format):
-        write_context = None
+        write_lines = None
         
         # read unchanged values from sources
         for i, source in enumerate(reversed(sources)):
@@ -418,7 +414,7 @@ class ConfigSection(collections.MutableMapping):
             
             # read file
             try:
-                values, context = format.read(file)
+                lines = format.read(file)
             except IOError:
                 # XXX: there should be a way of indicating that there
                 # was an error without causing the sync to fail for
@@ -429,44 +425,22 @@ class ConfigSection(collections.MutableMapping):
                 if isinstance(source, str):
                     file.close()
             
-            # context
+            # return lines only for the first source
             if i == 0:
-                write_context = context
-            
-            # process values
-            for key, value in values.items():
-                section = self._root._create_section(key)
-                if not section._dirty:
-                    section.set_value(value)
+                write_lines = lines
         
-        return write_context
+        return write_lines
     
-    def _write(self, source, format, context=None, include=None, exclude=None):
-        # adjust for subsections
-        if self is not self._root:
-            sep = self.sep
-            for clude in (include, exclude):
-                for c in clude.copy():
-                    clude.remove(c)
-                    clude.add(sep.join([self.key, c]))
-            # for subsections, use self as an include filter
-            include.add(self.key)
-        
-        values = self.as_dict(flat=True, convert=False,
-            include=include, exclude=exclude)
-        
+    def _write(self, source, format, lines=None):
         file = format.open(source, 'w')
         try:
-            format.write(file, values, context)
+            format.write(file, lines)
         finally:
             # only close files that were opened from the filesystem
             if isinstance(source, str):
                 file.close()
             else:
                 file.flush()
-        
-        # clean values
-        self.set_dirty(values.keys(), False)
     
     def _process_sources(self, sources, format):
         sources = sources or self.sources
@@ -530,7 +504,7 @@ class ConfigSection(collections.MutableMapping):
         if self._value is not NoValue:
             self._value = NoValue
             self._cache = NoValue
-            self._dirty = True
+            self.dirty = True
             if self._default is NoValue:
                 self._type = None
     
@@ -539,37 +513,7 @@ class ConfigSection(collections.MutableMapping):
             strvalue = self.adapt(self._cache)
             if strvalue != self.value(convert=False):
                 self.set_value(strvalue)
-                self._dirty = True
-    
-    def _should_include(self, include, exclude):
-        # returns the length of the longest matching root
-        def matchroot(roots):
-            match = 0
-            keylen = len(self._key)
-            for root in roots:
-                root = self._make_key(root)
-                rootlen = len(root)
-                if rootlen > keylen:
-                    continue
-                m = 0
-                for i in range(rootlen):
-                    if root[i] != self._key[i]:
-                        m = 0
-                        break
-                    m += 1
-                match = max(match, m)
-            return match
-        
-        # now filter
-        if include:
-            imatch = matchroot(include)
-            ematch = matchroot(exclude or [])
-            return imatch > ematch
-        elif exclude:
-            ematch = matchroot(exclude)
-            return not ematch
-        else:
-            return True
+                self.dirty = True
     
     def _cache_value(self, value):
         # no point in caching a string
@@ -578,7 +522,7 @@ class ConfigSection(collections.MutableMapping):
     
     def _dump(self, indent=2): # pragma: no cover
         rootlen = len(self._key)
-        for section in sorted(self.children(recurse=True)):
+        for section in sorted(self.sections(recurse=True)):
             spaces = ' ' * ((len(section._key) - rootlen) * indent - 1)
             print(spaces, repr(section))
 
@@ -630,7 +574,7 @@ class Config(ConfigSection):
         self._format = self._process_format(format)
     
     def _dump(self, indent=2): # pragma: no cover
-        for section in self.children(recurse=True):
+        for section in self.sections(recurse=True):
             spaces = ' ' * ((len(section._key) - 1) * indent)
             print(spaces, repr(section), sep='')
     
@@ -652,6 +596,11 @@ class MetaFormat(type):
 
 BaseFormat = MetaFormat('BaseFormat' if PY3 else b'BaseFormat', (object, ), {})
 
+class Line(collections.namedtuple('Line', 'line name iskey issection')):
+    __slots__ = ()
+    def __new__(cls, line, name=None, iskey=False, issection=False):
+        return super(Line, cls).__new__(cls, line, name, iskey, issection)
+
 class Format(BaseFormat):
     name = None
     
@@ -660,15 +609,15 @@ class Format(BaseFormat):
         
         self.encoding = config.root.encoding
         self.ensure_dirs = 0o744
-        self.read_errors = 'error'
-        self.write_errors = 'error'
+        self.read_errors = 'exception'
+        self.write_errors = 'exception'
     
     def read(self, file): # pragma: no cover
         """Reads *file* and returns a dict. Must be implemented
         in a subclass."""
         raise NotImplementedError('abstract')
     
-    def write(self, file, values, context=None): # pragma: no cover
+    def write(self, file, values, lines=None): # pragma: no cover
         """Writes the dict *values* to file. Must be implemented
         in a subclass."""
         raise NotImplementedError('abstract')
@@ -719,32 +668,50 @@ class Format(BaseFormat):
 class IniFormat(Format):
     name = 'ini'
     delimeter = '='
-    comment_chars = (';', '#')
+    comment_char = ';'
     _rx_section_header = re.compile('\[(.*)\]')
     
     def read(self, file):
-        section = None
-        values = {}
+        cfg = self.config
+        section_name = None
+        comment = None
         lines = []
+        values = cfg._dict_type()
+        comments = {}
+        
         for i, orgline in enumerate(file, 1):
             line = orgline.strip()
-            if not line or line.startswith(self.comment_chars):
-                # blank or comment line
-                # (orgline, iskey, issection)
-                lines.append((orgline, False, False))
+            
+            # blank line
+            if not line:
+                if comment: # flush any comment
+                    lines.append(comment)
+                    comment = None
+                lines.append(Line(orgline))
                 continue
             
+            # comment line
+            if line.startswith(self.comment_char):
+                if comment: # flush any comment
+                    lines.append(comment)
+                    comment = None
+                comment = Line(orgline, line.lstrip(self.comment_char).strip())
+                continue
+            
+            # section header
             match = self._rx_section_header.match(line)
             if match:
-                section = match.group(1)
-                if section.lower() == 'default':
-                    section = ''
-                # ((section, orgline), iskey, issection)
-                lines.append(((section, orgline), False, True))
+                section_name = match.group(1)
+                values[section_name] = None
+                comments[section_name] = comment.name if comment else None
+                comment = None
+                lines.append(Line(orgline, section_name, issection=True))
                 continue
             
-            if section is None:
+            # ready for key/value, but no section has been read yet
+            if section_name is None:
                 self._read_error(file, i, line)
+                continue
             
             # get the value
             try:
@@ -753,111 +720,97 @@ class IniFormat(Format):
                 self._read_error(file, i, line)
                 continue
             
-            key = key.strip()
-            if section:
-                key = self.config._make_key(section, key)
-                key = self.config._keystr(key)
+            key = cfg._keystr(cfg._make_key(section_name, key.strip()))
             values[key] = value.strip()
+            comments.setdefault(key, comment.name if comment else None)
+            comment = None
             
-            # context
-            if (section == '' and key in self.config and
-                self.config.has_children(key)):
-                # key no longer belongs to the defaults so skip
-                continue
-            # ((key, orgline), iskey, issection)
-            lines.append(((key, orgline), True, False))
+            lines.append(Line(orgline, key, iskey=True))
         
-        return values, lines
-    
-    def write(self, file, values, context=None):
-        stripbase = lambda k: self.config._keystr(self.config._make_key(k)[1:])
-        
-        # sort values by section
-        dict_type = self.config._dict_type
-        sections = dict_type()
-        sep = self.config.sep
+        # file has been read. assign the values
         for key, value in values.items():
-            sec = key.partition(sep)
-            section = sec[0] if sec[2] else ''
-            if section.lower() == 'default':
-                key = stripbase(key)
-                section = ''
-            elif section == '' and self.config.has_children(key):
-                # fix key for section values
-                section = key
-            sections.setdefault(section, dict_type())[key] = value
+            section = cfg.section(key)
+            if not section.dirty and value is not None:
+                section.set_value(value)
+            if key in comments:
+                section.comment = comments[key]
         
-        # first write back values in the order they were read
-        section = None
-        lines = context or []
-        for i, (line, iskey, issection) in enumerate(lines):
-            if issection:
-                if section is not None:
-                    # write remaining values from last section
-                    sec = sections.get(section)
-                    if sec:
-                        for key, value in sec.items():
-                            if section:
-                                key = stripbase(key)
-                            if key:
-                                line = ' '.join([key, self.delimeter, value]) + '\n'
-                            else:
-                                line = ' '.join([self.delimeter, value]) + '\n'
-                            file.write(line)
-                        del sections[section]
-                        file.write('\n')
-                # new section
-                section, line = line
-                if section.lower() == 'default':
-                    section = ''
-                # this will continue unless we find a value
-                # if there is no value, skip this section
-                try:
-                    j = 1
-                    while not lines[i+j][2]:
-                        if lines[i+j][1]:
-                            break
-                        j += 1
-                    else:
-                        continue
-                except IndexError:
-                    continue
-            elif iskey:
-                key, line = line
-                sec = sections.get(section)
-                if sec and key in sec:
-                    wkey = key
-                    if section:
-                        wkey = stripbase(key)
-                    if wkey:
-                        line = ' '.join([wkey, self.delimeter, values[key]]) + '\n'
-                    else:
-                        line = ' '.join([self.delimeter, values[key]]) + '\n'
-                    del sec[key]
-                    if not sec:
-                        del sections[section]
-            file.write(line)
+        return lines
+    
+    def write(self, file, lines=None):
+        stripbase = lambda k: cfg._keystr(cfg._make_key(k)[1:])
+        def write_section(section):
+            if section.comment:
+                file.write('{} {}\n'.format(self.comment_char, section.comment))
+            # strip the first section of the key
+            key = stripbase(section.key)
+            parts = filter(None, [key, self.delimeter, section.value(convert=False)])
+            file.write(' '.join(parts) + '\n')
+            section.dirty = False
+        
+        cfg = self.config
+        
+        # write back values in the order they were read
+        unseen = set(s.key for s in cfg.sections(recurse=True))
+        section_name = None
+        lines = lines or []
+        for i, line in enumerate(lines):
+            if line.issection:
+                # if there is a previous section, write it's remaining values
+                if section_name:
+                    section = cfg.section(section_name)
+                    for sec in section.sections(recurse=True, include_self=True):
+                        if sec.key in unseen:
+                            write_section(sec)
+                            unseen.discard(sec.key)
+                    file.write('\n')
+                
+                # write current section header
+                section = cfg.section(line.name)
+                if section.comment:
+                    file.write('{} {}\n'.format(self.comment_char, section.comment))
+                file.write('[{}]\n'.format(section.name))
+                
+                section_name = section.name
+            
+            elif line.iskey:
+                write_section(cfg.section(line.name))
+                unseen.discard(line.name)
+            
+            else:
+                file.write(line.line)
+        
+        # if there is a previous section, write it's remaining values
+        if section_name:
+            section = cfg.section(section_name)
+            for sec in section.sections(recurse=True, include_self=True):
+                if sec.key in unseen:
+                    write_section(sec)
+                    unseen.discard(sec.key)
+            file.write('\n')
         
         # write remaining values
-        if sections:
-            last = None
-            key = lambda item: (item[0] == 'DEFAULT', item[0])
-            sects = sorted(sections.items(), key=key)
-            end = sects[-1][0]
-            for section, values in sects:
-                if section != last:
-                    file.write('[{}]\n'.format(section or 'DEFAULT'))
-                    last = section
-                for key, value in values.items():
-                    if section:
-                        key = stripbase(key)
-                    if key:
-                        line = ' '.join([key, self.delimeter, value]) + '\n'
-                    else:
-                        line = ' '.join([self.delimeter, value]) + '\n'
-                    file.write(line)
-                if section != end:
-                    file.write('\n')
+        for section in cfg.sections():
+            if section.key in unseen:
+                # section header
+                if section.comment:
+                    file.write('{} {}\n'.format(self.comment_char, section.comment))
+                file.write('[{}]\n'.format(section.name))
+                
+                # section value
+                if section.valid:
+                    file.write('{} {}\n'.format(self.delimeter, section.value(convert=False)))
+                    section.dirty = False
+                
+                # subsection values
+                for sec in section.sections(recurse=True):
+                    write_section(sec)
+                    unseen.discard(sec.key)
+                
+                file.write('\n')
+        
+        file.seek(file.tell()-1)
+        file.truncate()
 
 ## Config Errors ##
 

@@ -201,18 +201,6 @@ class TestBasic(unittest.TestCase):
         
         c.reset()
         self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1})
-    
-    def test_filter(self):
-        c = profig.Config(dict_type=dict)
-        c['a'] = 1
-        c['a.a'] = 1
-        c['a.b'] = 2
-        c['b.a'] = 1
-        
-        self.assertEqual(c.as_dict(flat=True, include=['a']), {'a': 1, 'a.a': 1, 'a.b': 2})
-        self.assertEqual(c.as_dict(include=['a']), {'a': {'': 1, 'a': 1, 'b': 2}})
-        self.assertEqual(c.as_dict(flat=True, exclude=['b']), {'a': 1, 'a.a': 1, 'a.b': 2})
-        self.assertEqual(c.as_dict(exclude=['b']), {'a': {'': 1, 'a': 1, 'b': 2}})
 
 class TestIniFormat(unittest.TestCase):
     def setUp(self):
@@ -229,16 +217,18 @@ class TestIniFormat(unittest.TestCase):
         self.c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-[DEFAULT]
-a = 1
-b = value
+[a]
+= 1
+
+[b]
+= value
 """)
     
     def test_sync_read_blank(self):
         c = profig.Config(format='ini')
         buf = io.StringIO("""\
-[DEFAULT]
-b = value
+[b]
+= value
 
 [a]
 = 1
@@ -255,12 +245,12 @@ b = value
         self.c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-[DEFAULT]
-b = value
-
 [a]
 = 1
 1 = 2
+
+[b]
+= value
 """)
 
     def test_preserve_order(self):
@@ -269,8 +259,8 @@ b = value
 1 = 2
 = 1
 
-[DEFAULT]
-b = value
+[b]
+= value
 """)
         self.c['a.1'] = 3
         self.c['a'] = 2
@@ -283,8 +273,8 @@ b = value
 1 = 3
 = 2
 
-[DEFAULT]
-b = test
+[b]
+= test
 """)
     
     def test_preserve_comments(self):
@@ -295,8 +285,8 @@ b = test
 1 = 2
 = 1
 ; yet more comments?
-[DEFAULT]
-b = value
+[b]
+= value
 ;arrrrgh!
 """)
         self.c['a.1'] = 3
@@ -312,8 +302,8 @@ b = value
 1 = 3
 = 2
 ; yet more comments?
-[DEFAULT]
-b = test
+[b]
+= test
 ;arrrrgh!
 """)
     
@@ -325,8 +315,8 @@ b = test
 
 
 = 1
-[DEFAULT]
-b = value
+[b]
+= value
 
 
 """)
@@ -343,8 +333,8 @@ b = value
 
 
 = 2
-[DEFAULT]
-b = test
+[b]
+= test
 
 
 """)
@@ -354,8 +344,8 @@ b = test
         try:
             with io.open(fd, 'wb') as file:
                 file.write(b"""\
-[DEFAULT]
-\xdc =\xdc
+[\xdc]
+=\xdc
 """)
             
             c = profig.Config(temppath, format='ini', encoding='shiftjis')
@@ -377,8 +367,8 @@ b = test
                 result = file.read()
             
             self.assertEqual(result, b"""\
-[DEFAULT]
-\xdc = \xdc
+[\xdc]
+= \xdc
 """)
         finally:
             os.remove(temppath)
@@ -392,8 +382,8 @@ class TestCoercer(unittest.TestCase):
         c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-[DEFAULT]
-colors = red,blue
+[colors]
+= red,blue
 """)
     
     def test_path_value(self):
@@ -404,13 +394,13 @@ colors = red,blue
         c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-[DEFAULT]
-paths = path1:path2
+[paths]
+= path1:path2
 """)
         
         buf = io.StringIO("""\
-[DEFAULT]
-paths = path1:path2:path3
+[paths]
+= path1:path2:path3
 """)
         c.sync(buf)
         self.assertEqual(c['paths'], ['path1', 'path2', 'path3'])
@@ -423,13 +413,13 @@ paths = path1:path2:path3
         buf = io.StringIO()
         c.sync(buf)
         self.assertEqual(buf.getvalue(), """\
-[DEFAULT]
-color = red
+[color]
+= red
 """)
         
         buf = io.StringIO("""\
-[DEFAULT]
-color = blue
+[color]
+= blue
 """)
         c.sync(buf)
         self.assertEqual(c['color'], 3)
