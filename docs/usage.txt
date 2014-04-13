@@ -223,14 +223,14 @@ To add support for a new format you must subclass :meth:`~profig.Format` and
 override the, :meth:`~profig.Format.read` and :meth:`~profig.Format.write`
 methods.
 
-Read should assign values to `self.config`, which is a local instance of the
-:class:`~profig.Config` object. A *context* value can optionally be returned
-which will be passed to :meth:`~profig.Format.write` during a sync. It can be
-used, for example, to track comments and ordering of the source. `None` can be
-returned if no context is needed.
+Read should assign values to :attr:`~profig.Format.config`, which is a local
+instance of the :class:`~profig.Config` object. A *context* value can
+optionally be returned which will be passed to :meth:`~profig.Format.write`
+during a sync. It can be used, for example, to track comments and ordering of
+the source. `None` can be returned if no context is needed.
 
 Write accepts any context returned from a call to :meth:`~profig.Format.read`
-and should read the values to write from `self.config`.
+and should read the values to write from :attr:`~profig.Format.config`.
 
 Unicode
 -------

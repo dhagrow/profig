@@ -31,7 +31,7 @@ Installation
 Example
 -------
 
-Basic usage is cake. Assuming our config file looks like this::
+Basic usage is cake. Assuming our config file looks like this:
     
     [server]
     host = 192.168.1.1
