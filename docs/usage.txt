@@ -29,7 +29,9 @@ One of the most useful features of the :mod:`profig` library is the ability
 to initialize the options that are expected to be set on a
 :class:`~profig.Config` object.
 
-If you were to sync the following config file without any initialization::
+If you were to sync the following config file without any initialization:
+
+.. code-block:: ini
 
     [server]
     host = 127.0.0.1
@@ -37,14 +39,14 @@ If you were to sync the following config file without any initialization::
 
 The port number would be interpreted as a string, and you would have to
 convert it manually. You can avoid doing this each time you access the value
-by using the :meth:`~profig.Config.init` method::
+by using the :meth:`~profig.ConfigSection.init` method::
     
     >>> cfg.init('server.host', '127.0.0.1')
     >>> cfg.init('server.port', 8080, int)
 
-The second argument to :meth:`~profig.Config.init` specifies a default
+The second argument to :meth:`~profig.ConfigSection.init` specifies a default
 value for the option. The third argument is optional and is used by the
-:c;ass:`~profig.Coercer` to automatically (de)serialize any value that is set
+:class:`~profig.Coercer` to automatically (de)serialize any value that is set
 for the option. If the third argument is not provided, the type of the default
 value will be used to select the correct coercer.
 
@@ -82,9 +84,12 @@ A specific type can by specified as the third argument::
     
     >>> cfg.init('editor.open_files', [], 'path_list')
 
-Now, supposing we have the following in a config file::
+Now, supposing we have the following in a config file:
     
-    editor.open_files: profig.py:test_profig.py
+.. code-block:: ini
+
+    [editor]
+    open_files = profig.py:test_profig.py
 
 We can the sync the config file, and access the stored value::
 
@@ -163,17 +168,19 @@ following order:
     2. Write any values changed on the config object back to the primary
        source.
 
-The configuration can be serialized using the :meth:`~profig.Config.sync`
+The configuration can be serialized using the :meth:`~profig.ConfigSection.sync`
 method::
 
     >>> cfg.sync('app.cfg')
 
-After the call to :meth:`~profig.Config.sync`, a new file with the following
-contents will be created in the current working directory::
+After the call to :meth:`~profig.ConfigSection.sync`, a new file with the following
+contents will be created in the current working directory:
+
+.. code-block:: ini
     
     [server]
-    host: 127.0.0.1
-    port: 8080
+    host = 127.0.0.1
+    port = 8080
 
 Sources
 -------
@@ -199,7 +206,7 @@ Formats
 A :class:`~profig.Format` subclass defines how a configuration should be
 read/written from/to a source.
 
-For the time being, the only format available in the :mod:`profig` package
+For the time being, the only format available in the :mod:`profig` library
 implements INI formatting:
 
 :class:`~profig.IniFormat`
@@ -228,7 +235,7 @@ and should read the values to write from `self.config`.
 Unicode
 -------
 
-*profig* fully supports unicode. The encoding to use for all
+:mod:`profig` fully supports unicode. The encoding to use for all
 encoding/decoding operations can be set in the :class:`~profig.Config`
 constructor::
     
@@ -242,20 +249,23 @@ a byte-string key is used, it will be decoded using the configured encoding.
 
 Values are coerced into a unicode representation before being output to a
 config file. Note that this means that by specifically storing a byte-string
-as a value, *profig* will assume the value is binary data. The default
+as a value, :mod:`profig` will assume the value is binary data. The default
 coercer for byte-strings converts the value to a hex string.
 
 So, if we consider the following examples using a Python 2 interpreter,
 where `str` objects are byte-strings::
     
-    >>> cfg['section.a'] = 'asdf'
+    >>> cfg['default.a'] = 'asdf'
 
-Will be stored to a config file as::
+Will be stored to a config file as:
     
+.. code-block:: ini
+
+    [default]
     a = 61736466
 
 If this is not the desired behavior, there are two options. First, we can
-set the type of the value to `unicode` using :meth:`~profig.Config.init`::
+set the type of the value to `unicode` using :meth:`~profig.ConfigSection.init`::
     
     >>> cfg.init('a', 'asdf', unicode)
 
