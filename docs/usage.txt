@@ -44,9 +44,9 @@ by using the :meth:`~profig.Config.init` method::
 
 The second argument to :meth:`~profig.Config.init` specifies a default
 value for the option. The third argument is optional and is used by the
-:mod:`coerce` module to automatically (de)serialize any value that is set
-for the option. If the third is not provided, the type of the default value
-will be used to select the correct coercer.
+:c;ass:`~profig.Coercer` to automatically (de)serialize any value that is set
+for the option. If the third argument is not provided, the type of the default
+value will be used to select the correct coercer.
 
 Nested Sections
 ---------------
