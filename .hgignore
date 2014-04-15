@@ -3,6 +3,7 @@ syntax: glob
 *.pyc
 *.pyo
 *.egg-info/
+build/
 dist/
 docs/_build/
 htmlcov/
