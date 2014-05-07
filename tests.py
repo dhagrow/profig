@@ -217,21 +217,17 @@ class TestIniFormat(unittest.TestCase):
         self.c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-[a]
-= 1
+[a] = 1
 
-[b]
-= value
+[b] = value
 """)
     
     def test_sync_read_blank(self):
         c = profig.Config(format='ini')
         buf = io.StringIO("""\
-[b]
-= value
+[b] = value
 
-[a]
-= 1
+[a] = 1
 1 = 2
 """)
         c.sync(buf)
@@ -245,22 +241,18 @@ class TestIniFormat(unittest.TestCase):
         self.c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-[a]
-= 1
+[a] = 1
 1 = 2
 
-[b]
-= value
+[b] = value
 """)
 
     def test_preserve_order(self):
         buf = io.StringIO("""\
-[a]
+[a] = 1
 1 = 2
-= 1
 
-[b]
-= value
+[b] = value
 """)
         self.c['a.1'] = 3
         self.c['a'] = 2
@@ -269,24 +261,21 @@ class TestIniFormat(unittest.TestCase):
         self.c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-[a]
+[a] = 2
 1 = 3
-= 2
 
-[b]
-= test
+[b] = test
 """)
     
     def test_preserve_comments(self):
         buf = io.StringIO("""\
 ;a comment
-[a]
+[a] = 1
 ; another comment
 1 = 2
-= 1
+
 ; yet more comments?
-[b]
-= value
+[b] = value
 ;arrrrgh!
 """)
         self.c['a.1'] = 3
@@ -297,26 +286,23 @@ class TestIniFormat(unittest.TestCase):
         
         self.assertEqual(buf.getvalue(), """\
 ; a comment
-[a]
+[a] = 2
 ; another comment
 1 = 3
-= 2
+
 ; yet more comments?
-[b]
-= test
+[b] = test
 ;arrrrgh!
 """)
     
     def test_preserve_whitespace(self):
         buf = io.StringIO("""\
 
-[a]
-1 = 2
+[a] = 1
+1 =2
 
 
-= 1
-[b]
-= value
+[b] = value
 
 
 """)
@@ -328,13 +314,11 @@ class TestIniFormat(unittest.TestCase):
         
         self.assertEqual(buf.getvalue(), """\
 
-[a]
+[a]= 2
 1 = 3
 
 
-= 2
-[b]
-= test
+[b]=test
 
 """)
     
@@ -343,8 +327,7 @@ class TestIniFormat(unittest.TestCase):
         try:
             with io.open(fd, 'wb') as file:
                 file.write(b"""\
-[\xdc]
-=\xdc
+[\xdc] = \xdc
 """)
             
             c = profig.Config(temppath, format='ini', encoding='shiftjis')
@@ -366,8 +349,7 @@ class TestIniFormat(unittest.TestCase):
                 result = file.read()
             
             self.assertEqual(result, b"""\
-[\xdc]
-= \xdc
+[\xdc] = \xdc
 """)
         finally:
             os.remove(temppath)
@@ -428,8 +410,7 @@ class TestCoercer(unittest.TestCase):
         c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-[colors]
-= red,blue
+[colors] = red,blue
 """)
     
     def test_path_value(self):
@@ -440,13 +421,11 @@ class TestCoercer(unittest.TestCase):
         c.sync(buf)
         
         self.assertEqual(buf.getvalue(), """\
-[paths]
-= path1:path2
+[paths] = path1:path2
 """)
         
         buf = io.StringIO("""\
-[paths]
-= path1:path2:path3
+[paths] = path1:path2:path3
 """)
         c.sync(buf)
         self.assertEqual(c['paths'], ['path1', 'path2', 'path3'])
@@ -459,13 +438,11 @@ class TestCoercer(unittest.TestCase):
         buf = io.StringIO()
         c.sync(buf)
         self.assertEqual(buf.getvalue(), """\
-[color]
-= red
+[color] = red
 """)
         
         buf = io.StringIO("""\
-[color]
-= blue
+[color] = blue
 """)
         c.sync(buf)
         self.assertEqual(c['color'], 3)

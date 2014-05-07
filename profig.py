@@ -106,6 +106,10 @@ class ConfigSection(collections.MutableMapping):
     def is_default(self):
         return (self._value is NoValue and self._default is not NoValue)
     
+    @property
+    def has_children(self):
+        return bool(self._children)
+    
     ## methods ##
     
     def sync(self, *sources, **kwargs):
@@ -290,9 +294,6 @@ class ConfigSection(collections.MutableMapping):
             if recurse:
                 for grand in child.sections(recurse):
                     yield grand
-    
-    def has_children(self, key=None):
-        return self.section(key).has_children() if key else bool(self._children)
     
     def reset(self, recurse=True):
         """Resets this section to it's default value, leaving it
@@ -669,51 +670,53 @@ class IniFormat(Format):
     name = 'ini'
     delimeter = '='
     comment_char = ';'
-    _rx_section_header = re.compile('\[(.*)\]')
+    default_section = 'default'
+    _rx_section_header = re.compile('\[\s*(\S*)\s*\](\s*=\s*(\S*))?')
     
     def read(self, file):
         cfg = self.config
-        section_name = None
+        section_name = self.default_section
         comment = None
         lines = []
         values = cfg._dict_type()
         comments = {}
+        
+        def flush_comment(lines, comment):
+            if comment:
+                lines.append(comment)
         
         for i, orgline in enumerate(file, 1):
             line = orgline.strip()
             
             # blank line
             if not line:
-                if comment: # flush any comment
-                    lines.append(comment)
-                    comment = None
+                comment = flush_comment(lines, comment)
                 lines.append(Line(orgline))
                 continue
             
             # comment line
             if line.startswith(self.comment_char):
-                if comment: # flush any comment
-                    lines.append(comment)
-                    comment = None
+                flush_comment(lines, comment)
                 comment = Line(orgline, line.lstrip(self.comment_char).strip())
                 continue
             
             # section header
             match = self._rx_section_header.match(line)
             if match:
-                section_name = match.group(1)
-                values[section_name] = None
+                section_name, _, value = match.groups()
+                
+                # blank sections are set to default
+                if not section_name or section_name.lower() == self.default_section:
+                    section_name = self.default_section
+                
+                values[section_name] = value
                 comments[section_name] = comment.name if comment else None
                 comment = None
+                
                 lines.append(Line(orgline, section_name, issection=True))
                 continue
             
-            # ready for key/value, but no section has been read yet
-            if section_name is None:
-                self._read_error(file, i, line)
-                continue
-            
-            # get the value
+            # must be a value
             try:
                 key, value = line.split(self.delimeter, 1)
             except ValueError:
@@ -777,7 +780,11 @@ class IniFormat(Format):
                 section = cfg.section(line.name)
                 if section.comment:
                     file.write('{} {}\n'.format(self.comment_char, section.comment))
-                file.write('[{}]\n'.format(section.name))
+                if section.value:
+                    file.write('[{}] = {}\n'.format(section.name, section.value(convert=False)))
+                    section.dirty = False
+                else:
+                    file.write('[{}]\n'.format(section.name))
                 
                 section_name = section.name
                 unseen_sections.discard(section_name)
@@ -807,24 +814,30 @@ class IniFormat(Format):
         
         # write remaining values
         for section in cfg.sections():
-            if section.key in unseen_sections:
-                # section header
-                if section.comment:
-                    file.write('{} {}\n'.format(self.comment_char, section.comment))
+            if section.key not in unseen_sections:
+                continue
+            
+            if not section.has_children:
+                write_section(section)
+                unseen.discard(section.key)
+                continue
+            
+            # section header
+            if section.comment:
+                file.write('{} {}\n'.format(self.comment_char, section.comment))
+            if section.value:
+                file.write('[{}] = {}\n'.format(section.name, section.value(convert=False)))
+                section.dirty = False
+            else:
                 file.write('[{}]\n'.format(section.name))
-                
-                # section value
-                if section.valid:
-                    file.write('{} {}\n'.format(self.delimeter, section.value(convert=False)))
-                    section.dirty = False
-                
-                # subsection values
-                for sec in section.sections(recurse=True):
-                    if sec.valid and sec.key in unseen:
-                        write_section(sec)
-                        unseen.discard(sec.key)
-                
-                file.write('\n')
+            
+            # subsection values
+            for sec in section.sections(recurse=True):
+                if sec.valid and sec.key in unseen:
+                    write_section(sec)
+                    unseen.discard(sec.key)
+            
+            file.write('\n')
         
         if not lines:
             file.seek(file.tell()-1)
