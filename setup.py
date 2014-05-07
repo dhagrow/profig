@@ -18,7 +18,7 @@ setup(
     author_email='cymrow@gmail.com',
     url='https://bitbucket.org/dhagrow/profig/',
     py_modules=['profig'],
-    license='MIT',
+    license=profig.__license__,
     platforms='any',
     keywords=['config', 'configuration', 'options', 'settings'],
     classifiers=[
