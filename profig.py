@@ -817,7 +817,7 @@ class IniFormat(Format):
             # section header
             if section.comment:
                 file.write('{} {}\n'.format(self.comment_char, section.comment))
-            if section.value:
+            if section.valid:
                 file.write('[{}] = {}\n'.format(section.name, section.value(convert=False)))
                 section.dirty = False
             else:
