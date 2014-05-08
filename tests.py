@@ -314,11 +314,11 @@ class TestIniFormat(unittest.TestCase):
         
         self.assertEqual(buf.getvalue(), """\
 
-[a]= 2
+[a] = 2
 1 = 3
 
 
-[b]=test
+[b] = test
 
 """)
     

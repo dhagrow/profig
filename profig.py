@@ -21,7 +21,7 @@ import itertools
 import collections
 
 __author__  = 'Miguel Turner'
-__version__ = '0.2.8'
+__version__ = '0.2.9'
 __license__ = 'MIT'
 
 __all__ = ['Config', 'IniFormat', 'ConfigError', 'Coercer', 'CoerceError']
@@ -281,14 +281,11 @@ class ConfigSection(collections.MutableMapping):
                 raise InvalidSectionError(key)
         return section
 
-    def sections(self, recurse=False, include_self=False):
+    def sections(self, recurse=False):
         """Returns the sections that are children to this section.
         
         If *recurse* is `True`, returns grandchildren as well.
-        If *include_self* is `True`, returns this section first.
         """
-        if include_self:
-            yield self
         for child in self._children.values():
             yield child
             if recurse:
@@ -771,7 +768,7 @@ class IniFormat(Format):
                 # if there is a previous section, write it's remaining values
                 if section_name:
                     section = cfg.section(section_name)
-                    for sec in section.sections(recurse=True, include_self=True):
+                    for sec in section.sections(recurse=True):
                         if sec.valid and sec.key in unseen:
                             write_section(sec)
                             unseen.discard(sec.key)
@@ -780,7 +777,7 @@ class IniFormat(Format):
                 section = cfg.section(line.name)
                 if section.comment:
                     file.write('{} {}\n'.format(self.comment_char, section.comment))
-                if section.value:
+                if section.valid:
                     file.write('[{}] = {}\n'.format(section.name, section.value(convert=False)))
                     section.dirty = False
                 else:
@@ -807,7 +804,7 @@ class IniFormat(Format):
         # if there is a previous section, write it's remaining values
         if section_name:
             section = cfg.section(section_name)
-            for sec in section.sections(recurse=True, include_self=True):
+            for sec in section.sections(recurse=True):
                 if sec.valid and sec.key in unseen:
                     write_section(sec)
                     unseen.discard(sec.key)
@@ -815,11 +812,6 @@ class IniFormat(Format):
         # write remaining values
         for section in cfg.sections():
             if section.key not in unseen_sections:
-                continue
-            
-            if not section.has_children:
-                write_section(section)
-                unseen.discard(section.key)
                 continue
             
             # section header
