@@ -1,3 +1,7 @@
+0.2.9 (05-27-14)
+- bugfixes
+- new syntax for sections with both children, and a value: [section] = value
+
 0.2.8 (04-11-14)
 - INI format is now the default
 - custom ProfigFormat has been removed
