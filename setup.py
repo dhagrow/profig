@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import sys
 import os
+import sys
 try:
     from setuptools import setup
 except ImportError:
@@ -9,11 +9,14 @@ except ImportError:
 
 import profig
 
+BASE_DIR = os.path.dirname(__file__)
+README_PATH = os.path.join(BASE_DIR, 'README.rst')
+
 setup(
     name='profig',
     version=profig.__version__,
     description='A configuration library.',
-    long_description=open('README.rst').read(),
+    long_description=open(README_PATH).read(),
     author=profig.__author__,
     author_email='cymrow@gmail.com',
     url='https://bitbucket.org/dhagrow/profig/',
