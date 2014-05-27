@@ -295,33 +295,6 @@ class TestIniFormat(unittest.TestCase):
 ;arrrrgh!
 """)
     
-    def test_preserve_whitespace(self):
-        buf = io.StringIO("""\
-
-[a] = 1
-1 =2
-
-
-[b] = value
-
-
-""")
-        self.c['a.1'] = 3
-        self.c['a'] = 2
-        self.c['b'] = 'test'
-        
-        self.c.sync(buf)
-        
-        self.assertEqual(buf.getvalue(), """\
-
-[a] = 2
-1 = 3
-
-
-[b] = test
-
-""")
-    
     def test_unicode_read(self):
         fd, temppath = tempfile.mkstemp()
         try:

@@ -63,7 +63,7 @@ class ConfigSection(collections.MutableMapping):
         else:
             # child
             self._root = parent._root
-            self._key = self._make_key(parent._key, name)
+            self._key = self._keystr(self._make_key(parent._key, name))
             parent._children[name] = self
         
         self._children = self._root._dict_type()
@@ -82,9 +82,7 @@ class ConfigSection(collections.MutableMapping):
     @property
     def key(self):
         """The section's key. Read-only."""
-        if self._key is None:
-            return None
-        return self._keystr(self._key)
+        return self._key
     
     @property
     def name(self):
@@ -519,9 +517,10 @@ class ConfigSection(collections.MutableMapping):
         return value if should_cache else NoValue
     
     def _dump(self, indent=2): # pragma: no cover
-        rootlen = len(self._key)
+        rootlen = len(self._make_key(self._key))
         for section in sorted(self.sections(recurse=True)):
-            spaces = ' ' * ((len(section._key) - rootlen) * indent - 1)
+            sectionlen = len(self._make_key(section._key))
+            spaces = ' ' * ((sectionlen - rootlen) * indent - 1)
             print(spaces, repr(section))
 
 class Config(ConfigSection):
@@ -573,7 +572,8 @@ class Config(ConfigSection):
     
     def _dump(self, indent=2): # pragma: no cover
         for section in self.sections(recurse=True):
-            spaces = ' ' * ((len(section._key) - 1) * indent)
+            sectionlen = len(self._make_key(section._key))
+            spaces = ' ' * ((sectionlen - 1) * indent)
             print(spaces, repr(section), sep='')
     
     def __repr__(self): # pragma: no cover
@@ -688,7 +688,6 @@ class IniFormat(Format):
             # blank line
             if not line:
                 comment = flush_comment(lines, comment)
-                lines.append(Line(orgline))
                 continue
             
             # comment line
@@ -741,99 +740,80 @@ class IniFormat(Format):
         
         return lines
     
-    def write(self, file, lines=None):
-        stripbase = lambda k: cfg._keystr(cfg._make_key(k)[1:])
-        def write_section(section):
-            # strip the first section of the key
-            key = stripbase(section.key)
-            if key and section.comment:
-                file.write('{} {}\n'.format(self.comment_char, section.comment))
-            parts = filter(None, [key, self.delimeter, section.value(convert=False)])
-            file.write(' '.join(parts) + '\n')
-            section.dirty = False
+    def write_section(self, section, file, first=False):
+        if not first and section.parent is section.root:
+            file.write('\n')
         
+        if section.comment:
+            file.write('{} {}\n'.format(self.comment_char, section.comment))
+        
+        if section.parent is section.root:
+            # header section
+            if section.valid:
+                value = section.value(convert=False)
+                file.write('[{}] = {}\n'.format(section.name, value))
+            else:
+                file.write('[{}]\n'.format(section.name))
+        elif section.valid:
+            # value section
+            cfg = self.config
+            key = cfg._keystr(cfg._make_key(section.key)[1:])
+            value = section.value(convert=False)
+            
+            file.write('{} {} {}\n'.format(key, self.delimeter, value))
+        
+        section.dirty = False
+    
+    def write(self, file, lines=None):
         cfg = self.config
         
         # write back values in the order they were read
-        unseen = set(s.key for s in cfg.sections(recurse=True))
-        unseen_sections = set(s.key for s in cfg.sections())
-        section_name = None
+        seen = set()
+        header = None
         lines = lines or []
-        last_line = None
+        first = True
         for i, line in enumerate(lines):
             if line.issection:
-                if line.name not in unseen_sections:
+                if line.name in seen:
                     continue
                 
-                # if there is a previous section, write it's remaining values
-                if section_name:
-                    section = cfg.section(section_name)
-                    for sec in section.sections(recurse=True):
-                        if sec.valid and sec.key in unseen:
-                            write_section(sec)
-                            unseen.discard(sec.key)
+                # if there is a previous header section, write it's remaining values
+                if header:
+                    for sec in header.sections(recurse=True):
+                        if sec.key not in seen:
+                            self.write_section(sec, file)
+                            seen.add(sec.key)
                 
                 # write current section header
-                section = cfg.section(line.name)
-                if section.comment:
-                    file.write('{} {}\n'.format(self.comment_char, section.comment))
-                if section.valid:
-                    file.write('[{}] = {}\n'.format(section.name, section.value(convert=False)))
-                    section.dirty = False
-                else:
-                    file.write('[{}]\n'.format(section.name))
-                
-                section_name = section.name
-                unseen_sections.discard(section_name)
+                header = cfg.section(line.name)
+                self.write_section(header, file, first)
+                seen.add(header.key)
+                first = False
             
             elif line.iskey:
-                if line.name not in unseen:
+                if line.name in seen:
                     continue
-                write_section(cfg.section(line.name))
-                unseen.discard(line.name)
+                self.write_section(cfg.section(line.name), file)
+                seen.add(line.name)
             
             else:
                 file.write(line.line)
-            
-            last_line = line
         
-        if last_line and not last_line.name:
-            file.seek(file.tell()-1)
-            file.truncate()
-        
-        # if there is a previous section, write it's remaining values
-        if section_name:
-            section = cfg.section(section_name)
-            for sec in section.sections(recurse=True):
-                if sec.valid and sec.key in unseen:
-                    write_section(sec)
-                    unseen.discard(sec.key)
+        # if there is a previous header section, write it's remaining values
+        if header:
+            for sec in header.sections(recurse=True):
+                if sec.key not in seen:
+                    self.write_section(sec, file)
+                    seen.add(sec.key)
         
         # write remaining values
-        for section in cfg.sections():
-            if section.key not in unseen_sections:
+        for section in cfg.sections(recurse=True):
+            if section.key in seen:
                 continue
             
-            # section header
-            if section.comment:
-                file.write('{} {}\n'.format(self.comment_char, section.comment))
-            if section.valid:
-                file.write('[{}] = {}\n'.format(section.name, section.value(convert=False)))
-                section.dirty = False
-            else:
-                file.write('[{}]\n'.format(section.name))
-            
-            # subsection values
-            for sec in section.sections(recurse=True):
-                if sec.valid and sec.key in unseen:
-                    write_section(sec)
-                    unseen.discard(sec.key)
-            
-            file.write('\n')
-        
-        if not lines:
-            file.seek(file.tell()-1)
-            file.truncate()
+            self.write_section(section, file, first)
+            seen.add(section.key)
+            first = False
 
 ## Config Errors ##
 
