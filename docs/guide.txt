@@ -1,8 +1,8 @@
 Guide
 =====
 
-Keys
-----
+Sections
+--------
 
 A :class:`~profig.Config` object can be used directly without any initialization::
     
@@ -11,16 +11,22 @@ A :class:`~profig.Config` object can be used directly without any initialization
     cfg['server.host'] = '8.8.8.8'
     cfg['server.port'] = 8181
 
-Configuration keys are :samp:`.` delimited strings where each preceding name
-refers to a section, and the final name refers to a key with a value. In
-the example above, `server` is a section name, while `host` and `port` are
-keys within the section.
+Configuration keys are :samp:`.` delimited strings where each name
+refers to a section. In the example above, `server` is a section name, and
+`host` and `port` are sections which are assigned values.
 
 For a quick look at the hierarchical structure of the options, you can easily
 get the dict representation::
     
     >>> cfg.as_dict()
     {'server': {'host': '8.8.8.8', 'port': 8181}}
+
+Section can also be organized and accessed in hierarchies::
+    
+    >>> cfg['server.port']
+    8181
+    >>> cfg.section('server').as_dict()
+    {'host': 'localhost', 'port': 8181}
 
 Initialization
 --------------
@@ -45,20 +51,10 @@ by using the :meth:`~profig.ConfigSection.init` method::
     >>> cfg.init('server.port', 8080, int)
 
 The second argument to :meth:`~profig.ConfigSection.init` specifies a default
-value for the option. The third argument is optional and is used by the
+value for the option. The third argument is optional and is used by an internal
 :class:`~profig.Coercer` to automatically (de)serialize any value that is set
 for the option. If the third argument is not provided, the type of the default
 value will be used to select the correct coercer.
-
-Nested Sections
----------------
-
-Values can be organized and accessed in hierarchies::
-    
-    >>> cfg['server.port']
-    8080
-    >>> cfg.section('server').as_dict()
-    {'host': 'localhost', 'port': 8080}
 
 Automatic Typing (Coercion)
 ---------------------------
@@ -84,6 +80,8 @@ A specific type can by specified as the third argument::
     
     >>> cfg.init('editor.open_files', [], 'path_list')
 
+In this case we are using a custom coercer type that has been registered to
+handle lists of paths.
 Now, supposing we have the following in a config file:
     
 .. code-block:: ini
@@ -104,11 +102,12 @@ section directly::
     >>> sect.value(convert=False)
     'profig.py:test_profig.py'
 
-.. note:: A note regarding coercion
+.. note::
     
     A key consideration that must be taken into account when using coercion
-    is that, by default, no validation of the values is performed.
-    This can lead to errors at unexpected moments. See
+    is that, by default, no validation of the values is performed, as dictated
+    by the Python convention of duck-typing.
+    This can lead to errors at if not anticipated. See
     `Using Coercers as Validators`_ for details.
 
 Adding Coercers
@@ -152,7 +151,7 @@ errors::
     ...
     ConvertError: invalid literal for int() with base 10: '5.6'
 
-Fortunately, this behavior can easily be changed by defining or overriding
+Fortunately, this behavior can be changed easily by defining or overriding
 coercers in order to, for example, raise exceptions for unexpected ranges of
 inputs or other restrictions that should be in place for a given configuration
 value.
@@ -168,12 +167,11 @@ following order:
     2. Write any values changed on the config object back to the primary
        source.
 
-The configuration can be serialized using the :meth:`~profig.ConfigSection.sync`
-method::
+This is done using the :meth:`~profig.ConfigSection.sync` method::
 
     >>> cfg.sync('app.cfg')
 
-After the call to :meth:`~profig.ConfigSection.sync`, a new file with the following
+After a call to :meth:`~profig.ConfigSection.sync`, a new file with the following
 contents will be created in the current working directory:
 
 .. code-block:: ini
@@ -190,11 +188,13 @@ The sources a config object uses when it syncs can also be set in the
     
     >>> cfg = profig.Config('app.cfg')
 
-Sources can be either paths or file objects.
+Sources can be either paths or file objects. Multiple sources can be provided::
+    
+    >>> cfg = profig.Config('<appdir>/app.cfg', '<userdir>/app.cfg', '<sysdir>/app.cfg')
 
 If more than one `source` is provided then a sync will update the config
-object with values from each of the sources in the order given. Then it will
-write values changed on the config object back to the first source.
+object with values from each of the sources in the order given. It will
+then write the values changed on the config object back to the first source.
 
 Once sources have been provided, they will be used for any future syncs.
 
@@ -264,11 +264,16 @@ Will be stored to a config file as:
     [default]
     a = 61736466
 
-If this is not the desired behavior, there are two options. First, we can
-set the type of the value to `unicode` using :meth:`~profig.ConfigSection.init`::
+If this is not the desired behavior, there are three options available when
+calling :meth:`~profig.ConfigSection.init`. First, we can explicitely use
+unicode values::
+    
+    >>> cfg.init('a', u'asdf')
+
+Second, we can set the type of the value to `unicode`::
     
     >>> cfg.init('a', 'asdf', unicode)
 
-Or, we can register different coercers for byte-strings::
+Or third, we can register different coercers for byte-strings::
     
     >>> cfg.coercer.register(str, str, str)

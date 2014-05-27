@@ -45,7 +45,7 @@ lock file. This allows processes to make a modifications to a config file
 in a safe way and have that change be reflected across all other processes
 when they sync again.
 
-Here is an example using the `lockfile` module::
+Here is an example using the `lockfile`_ module::
     
     >>> lock = lockfile.FileLock('.cfglock')
     >>> with lock:
@@ -54,7 +54,7 @@ Here is an example using the `lockfile` module::
 Serialization
 -------------
 
-Because :class:`~profig.ConfigSection` objects are based on dicts, it is easy to
+Because :class:`~profig.Config` objects are based on dicts, it is easy to
 read/write configs from a serialization format such as JSON or msgpack::
     
     >>> import json
@@ -73,3 +73,10 @@ several ways::
     localhost:8080
     >>> '{host}:{port}'.format(**c.section('server'))
     localhost:8080
+
+In my opinion, this largely resolves the use cases for the interpolation
+feature of the stdlib `configparser`_.
+
+
+.. _lockfile: https://pypi.python.org/pypi/lockfile
+.. _configparser: https://docs.python.org/3/library/configparser.html
