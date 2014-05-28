@@ -11,12 +11,14 @@ import profig
 
 BASE_DIR = os.path.dirname(__file__)
 README_PATH = os.path.join(BASE_DIR, 'README.rst')
+CHANGELOG_PATH = os.path.join(BASE_DIR, 'CHANGELOG.txt')
+DESCRIPTION = '\n'.join(open(x).read() for x in [README_PATH, CHANGELOG_PATH])
 
 setup(
     name='profig',
     version=profig.__version__,
     description='A configuration library.',
-    long_description=open(README_PATH).read(),
+    long_description=DESCRIPTION,
     author=profig.__author__,
     author_email='cymrow@gmail.com',
     url='https://bitbucket.org/dhagrow/profig/',
