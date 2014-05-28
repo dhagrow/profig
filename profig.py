@@ -1040,6 +1040,7 @@ class NotRegisteredError(CoerceError, KeyError):
 
 def register_default_coercers(coercer):
     """Registers adapters and converters for common types."""
+    import base64
     import binascii
     
     # None as the type does not change the value
@@ -1052,8 +1053,14 @@ def register_default_coercers(coercer):
     coercer.register(complex, str, complex)
     coercer.register(str, str, str)
     coercer.register(bytes,
+        lambda x: x.decode('ascii'),
+        lambda x: x.encode('ascii'))
+    coercer.register('hex',
         lambda x: binascii.hexlify(x).decode('ascii'),
         lambda x: binascii.unhexlify(x.encode('ascii')))
+    coercer.register('base64',
+        lambda x: base64.b64encode(x).decode('ascii'),
+        lambda x: base64.b64decode(x.encode('ascii')))
     
     # collection coercers, simply comma delimited
     split = lambda x: x.split(',') if x else []
