@@ -67,10 +67,10 @@ class TestBasic(unittest.TestCase):
     def test_unicode_keys(self):
         c = profig.Config(encoding='shiftjis')
         c[b'\xdc'] = 1
-        c[b'\xdc.\xdc'] = b'\xdc'
+        c[b'\xdc.\xdc'] = '\xdc'
         
         self.assertEqual(c[b'\xdc'], c[u'\uff9c'], 1)
-        self.assertEqual(c[b'\xdc.\xdc'], c[u'\uff9c.\uff9c'], b'\uff9c')
+        self.assertEqual(c[b'\xdc.\xdc'], c[u'\uff9c.\uff9c'])
     
     def test_sync(self):
         c = profig.Config()
