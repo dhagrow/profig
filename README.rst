@@ -59,10 +59,10 @@ Or by section::
 Resources
 ----------
 
+* Documentation_
 * PyPI_
 * Repository_
-* Documentation_
 
+.. _Documentation: http://profig.rtfd.org/
 .. _PyPI: https://pypi.python.org/pypi/profig
 .. _Repository: https://bitbucket.org/dhagrow/profig
-.. _Documentation: http://profig.rtfd.org/

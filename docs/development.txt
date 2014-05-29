@@ -1,0 +1,33 @@
+Development
+===========
+
+All contributions to :mod:`profig` are welcome. Begin by forking the central
+repository::
+    
+    $ hg clone ssh://hg@bitbucket.org/dhagrow/profig
+
+Coding Style
+------------
+
+Officially, :mod:`profig` follows the guidelines outlined by PEP8_.
+
+.. _PEP8: http://legacy.python.org/dev/peps/pep-0008/
+
+Tests
+-----
+
+All tests are in :file:`tests.py`. They can be run with either Python 2 or
+Python 3::
+    
+    $ python2 -m tests
+    ..............................
+    ----------------------------------------------------------------------
+    Ran 30 tests in 0.329s
+    
+    OK
+    $ python3 -m tests
+    ..............................
+    ----------------------------------------------------------------------
+    Ran 30 tests in 0.518s
+    
+    OK
