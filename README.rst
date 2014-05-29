@@ -55,3 +55,14 @@ Or by section::
     >>> server_cfg = cfg.section('server')
     >>> server_cfg['port']
     9090
+
+Resources
+----------
+
+* PyPI_
+* Repository_
+* Documentation_
+
+.. _PyPI: https://pypi.python.org/pypi/profig
+.. _Repository: https://bitbucket.org/dhagrow/profig
+.. _Documentation: http://profig.rtfd.org/
