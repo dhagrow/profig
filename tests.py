@@ -17,6 +17,9 @@ import profig
 # use str for unicode data and bytes for binary data
 if sys.version_info.major < 3:
     str = unicode
+    
+# python 3.2 support
+u = lambda x: x.decode('unicode_escape')
 
 class TestBasic(unittest.TestCase):
     def test_init(self):
@@ -69,8 +72,8 @@ class TestBasic(unittest.TestCase):
         c[b'\xdc'] = 1
         c[b'\xdc.\xdc'] = '\xdc'
         
-        self.assertEqual(c[b'\xdc'], c[u'\uff9c'], 1)
-        self.assertEqual(c[b'\xdc.\xdc'], c[u'\uff9c.\uff9c'])
+        self.assertEqual(c[b'\xdc'], c[u(b'\uff9c')], 1)
+        self.assertEqual(c[b'\xdc.\xdc'], c[u(b'\uff9c.\uff9c')])
     
     def test_sync(self):
         c = profig.Config()
