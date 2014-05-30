@@ -2,7 +2,6 @@ from __future__ import unicode_literals
 
 import io
 import os
-import sys
 import tempfile
 import unittest
 
@@ -15,7 +14,7 @@ except ImportError:
 import profig
 
 # use str for unicode data and bytes for binary data
-if sys.version_info.major < 3:
+if profig.PY3:
     str = unicode
     
 # python 3.2 support
