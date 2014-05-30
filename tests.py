@@ -14,7 +14,7 @@ except ImportError:
 import profig
 
 # use str for unicode data and bytes for binary data
-if profig.PY3:
+if not profig.PY3:
     str = unicode
     
 # python 3.2 support

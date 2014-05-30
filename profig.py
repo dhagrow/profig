@@ -26,7 +26,7 @@ __license__ = 'MIT'
 
 __all__ = ['Config', 'IniFormat', 'ConfigError', 'Coercer', 'CoerceError']
 
-PY3 = sys.version_info[0] >= 3
+PY3 = sys.version_info.major >= 3
 
 # use str for unicode data and bytes for binary data
 if not PY3:
@@ -224,7 +224,7 @@ class ConfigSection(collections.MutableMapping):
             value = self.value()
         except NoValueError:
             value = NoValue
-        return "{0}('{1}', value={2!r}, keys={3}, comment={4!r})".format(
+        return "{}('{}', value={!r}, keys={}, comment={!r})".format(
             self.__class__.__name__, self.key, value, list(self), self.comment)
     
     def as_dict(self, flat=False, recurse=True, convert=True, dict_type=None):
@@ -489,7 +489,7 @@ class ConfigSection(collections.MutableMapping):
             elif p is None:
                 pass
             else:
-                err = "invalid value for key: '{0}'"
+                err = "invalid value for key: '{}'"
                 raise TypeError(err.format(p))
         return tuple(key)
     
@@ -577,7 +577,7 @@ class Config(ConfigSection):
             print(spaces, repr(section), sep='')
     
     def __repr__(self): # pragma: no cover
-        return '{0}(sources={1}, keys={2})'.format(self.__class__.__name__,
+        return '{}(sources={}, keys={})'.format(self.__class__.__name__,
             self.sources, list(self))
 
 ## Config Formats ##
@@ -745,22 +745,22 @@ class IniFormat(Format):
             file.write('\n')
         
         if section.comment:
-            file.write('{0} {1}\n'.format(self.comment_char, section.comment))
+            file.write('{} {}\n'.format(self.comment_char, section.comment))
         
         if section.parent is section.root:
             # header section
             if section.valid:
                 value = section.value(convert=False)
-                file.write('[{0}] = {1}\n'.format(section.name, value))
+                file.write('[{}] = {}\n'.format(section.name, value))
             else:
-                file.write('[{0}]\n'.format(section.name))
+                file.write('[{}]\n'.format(section.name))
         elif section.valid:
             # value section
             cfg = self.config
             key = cfg._keystr(cfg._make_key(section.key)[1:])
             value = section.value(convert=False)
             
-            file.write('{0} {1} {2}\n'.format(key, self.delimeter, value))
+            file.write('{} {} {}\n'.format(key, self.delimeter, value))
         
         section.dirty = False
     
@@ -837,7 +837,7 @@ class SyncError(ConfigError):
     
     def __str__(self):
         if self.filename:
-            err = ["error reading '{0}'".format(self.filename)]
+            err = ["error reading '{}'".format(self.filename)]
             if self.message:
                 err.extend([': ', self.message])
             return ''.join(err)
@@ -853,7 +853,7 @@ class ReadError(SyncError):
     
     def __str__(self):
         if self.filename:
-            msg = "error reading '{0}', line {1}"
+            msg = "error reading '{}', line {}"
             err = [msg.format(self.filename, self.lineno)]
             if self.message:
                 err.extend([': ', self.message])
@@ -873,7 +873,7 @@ class NoSourcesError(ConfigError):
 
 class NoValue:
     def __repr__(self):
-        return 'NoValue'
+        return '{}'.format(self.__class__.__name__)
 NoValue = NoValue()
 
 # adapted from pyglet
@@ -935,7 +935,7 @@ class Coercer:
             register_default_coercers(self)
         if register_qt is None:
             # only load Qt coercers if PyQt/PySide has already been imported
-            register_qt = bool(set(['PyQt4', 'PySide']) & set(sys.modules))
+            register_qt = bool({'PyQt4', 'PySide'} & set(sys.modules))
         if register_qt:
             register_qt_coercers(self)
     
@@ -949,7 +949,7 @@ class Coercer:
         try:
             func = self._adapters[self._typename(type)]
         except KeyError:
-            err = 'no adapter for: {0}'
+            err = 'no adapter for: {}'
             raise NotRegisteredError(err.format(type))
         
         try:
@@ -963,7 +963,7 @@ class Coercer:
         try:
             func = self._converters[self._typename(type)]
         except KeyError:
-            err = "no converter for: {0}"
+            err = "no converter for: {}"
             raise NotRegisteredError(err.format(type))
         
         try:
@@ -992,11 +992,11 @@ class Coercer:
         representations."""
         def verify(x, c=choices):
             if x not in c:
-                err = "invalid choice {0!r}, must be one of: {1}"
+                err = "invalid choice {!r}, must be one of: {}"
                 raise ValueError(err.format(x, c))
             return x
         
-        values = dict((value, key) for key, value in choices.items())
+        values = {value: key for key, value in choices.items()}
         adapt = lambda x: choices[verify(x, choices.keys())]
         convert = lambda x: values[verify(x, values.keys())]
         
@@ -1100,22 +1100,22 @@ def register_qt_coercers(coercer):
         lambda x: str(x.toHex()),
         lambda x: QtCore.QByteArray.fromHex(x))
     coercer.register(QtCore.QPoint,
-        lambda x: '{0},{1}'.format(x.x(), x.y()),
+        lambda x: '{},{}'.format(x.x(), x.y()),
         lambda x: QtCore.QPoint(*[int(i) for i in x.split(',')]))
     coercer.register(QtCore.QPointF,
-        lambda x: '{0},{1}'.format(x.x(), x.y()),
+        lambda x: '{},{}'.format(x.x(), x.y()),
         lambda x: QtCore.QPointF(*[float(i) for i in x.split(',')]))
     coercer.register(QtCore.QSize,
-        lambda x: '{0},{1}'.format(x.width(), x.height()),
+        lambda x: '{},{}'.format(x.width(), x.height()),
         lambda x: QtCore.QSize(*[int(i) for i in x.split(',')]))
     coercer.register(QtCore.QSizeF,
-        lambda x: '{0},{1}'.format(x.width(), x.height()),
+        lambda x: '{},{}'.format(x.width(), x.height()),
         lambda x: QtCore.QSizeF(*[float(i) for i in x.split(',')]))
     coercer.register(QtCore.QRect,
-        lambda x: '{0},{1},{2},{3}'.format(x.x(), x.y(), x.width(), x.height()),
+        lambda x: '{},{},{},{}'.format(x.x(), x.y(), x.width(), x.height()),
         lambda x: QtCore.QRect(*[int(i) for i in x.split(',')]))
     coercer.register(QtCore.QRectF,
-        lambda x: '{0},{1},{2},{3}'.format(x.x(), x.y(), x.width(), x.height()),
+        lambda x: '{},{},{},{}'.format(x.x(), x.y(), x.width(), x.height()),
         lambda x: QtCore.QRectF(*[float(i) for i in x.split(',')]))
     coercer.register(QtGui.QColor, lambda x: str(x.name()), QtGui.QColor)
     coercer.register(QtGui.QFont,
