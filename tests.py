@@ -16,9 +16,6 @@ import profig
 # use str for unicode data and bytes for binary data
 if not profig.PY3:
     str = unicode
-    
-# python 3.2 support
-u = lambda x: x.decode('unicode_escape')
 
 class TestBasic(unittest.TestCase):
     def test_init(self):
@@ -69,10 +66,10 @@ class TestBasic(unittest.TestCase):
     def test_unicode_keys(self):
         c = profig.Config(encoding='shiftjis')
         c[b'\xdc'] = 1
-        c[b'\xdc.\xdc'] = '\xdc'
+        c[b'\xdc.\xdc'] = '\uff9c'
         
-        self.assertEqual(c[b'\xdc'], c[u(b'\uff9c')], 1)
-        self.assertEqual(c[b'\xdc.\xdc'], c[u(b'\uff9c.\uff9c')])
+        self.assertEqual(c[b'\xdc'], c['\uff9c'], 1)
+        self.assertEqual(c[b'\xdc.\xdc'], c['\uff9c.\uff9c'], '\uff9c')
     
     def test_sync(self):
         c = profig.Config()
@@ -143,7 +140,7 @@ class TestBasic(unittest.TestCase):
         c.section('c').set_value('4')
         self.assertEqual(c['c'], 4)
     
-    def test_set_value(self):
+    def test_set_deafult(self):
         c = profig.Config()
         c.init('c', 1)
         
@@ -215,10 +212,10 @@ class TestIniFormat(unittest.TestCase):
     def test_basic(self):
         del self.c['a.1']
 
-        buf = io.StringIO()
+        buf = io.BytesIO()
         self.c.sync(buf)
         
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 [a] = 1
 
 [b] = value
@@ -226,7 +223,7 @@ class TestIniFormat(unittest.TestCase):
     
     def test_sync_read_blank(self):
         c = profig.Config(format='ini')
-        buf = io.StringIO("""\
+        buf = io.BytesIO(b"""\
 [b] = value
 
 [a] = 1
@@ -239,10 +236,10 @@ class TestIniFormat(unittest.TestCase):
         self.assertEqual(c['a.1'], '2')
     
     def test_subsection(self):
-        buf = io.StringIO()
+        buf = io.BytesIO()
         self.c.sync(buf)
         
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 [a] = 1
 1 = 2
 
@@ -250,7 +247,7 @@ class TestIniFormat(unittest.TestCase):
 """)
 
     def test_preserve_order(self):
-        buf = io.StringIO("""\
+        buf = io.BytesIO(b"""\
 [a] = 1
 1 = 2
 
@@ -262,7 +259,7 @@ class TestIniFormat(unittest.TestCase):
         
         self.c.sync(buf)
         
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 [a] = 2
 1 = 3
 
@@ -270,7 +267,7 @@ class TestIniFormat(unittest.TestCase):
 """)
     
     def test_preserve_comments(self):
-        buf = io.StringIO("""\
+        buf = io.BytesIO(b"""\
 ;a comment
 [a] = 1
 ; another comment
@@ -286,7 +283,7 @@ class TestIniFormat(unittest.TestCase):
         
         self.c.sync(buf)
         
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 ; a comment
 [a] = 2
 ; another comment
@@ -331,7 +328,7 @@ class TestIniFormat(unittest.TestCase):
     
     def test_repeated_values(self):
         c = profig.Config(format='ini')
-        buf = io.StringIO("""\
+        buf = io.BytesIO(b"""\
 [a]
 b = 1
 b = 2
@@ -339,7 +336,7 @@ b = 2
         c.sync(buf)
         
         self.assertEqual(c['a.b'], '2')
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 [a]
 b = 2
 """)
@@ -347,14 +344,14 @@ b = 2
         c['a.b'] = '3'
         c.sync(buf)
         
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 [a]
 b = 3
 """)
     
     def test_repeated_sections(self):
         c = profig.Config(format='ini')
-        buf = io.StringIO("""\
+        buf = io.BytesIO(b"""\
 [a]
 b = 1
 b = 2
@@ -368,7 +365,7 @@ b = 3
         c.sync(buf)
         
         self.assertEqual(c['a.b'], '3')    
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 [a]
 b = 3
 
@@ -381,10 +378,10 @@ class TestCoercer(unittest.TestCase):
         c = profig.Config()
         c.init('colors', ['red', 'blue'])
         
-        buf = io.StringIO()
+        buf = io.BytesIO()
         c.sync(buf)
         
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 [colors] = red,blue
 """)
     
@@ -392,14 +389,14 @@ class TestCoercer(unittest.TestCase):
         c = profig.Config()
         c.init('paths', ['path1', 'path2'], 'path_list')
         
-        buf = io.StringIO()
+        buf = io.BytesIO()
         c.sync(buf)
         
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 [paths] = path1:path2
 """)
         
-        buf = io.StringIO("""\
+        buf = io.BytesIO(b"""\
 [paths] = path1:path2:path3
 """)
         c.sync(buf)
@@ -410,13 +407,13 @@ class TestCoercer(unittest.TestCase):
         c.coercer.register_choice('color', {1: 'red', 2: 'green', 3: 'blue'})
         c.init('color', 1, 'color')
         
-        buf = io.StringIO()
+        buf = io.BytesIO()
         c.sync(buf)
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 [color] = red
 """)
         
-        buf = io.StringIO("""\
+        buf = io.BytesIO(b"""\
 [color] = blue
 """)
         c.sync(buf)
@@ -445,7 +442,7 @@ class TestErrors(unittest.TestCase):
         c = profig.Config()
         c._format.read_errors = 'exception'
         
-        buf = io.StringIO("""a""")
+        buf = io.BytesIO(b"""a""")
         with self.assertRaises(profig.ReadError):
             c.sync(buf)
 
