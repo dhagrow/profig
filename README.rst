@@ -1,5 +1,8 @@
 *profig* is a configuration library for Python.
 
+.. image:: https://travis-ci.org/dhagrow/profig.svg?branch=master
+    :target: https://travis-ci.org/dhagrow/profig
+
 Motivation
 ----------
 
