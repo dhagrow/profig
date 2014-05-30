@@ -996,7 +996,7 @@ class Coercer:
                 raise ValueError(err.format(x, c))
             return x
         
-        values = {value: key for key, value in choices.items()}
+        values = dict((value, key) for key, value in choices.items())
         adapt = lambda x: choices[verify(x, choices.keys())]
         convert = lambda x: values[verify(x, values.keys())]
         
