@@ -26,7 +26,7 @@ __license__ = 'MIT'
 
 __all__ = ['Config', 'IniFormat', 'ConfigError', 'Coercer', 'CoerceError']
 
-PY3 = sys.version_info.major >= 3
+PY3 = sys.version_info[0] >= 3
 
 # use str for unicode data and bytes for binary data
 if not PY3:
