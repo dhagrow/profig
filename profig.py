@@ -361,7 +361,7 @@ class ConfigSection(collections.MutableMapping):
             yield (key, self.section(key).value(convert))
     
     def adapt(self, value):
-        if isinstance(value, bytes):
+        if isinstance(value, str):
             return value
         if self._root.coerce_values:
             if not self._has_type:
@@ -414,7 +414,7 @@ class ConfigSection(collections.MutableMapping):
         return write_lines
     
     def _write(self, source, format, lines=None):
-        file = format.open(source, 'w')
+        file = format.open(source, 'wb')
         try:
             format.write(file, lines)
         finally:
@@ -498,8 +498,8 @@ class ConfigSection(collections.MutableMapping):
                 self.dirty = True
     
     def _cache_value(self, value):
-        # no point in caching a byte string
-        should_cache = self._root.cache_values and not isinstance(value, bytes)
+        # no point in caching a string
+        should_cache = self._root.cache_values and not isinstance(value, str)
         return value if should_cache else NoValue
     
     def _dump(self, indent=2): # pragma: no cover
@@ -651,13 +651,14 @@ class Format(BaseFormat):
 
 class IniFormat(Format):
     name = 'ini'
-    delimeter = b' = '
-    comment_char = b';'
+    delimeter = ' = '
+    comment_char = '; '
     default_section = 'default'
     _rx_section_header = re.compile('\[\s*(\S*)\s*\](\s*=\s*(\S*))?')
     
     def read(self, file):
         cfg = self.config
+        comment_char = self.comment_char.strip()
         section_name = self.default_section
         comment = None
         lines = []
@@ -669,7 +670,7 @@ class IniFormat(Format):
                 lines.append(comment)
         
         for i, orgline in enumerate(file, 1):
-            line = orgline.strip()
+            line = orgline.strip().decode(self.encoding)
             
             # blank line
             if not line:
@@ -677,17 +678,16 @@ class IniFormat(Format):
                 continue
             
             # comment line
-            if line.startswith(self.comment_char):
+            if line.startswith(comment_char):
                 flush_comment(lines, comment)
-                comment_text = line.lstrip(self.comment_char).strip()
-                comment = Line(orgline, comment_text.decode(self.encoding))
+                comment_text = line.lstrip(comment_char).strip()
+                comment = Line(orgline, comment_text)
                 continue
             
             # section header
             match = self._rx_section_header.match(line)
             if match:
                 section_name, _, value = match.groups()
-                section_name = section_name.decode(self.encoding)
                 
                 # blank sections are set to default
                 if not section_name or section_name.lower() == self.default_section:
@@ -729,29 +729,29 @@ class IniFormat(Format):
         return lines
     
     def write_section(self, section, file, first=False):
+        write = lambda s: file.write(s.encode(self.encoding))
+        
         if not first and section.parent is section.root:
-            file.write(b'\n')
+            write('\n')
         
         if section.comment:
             comment = section.comment.encode(self.encoding)
-            file.write(b''.join([self.comment_char, b' ', comment, b'\n']))
+            write('{}{}\n'.format(self.comment_char, section.comment))
         
         if section.parent is section.root:
-            name = section.name.encode(self.encoding)
-            
             # header section
             if section.valid:
                 value = section.value(convert=False)
-                file.write(b''.join([b'[', name, b']', self.delimeter, value, b'\n']))
+                write('[{}]{}{}\n'.format(section.name, self.delimeter, value))
             else:
-                file.write(b''.join([b'[', name, b']\n']))
+                write('[{}]\n'.format(section.name))
         elif section.valid:
             # value section
             cfg = self.config
-            key = cfg._keystr(cfg._make_key(section.key)[1:]).encode(self.encoding)
+            key = cfg._keystr(cfg._make_key(section.key)[1:])
             value = section.value(convert=False)
             
-            file.write(b''.join([key, self.delimeter, value, b'\n']))
+            write('{}{}{}\n'.format(key, self.delimeter, value))
         
         section.dirty = False
     
@@ -918,9 +918,7 @@ class Coercer:
     """
     The coercer class, with which adapters and converters can be registered.
     """
-    def __init__(self, encoding=None, register_defaults=True, register_qt=None):
-        self.encoding = encoding or locale.getpreferredencoding(False)
-        
+    def __init__(self, register_defaults=True, register_qt=None):
         self._adapters = {}
         self._converters = {}
         
@@ -940,16 +938,13 @@ class Coercer:
             type = _type(value)
         
         try:
-            func, encode = self._adapters[self._typename(type)]
+            func = self._adapters[self._typename(type)]
         except KeyError:
             err = 'no adapter for: {}'
             raise NotRegisteredError(err.format(type))
         
         try:
-            result = func(value)
-            if encode:
-                result = result.encode(self.encoding)
-            return result
+            return func(value)
         except Exception as e:
             raise AdaptError(e)
     
@@ -957,38 +952,36 @@ class Coercer:
         """Convert a *value* to the given *type* (string to type)."""
         
         try:
-            func, decode = self._converters[self._typename(type)]
+            func = self._converters[self._typename(type)]
         except KeyError:
             err = "no converter for: {}"
             raise NotRegisteredError(err.format(type))
         
         try:
-            if decode:
-                value = value.decode(self.encoding)
             return func(value)
         except Exception as e:
             raise ConvertError(e)
     
-    def register(self, type, adapter, converter, apply_encoding=True):
+    def register(self, type, adapter, converter):
         """Register an adapter and converter for the given type."""
-        self.register_adapter(type, adapter, apply_encoding)
-        self.register_converter(type, converter, apply_encoding)
+        self.register_adapter(type, adapter)
+        self.register_converter(type, converter)
     
-    def register_adapter(self, type, adapter, encode=True):
+    def register_adapter(self, type, adapter):
         """Register an adapter (type to string) for the given type."""
-        self._adapters[self._typename(type)] = (adapter, encode)
+        self._adapters[self._typename(type)] = adapter
     
-    def register_converter(self, type, converter, decode=True):
+    def register_converter(self, type, converter):
         """Register a converter (string to type) for the given type."""
-        self._converters[self._typename(type)] = (converter, decode)
+        self._converters[self._typename(type)] = converter
     
-    def register_choice(self, type, choices, apply_encoding=True):
+    def register_choice(self, type, choices):
         """Registers an adapter and converter for a choice of values.
         Values passed into :meth:`~profig.Coercer.adapt` or
         :meth:`~profig.Coercer.convert` for *type* will have to be one of the
         choices. *choices* must be a dict that maps converted->adapted
         representations."""
-        def verify(x, c=choices):
+        def verify(x, c):
             if x not in c:
                 err = "invalid choice {!r}, must be one of: {}"
                 raise ValueError(err.format(x, c))
@@ -998,8 +991,8 @@ class Coercer:
         adapt = lambda x: choices[verify(x, choices.keys())]
         convert = lambda x: values[verify(x, values.keys())]
         
-        self.register_adapter(type, adapt, apply_encoding)
-        self.register_converter(type, convert, apply_encoding)
+        self.register_adapter(type, adapt)
+        self.register_converter(type, convert)
     
     def _typename(self, type):
         if isinstance(type, bytes):
@@ -1050,7 +1043,7 @@ def register_default_coercers(coercer):
     coercer.register(float, str, float)
     coercer.register(complex, str, complex)
     coercer.register(str, str, str)
-    coercer.register(bytes, bytes, bytes, apply_encoding=False)
+    coercer.register(bytes, bytes, bytes)
     coercer.register('hex',
         lambda x: binascii.hexlify(x),
         lambda x: binascii.unhexlify(x))
