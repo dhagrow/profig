@@ -143,7 +143,7 @@ class TestBasic(unittest.TestCase):
         c.section('c').set_value('4')
         self.assertEqual(c['c'], 4)
     
-    def test_set_value(self):
+    def test_set_default(self):
         c = profig.Config()
         c.init('c', 1)
         
