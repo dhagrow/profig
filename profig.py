@@ -50,7 +50,6 @@ class ConfigSection(collections.MutableMapping):
         self._cache = NoValue
         self._default = NoValue
         self._type = None
-        self._has_type = False
         self._parent = parent
         
         self.comment = None
@@ -165,7 +164,6 @@ class ConfigSection(collections.MutableMapping):
         section = self._create_section(key)
         section._cache = NoValue
         section._type = type or default.__class__
-        section._has_type = True
         section.set_default(default)
         section.comment = comment
     
@@ -363,15 +361,15 @@ class ConfigSection(collections.MutableMapping):
     def adapt(self, value):
         if isinstance(value, str):
             return value
-        if self._root.coerce_values:
-            if not self._has_type:
+        if self._root.coercer:
+            if self._type is None:
                 self._type = value.__class__
             return self._root.coercer.adapt(value, self._type)
         else:
             return value
     
     def convert(self, value, type):
-        if self._root.coerce_values:
+        if self._root.coercer:
             return self._root.coercer.convert(value, type or self._type)
         else:
             return value
@@ -546,7 +544,6 @@ class Config(ConfigSection):
         
         self.sep = '.'
         self.cache_values = True
-        self.coerce_values = True
     
     @classmethod
     def known_formats(cls):
