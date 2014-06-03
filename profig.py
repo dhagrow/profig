@@ -317,9 +317,12 @@ class ConfigSection(collections.MutableMapping):
         
         return self.default(convert, type)
     
-    def set_value(self, value):
+    def set_value(self, value, adapt=True):
         """Set the section's value."""
-        value = self.adapt(value)
+        if adapt:
+            if isinstance(value, bytes):
+                value = value.decode(self.encoding)
+            value = self.adapt(value)
         if value != self._value:
             self._value = value
             self.dirty = True
@@ -358,15 +361,14 @@ class ConfigSection(collections.MutableMapping):
         for key in self:
             yield (key, self.section(key).value(convert))
     
-    def adapt(self, value):
-        if isinstance(value, str):
-            return value
+    def adapt(self, value, adapt=False):
         if self._root.coercer:
+            # only set the type if it has not already been set
             if self._type is None:
                 self._type = value.__class__
             return self._root.coercer.adapt(value, self._type)
         else:
-            return value
+            return value.decode(self.encoding)
     
     def convert(self, value, type):
         if self._root.coercer:
@@ -648,10 +650,10 @@ class Format(BaseFormat):
 
 class IniFormat(Format):
     name = 'ini'
-    delimeter = ' = '
-    comment_char = '; '
-    default_section = 'default'
-    _rx_section_header = re.compile('\[\s*(\S*)\s*\](\s*=\s*(\S*))?')
+    delimeter = b' = '
+    comment_char = b'; '
+    default_section = b'default'
+    _rx_section_header = re.compile(b'\[\s*(\S*)\s*\](\s*=\s*(\S*))?')
     
     def read(self, file):
         cfg = self.config
@@ -667,7 +669,7 @@ class IniFormat(Format):
                 lines.append(comment)
         
         for i, orgline in enumerate(file, 1):
-            line = orgline.strip().decode(self.encoding)
+            line = orgline.strip()
             
             # blank line
             if not line:
@@ -691,7 +693,8 @@ class IniFormat(Format):
                     section_name = self.default_section
                 
                 values[section_name] = value
-                comments[section_name] = comment.name if comment else None
+                if comment:
+                    comments[section_name] = comment.name
                 comment = None
                 
                 lines.append(Line(orgline, section_name, issection=True))
@@ -706,7 +709,8 @@ class IniFormat(Format):
             
             key = cfg._keystr(cfg._make_key(section_name, key.strip()))
             values[key] = value.strip()
-            comments.setdefault(key, comment.name if comment else None)
+            if comment:
+                comments[key] = comment.name
             comment = None
             
             lines.append(Line(orgline, key, iskey=True))
@@ -717,11 +721,11 @@ class IniFormat(Format):
         
         # file has been read. assign the values
         for key, value in values.items():
-            section = cfg.section(key)
+            section = cfg.section(key.decode(self.encoding))
             if not section.dirty and value is not None:
-                section.set_value(value)
+                section.set_value(value, adapt=False)
             if key in comments:
-                section.comment = comments[key]
+                section.comment = comments[key].decode(self.encoding)
         
         return lines
     
@@ -732,8 +736,9 @@ class IniFormat(Format):
             write('\n')
         
         if section.comment:
-            comment = section.comment.encode(self.encoding)
-            write('{}{}\n'.format(self.comment_char, section.comment))
+            file.write(self.comment_char)
+            write(section.comment)
+            write('\n')
         
         if section.parent is section.root:
             # header section

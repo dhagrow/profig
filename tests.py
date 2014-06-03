@@ -294,6 +294,25 @@ class TestIniFormat(unittest.TestCase):
 ;arrrrgh!
 """)
     
+    def test_binary_read(self):
+        fd, temppath = tempfile.mkstemp()
+        try:
+            with io.open(fd, 'wb') as file:
+                file.write(b"""\
+[a] = binary
+b = also binary
+""")
+            
+            c = profig.Config(temppath, format='ini')
+            c.init('a', b'')
+            c.init('a.b', b'')
+            c.read()
+            
+            self.assertEqual(c['a'], b'binary')
+            self.assertEqual(c['a.b'], b'also binary')
+        finally:
+            os.remove(temppath)
+    
     def test_unicode_read(self):
         fd, temppath = tempfile.mkstemp()
         try:
