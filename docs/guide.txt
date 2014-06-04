@@ -249,31 +249,36 @@ a byte-string key is used, it will be decoded using the configured encoding.
 
 Values are coerced into a unicode representation before being output to a
 config file. Note that this means that by specifically storing a byte-string
-as a value, :mod:`profig` will assume the value is binary data. The default
-coercer for byte-strings converts the value to a hex string.
+as a value, :mod:`profig` will assume the value is binary data. The specifics
+of how binary data is stored depends on the format being used. The default
+format (:class:`~profig.IniFormat`) operates on binary files, therfore binary
+data is written directly to it's sources.
 
 So, if we consider the following examples using a Python 2 interpreter,
 where `str` objects are byte-strings::
     
-    >>> cfg['default.a'] = 'asdf'
+    >>> cfg['default.a'] = '\x00asdf'
 
-Will be stored to a config file as:
+Will be stored to a config file as binary data:
     
 .. code-block:: ini
 
     [default]
-    a = 61736466
+    a = \x00asdf
 
-If this is not the desired behavior, there are three options available when
+If this is not the desired behavior, there are other options available when
 calling :meth:`~profig.ConfigSection.init`. First, we can explicitely use
 unicode values::
     
     >>> cfg.init('a', u'asdf')
 
-Second, we can set the type of the value to `unicode`::
+This ensures that only data matching the set encoding will be accepted.
+
+If we expect the data to be binary data, but don't want to store it directly,
+we can use one of the available encodings: 'hex', and 'base64'::
     
-    >>> cfg.init('a', 'asdf', unicode)
+    >>> cfg.init('a', 'asdf', 'hex')
 
 Or third, we can register different coercers for byte-strings::
     
-    >>> cfg.coercer.register(str, str, str)
+    >>> cfg.coercer.register(bytes, encrypt, decrypt)
