@@ -50,7 +50,6 @@ class ConfigSection(collections.MutableMapping):
         self._cache = NoValue
         self._default = NoValue
         self._type = None
-        self._has_type = False
         self._parent = parent
         
         self.comment = None
@@ -165,7 +164,6 @@ class ConfigSection(collections.MutableMapping):
         section = self._create_section(key)
         section._cache = NoValue
         section._type = type or default.__class__
-        section._has_type = True
         section.set_default(default)
         section.comment = comment
     
@@ -302,9 +300,9 @@ class ConfigSection(collections.MutableMapping):
                 section._reset()
     
     def value(self, convert=True, type=None):
-        """
-        Get the section's value.
-        To get the underlying string value, set *convert* to `False`.
+        """Get the section's value.
+        
+        To get the internal string value, set *convert* to `False`.
         If *convert* is `False`, *type* will be ignored.
         """
         if not convert:
@@ -319,18 +317,17 @@ class ConfigSection(collections.MutableMapping):
         
         return self.default(convert, type)
     
-    def set_value(self, value):
-        """Set the section's value."""
-        if not isinstance(value, str):
-            strvalue = self.adapt(value)
-            if strvalue != self._value:
-                self._value = strvalue
-                self._cache = self._cache_value(value)
-                self.dirty = True
+    def set_value(self, value, adapt=True):
+        """Set the section's value.
         
-        elif value != self._value:
+        To set the internal string value, set *adapt* to `False`.
+        """
+        if adapt:
+            value = self.adapt(value)
+        elif self._type is not bytes:
+            value = value.decode(self._root.encoding)
+        if value != self._value:
             self._value = value
-            self._cache = NoValue
             self.dirty = True
     
     def default(self, convert=True, type=None):
@@ -359,16 +356,7 @@ class ConfigSection(collections.MutableMapping):
         """
         Set the section's default value.
         """
-        if not isinstance(default, str):
-            self._default = self.adapt(default)
-            # only set cache if self._value hasn't been set
-            if self._value is NoValue:
-                self._cache = self._cache_value(default)
-        else:
-            self._default = default
-            # only clear cache if self._value hasn't been set
-            if self._value is NoValue:
-                self._cache = NoValue
+        self._default = self.adapt(default)
     
     def items(self, convert=True):
         """Returns a (key, value) iterator over the unprocessed values of
@@ -376,19 +364,26 @@ class ConfigSection(collections.MutableMapping):
         for key in self:
             yield (key, self.section(key).value(convert))
     
-    def adapt(self, value):
-        if self._root.coerce_values:
-            if not self._has_type:
-                self._type = value.__class__
-            return self._root.coercer.adapt(value, self._type)
-        else:
+    def adapt(self, value, type=None):
+        """
+        value -> str
+        """
+        if not self._root.coercer:
             return value
+        # only set the type if it has not already been set
+        if self._type is None:
+            self._type = type or value.__class__
+        type = type or self._type
+        return self._root.coercer.adapt(value, type)
     
-    def convert(self, value, type):
-        if self._root.coerce_values:
-            return self._root.coercer.convert(value, type or self._type)
-        else:
-            return value
+    def convert(self, string, type=None):
+        """
+        str -> value
+        """
+        if not self._root.coercer:
+            return string
+        type = type or self._type
+        return self._root.coercer.convert(string, type)
     
     def clear_cache(self, recurse=False):
         """Clears cached values for this section. If *recurse* is
@@ -428,7 +423,7 @@ class ConfigSection(collections.MutableMapping):
         return write_lines
     
     def _write(self, source, format, lines=None):
-        file = format.open(source, 'w')
+        file = format.open(source, 'wb')
         try:
             format.write(file, lines)
         finally:
@@ -555,12 +550,11 @@ class Config(ConfigSection):
         format = kwargs.pop('format', 'ini')
         self.set_format(format)
         
-        self.coercer = Coercer()
+        self.coercer = Coercer(self.encoding)
         register_booleans(self.coercer)
         
         self.sep = '.'
         self.cache_values = True
-        self.coerce_values = True
     
     @classmethod
     def known_formats(cls):
@@ -620,7 +614,7 @@ class Format(BaseFormat):
         in a subclass."""
         raise NotImplementedError('abstract')
     
-    def open(self, source, mode='r', *args):
+    def open(self, source, mode='rb', *args):
         """Returns a file object.
         
         If *source* is a file object, returns *source*. If *mode* is 'w',
@@ -634,7 +628,7 @@ class Format(BaseFormat):
             if self.ensure_dirs is not None and 'w' in mode:
                 # ensure the path exists if any writing is to be done
                 ensure_dirs(os.path.dirname(source), self.ensure_dirs)
-            return io.open(source, mode, *args, encoding=self.encoding)
+            return io.open(source, mode, *args)
         else:
             source.seek(0)
             if 'w' in mode:
@@ -665,13 +659,14 @@ class Format(BaseFormat):
 
 class IniFormat(Format):
     name = 'ini'
-    delimeter = '='
-    comment_char = ';'
-    default_section = 'default'
-    _rx_section_header = re.compile('\[\s*(\S*)\s*\](\s*=\s*(\S*))?')
+    delimeter = b' = '
+    comment_char = b'; '
+    default_section = b'default'
+    _rx_section_header = re.compile(b'\[\s*(\S*)\s*\](\s*=\s*(\S*))?')
     
     def read(self, file):
         cfg = self.config
+        comment_char = self.comment_char.strip()
         section_name = self.default_section
         comment = None
         lines = []
@@ -691,9 +686,10 @@ class IniFormat(Format):
                 continue
             
             # comment line
-            if line.startswith(self.comment_char):
+            if line.startswith(comment_char):
                 flush_comment(lines, comment)
-                comment = Line(orgline, line.lstrip(self.comment_char).strip())
+                comment_text = line.lstrip(comment_char).strip().decode(self.encoding)
+                comment = Line(orgline, comment_text)
                 continue
             
             # section header
@@ -706,22 +702,25 @@ class IniFormat(Format):
                     section_name = self.default_section
                 
                 values[section_name] = value
-                comments[section_name] = comment.name if comment else None
+                if comment:
+                    comments[section_name] = comment.name
                 comment = None
                 
+                section_name = section_name.decode(self.encoding)
                 lines.append(Line(orgline, section_name, issection=True))
                 continue
             
             # must be a value
             try:
-                key, value = line.split(self.delimeter, 1)
+                key, value = line.split(self.delimeter.strip(), 1)
             except ValueError:
                 self._read_error(file, i, line)
                 continue
             
             key = cfg._keystr(cfg._make_key(section_name, key.strip()))
             values[key] = value.strip()
-            comments.setdefault(key, comment.name if comment else None)
+            if comment:
+                comments[key] = comment.name
             comment = None
             
             lines.append(Line(orgline, key, iskey=True))
@@ -734,33 +733,49 @@ class IniFormat(Format):
         for key, value in values.items():
             section = cfg.section(key)
             if not section.dirty and value is not None:
-                section.set_value(value)
+                section.set_value(value, adapt=False)
             if key in comments:
                 section.comment = comments[key]
         
         return lines
     
     def write_section(self, section, file, first=False):
+        write = lambda s: file.write(s.encode(self.encoding))
+        
         if not first and section.parent is section.root:
-            file.write('\n')
+            write('\n')
         
         if section.comment:
-            file.write('{} {}\n'.format(self.comment_char, section.comment))
+            file.write(self.comment_char)
+            write(section.comment)
+            write('\n')
         
         if section.parent is section.root:
             # header section
             if section.valid:
                 value = section.value(convert=False)
-                file.write('[{}] = {}\n'.format(section.name, value))
+                write('[{}]'.format(section.name))
+                file.write(self.delimeter)
+                if isinstance(value, bytes):
+                    file.write(value)
+                else:
+                    write(value)
+                write('\n')
             else:
-                file.write('[{}]\n'.format(section.name))
+                write('[{}]\n'.format(section.name))
+        
         elif section.valid:
             # value section
             cfg = self.config
             key = cfg._keystr(cfg._make_key(section.key)[1:])
             value = section.value(convert=False)
-            
-            file.write('{} {} {}\n'.format(key, self.delimeter, value))
+            write(key)
+            file.write(self.delimeter)
+            if isinstance(value, bytes):
+                file.write(value)
+            else:
+                write(value)
+            write('\n')
         
         section.dirty = False
     
@@ -799,7 +814,7 @@ class IniFormat(Format):
             else:
                 file.write(line.line)
         
-        # if there is a previous header section, write it's remaining values
+        # if there is an incomplete header section, write it's remaining values
         if header:
             for sec in header.sections(recurse=True):
                 if sec.key not in seen:
@@ -990,7 +1005,7 @@ class Coercer:
         :meth:`~profig.Coercer.convert` for *type* will have to be one of the
         choices. *choices* must be a dict that maps converted->adapted
         representations."""
-        def verify(x, c=choices):
+        def verify(x, c):
             if x not in c:
                 err = "invalid choice {!r}, must be one of: {}"
                 raise ValueError(err.format(x, c))
@@ -1052,15 +1067,13 @@ def register_default_coercers(coercer):
     coercer.register(float, str, float)
     coercer.register(complex, str, complex)
     coercer.register(str, str, str)
-    coercer.register(bytes,
-        lambda x: x.decode('ascii'),
-        lambda x: x.encode('ascii'))
+    coercer.register(bytes, bytes, bytes)
     coercer.register('hex',
-        lambda x: binascii.hexlify(x).decode('ascii'),
-        lambda x: binascii.unhexlify(x.encode('ascii')))
+        lambda x: binascii.hexlify(x),
+        lambda x: binascii.unhexlify(x))
     coercer.register('base64',
-        lambda x: base64.b64encode(x).decode('ascii'),
-        lambda x: base64.b64decode(x.encode('ascii')))
+        lambda x: base64.b64encode(x),
+        lambda x: base64.b64decode(x))
     
     # collection coercers, simply comma delimited
     split = lambda x: x.split(',') if x else []
