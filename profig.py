@@ -47,7 +47,6 @@ class ConfigSection(collections.MutableMapping):
     def __init__(self, name, parent):
         self._name = name
         self._value = NoValue
-        self._cache = NoValue
         self._default = NoValue
         self._type = None
         self._parent = parent
@@ -114,14 +113,14 @@ class ConfigSection(collections.MutableMapping):
 
         If *sources* are provided, syncs only those sources. Otherwise,
         syncs the sources in :attr:`~config.Config.sources`.
+        
+        *format* can be used to override the format used to read/write from
+        the sources.
         """
-        
         format = kwargs.pop('format', None)
-        
-        # if caching, adapt cached values
-        if self.cache_values:
-            for section in self.sections(recurse=True):
-                section._adapt_cache()
+        if kwargs:
+            err = "sync() got an unexpected keyword argument '{}'"
+            raise TypeError(err.format(kwargs.popitem()[0]))
         
         sources, format = self._process_sources(sources, format)
         
@@ -162,7 +161,6 @@ class ConfigSection(collections.MutableMapping):
         file in a manner consistent with the active :class:`~profig.Format`.
         """
         section = self._create_section(key)
-        section._cache = NoValue
         section._type = type or default.__class__
         section.set_default(default)
         section.comment = comment
@@ -308,12 +306,8 @@ class ConfigSection(collections.MutableMapping):
         if not convert:
             if self._value is not NoValue:
                 return self._value
-        elif type is None and self._cache is not NoValue:
-            return self._cache
         elif self._value is not NoValue:
-            value = self.convert(self._value, type)
-            self._cache = self._cache_value(value)
-            return value
+            return self.convert(self._value, type)
         
         return self.default(convert, type)
     
@@ -340,15 +334,7 @@ class ConfigSection(collections.MutableMapping):
             if self._default is not NoValue:
                 return self._default
         elif self._default is not NoValue:
-            if type is None and self._value is NoValue and self._cache is not NoValue:
-                # only use cache if self._value hasn't been set
-                return self._cache
-            else:
-                value = self.convert(self._default, type)
-                # only set cache if self._value hasn't been set
-                if self._value is NoValue:
-                    self._cache = self._cache_value(value)
-                return value
+            return self.convert(self._default, type)
         
         raise NoValueError(self.key)
     
@@ -384,12 +370,6 @@ class ConfigSection(collections.MutableMapping):
             return string
         type = type or self._type
         return self._root.coercer.convert(string, type)
-    
-    def clear_cache(self, recurse=False):
-        """Clears cached values for this section. If *recurse* is
-        `True`, clears the cache for child sections as well."""
-        for section in self.sections(recurse):
-            section._cache = NoValue
     
     ## utilities ##
     
@@ -494,22 +474,9 @@ class ConfigSection(collections.MutableMapping):
     def _reset(self):
         if self._value is not NoValue:
             self._value = NoValue
-            self._cache = NoValue
             self.dirty = True
             if self._default is NoValue:
                 self._type = None
-    
-    def _adapt_cache(self):
-        if self._cache is not NoValue:
-            strvalue = self.adapt(self._cache)
-            if strvalue != self.value(convert=False):
-                self.set_value(strvalue)
-                self.dirty = True
-    
-    def _cache_value(self, value):
-        # no point in caching a string
-        should_cache = self._root.cache_values and not isinstance(value, str)
-        return value if should_cache else NoValue
     
     def _dump(self, indent=2): # pragma: no cover
         rootlen = len(self._make_key(self._key))
