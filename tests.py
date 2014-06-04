@@ -313,6 +313,23 @@ b = also binary
         finally:
             os.remove(temppath)
     
+    def test_unicode_write(self):
+        fd, temppath = tempfile.mkstemp()
+        try:
+            c = profig.Config(temppath, format='ini')
+            
+            c[a] = b'\x00binary\xff'
+            c.write()
+            
+            with io.open(fd, 'rb') as file:
+                result = file.read()
+            
+            self.assertEqual(result, b"""\
+[a] = \x00binary\xff
+""")
+        finally:
+            os.remove(temppath)
+    
     def test_unicode_read(self):
         fd, temppath = tempfile.mkstemp()
         try:

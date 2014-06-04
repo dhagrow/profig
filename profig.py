@@ -300,9 +300,9 @@ class ConfigSection(collections.MutableMapping):
                 section._reset()
     
     def value(self, convert=True, type=None):
-        """
-        Get the section's value.
-        To get the underlying string value, set *convert* to `False`.
+        """Get the section's value.
+        
+        To get the internal string value, set *convert* to `False`.
         If *convert* is `False`, *type* will be ignored.
         """
         if not convert:
@@ -318,11 +318,14 @@ class ConfigSection(collections.MutableMapping):
         return self.default(convert, type)
     
     def set_value(self, value, adapt=True):
-        """Set the section's value."""
+        """Set the section's value.
+        
+        To set the internal string value, set *adapt* to `False`.
+        """
         if adapt:
-            if isinstance(value, bytes):
-                value = value.decode(self.encoding)
             value = self.adapt(value)
+        elif self._type is not bytes:
+            value = value.decode(self._root.encoding)
         if value != self._value:
             self._value = value
             self.dirty = True
@@ -361,20 +364,26 @@ class ConfigSection(collections.MutableMapping):
         for key in self:
             yield (key, self.section(key).value(convert))
     
-    def adapt(self, value, adapt=False):
-        if self._root.coercer:
-            # only set the type if it has not already been set
-            if self._type is None:
-                self._type = value.__class__
-            return self._root.coercer.adapt(value, self._type)
-        else:
-            return value.decode(self.encoding)
-    
-    def convert(self, value, type):
-        if self._root.coercer:
-            return self._root.coercer.convert(value, type or self._type)
-        else:
+    def adapt(self, value, type=None):
+        """
+        value -> str
+        """
+        if not self._root.coercer:
             return value
+        # only set the type if it has not already been set
+        if self._type is None:
+            self._type = type or value.__class__
+        type = type or self._type
+        return self._root.coercer.adapt(value, type)
+    
+    def convert(self, string, type=None):
+        """
+        str -> value
+        """
+        if not self._root.coercer:
+            return string
+        type = type or self._type
+        return self._root.coercer.convert(string, type)
     
     def clear_cache(self, recurse=False):
         """Clears cached values for this section. If *recurse* is
@@ -679,7 +688,7 @@ class IniFormat(Format):
             # comment line
             if line.startswith(comment_char):
                 flush_comment(lines, comment)
-                comment_text = line.lstrip(comment_char).strip()
+                comment_text = line.lstrip(comment_char).strip().decode(self.encoding)
                 comment = Line(orgline, comment_text)
                 continue
             
@@ -697,6 +706,7 @@ class IniFormat(Format):
                     comments[section_name] = comment.name
                 comment = None
                 
+                section_name = section_name.decode(self.encoding)
                 lines.append(Line(orgline, section_name, issection=True))
                 continue
             
@@ -721,11 +731,11 @@ class IniFormat(Format):
         
         # file has been read. assign the values
         for key, value in values.items():
-            section = cfg.section(key.decode(self.encoding))
+            section = cfg.section(key)
             if not section.dirty and value is not None:
                 section.set_value(value, adapt=False)
             if key in comments:
-                section.comment = comments[key].decode(self.encoding)
+                section.comment = comments[key]
         
         return lines
     
@@ -744,16 +754,28 @@ class IniFormat(Format):
             # header section
             if section.valid:
                 value = section.value(convert=False)
-                write('[{}]{}{}\n'.format(section.name, self.delimeter, value))
+                write('[{}]'.format(section.name))
+                file.write(self.delimeter)
+                if isinstance(value, bytes):
+                    file.write(value)
+                else:
+                    write(value)
+                write('\n')
             else:
                 write('[{}]\n'.format(section.name))
+        
         elif section.valid:
             # value section
             cfg = self.config
             key = cfg._keystr(cfg._make_key(section.key)[1:])
             value = section.value(convert=False)
-            
-            write('{}{}{}\n'.format(key, self.delimeter, value))
+            write(key)
+            file.write(self.delimeter)
+            if isinstance(value, bytes):
+                file.write(value)
+            else:
+                write(value)
+            write('\n')
         
         section.dirty = False
     
@@ -792,7 +814,7 @@ class IniFormat(Format):
             else:
                 file.write(line.line)
         
-        # if there is a previous header section, write it's remaining values
+        # if there is an incomplete header section, write it's remaining values
         if header:
             for sec in header.sections(recurse=True):
                 if sec.key not in seen:
