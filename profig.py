@@ -48,7 +48,6 @@ class ConfigSection(collections.MutableMapping):
         self._name = name
         self._value = NoValue
         self._default = NoValue
-        self._cache = NoValue
         self._type = None
         self._parent = parent
         
@@ -362,9 +361,6 @@ class ConfigSection(collections.MutableMapping):
         """
         if not self._root.coercer:
             return value
-        if self._root.use_cache:
-            # invalidate the cache
-            self._cache = NoValue
         # only set the type if it has not already been set
         if self._type is None:
             self._type = type or value.__class__
@@ -377,8 +373,6 @@ class ConfigSection(collections.MutableMapping):
         """
         if not self._root.coercer:
             return string
-        if self._root.use_cache and self._cache is not NoValue and not type:
-            return self._cache
         type = type or self._type
         return self._root.coercer.convert(string, type)
     
@@ -483,7 +477,6 @@ class ConfigSection(collections.MutableMapping):
         return self._root.sep.join(key)
     
     def _reset(self):
-        self._cache = NoValue
         if self._value is not NoValue:
             self._value = NoValue
             self.dirty = True
@@ -519,9 +512,6 @@ class Config(ConfigSection):
     :var coercer: A :class:`~profig.Coercer` instance to use for
         adapting/converting values. Set to `None` to disable coercing.
     :var sep: The separator to use to seperate keys.
-    :var use_cache: If `True`, values will be cached to avoid constant
-        converting from their string representation. Caching is only useful
-        when a :class:`~profig.Coercer` is set.
     """
     
     _formats = {}
@@ -543,7 +533,6 @@ class Config(ConfigSection):
             register_booleans(self.coercer)
         
         self.sep = '.'
-        self.use_cache = True
     
     @classmethod
     def known_formats(cls):
