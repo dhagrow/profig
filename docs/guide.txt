@@ -281,4 +281,4 @@ we can use one of the available encodings: 'hex', and 'base64'::
 
 Or third, we can register different coercers for byte-strings::
     
-    >>> cfg.coercer.register(bytes, encrypt, decrypt)
+    >>> cfg.coercer.register(bytes, compress, decompress)

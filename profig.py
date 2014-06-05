@@ -48,6 +48,7 @@ class ConfigSection(collections.MutableMapping):
         self._name = name
         self._value = NoValue
         self._default = NoValue
+        self._cache = NoValue
         self._type = None
         self._parent = parent
         
@@ -318,15 +319,15 @@ class ConfigSection(collections.MutableMapping):
         """
         if adapt:
             value = self.adapt(value)
-        elif self._type is not bytes:
+        elif isinstance(value, bytes) and self._type is not bytes:
             value = value.decode(self._root.encoding)
         if value != self._value:
             self._value = value
             self.dirty = True
     
     def default(self, convert=True, type=None):
-        """
-        Get the section's default value.
+        """Get the section's default value.
+        
         To get the underlying string value, set *convert* to `False`.
         If *convert* is `False`, *type* will be ignored.
         """
@@ -338,11 +339,16 @@ class ConfigSection(collections.MutableMapping):
         
         raise NoValueError(self.key)
     
-    def set_default(self, default):
+    def set_default(self, value, adapt=True):
+        """Set the section's default value.
+        
+        To set the internal string value, set *adapt* to `False`.
         """
-        Set the section's default value.
-        """
-        self._default = self.adapt(default)
+        if adapt:
+            value = self.adapt(value)
+        elif isinstance(value, bytes) and self._type is not bytes:
+            value = value.decode(self._root.encoding)
+        self._default = value
     
     def items(self, convert=True):
         """Returns a (key, value) iterator over the unprocessed values of
@@ -356,6 +362,9 @@ class ConfigSection(collections.MutableMapping):
         """
         if not self._root.coercer:
             return value
+        if self._root.use_cache:
+            # invalidate the cache
+            self._cache = NoValue
         # only set the type if it has not already been set
         if self._type is None:
             self._type = type or value.__class__
@@ -368,6 +377,8 @@ class ConfigSection(collections.MutableMapping):
         """
         if not self._root.coercer:
             return string
+        if self._root.use_cache and self._cache is not NoValue and not type:
+            return self._cache
         type = type or self._type
         return self._root.coercer.convert(string, type)
     
@@ -472,11 +483,12 @@ class ConfigSection(collections.MutableMapping):
         return self._root.sep.join(key)
     
     def _reset(self):
+        self._cache = NoValue
         if self._value is not NoValue:
             self._value = NoValue
             self.dirty = True
-            if self._default is NoValue:
-                self._type = None
+        if self._default is NoValue:
+            self._type = None
     
     def _dump(self, indent=2): # pragma: no cover
         rootlen = len(self._make_key(self._key))
@@ -503,6 +515,13 @@ class Config(ConfigSection):
     an `OrderedDict` is used.
     
     This is a subclass of :class:`~profig.ConfigSection`.
+    
+    :var coercer: A :class:`~profig.Coercer` instance to use for
+        adapting/converting values. Set to `None` to disable coercing.
+    :var sep: The separator to use to seperate keys.
+    :var use_cache: If `True`, values will be cached to avoid constant
+        converting from their string representation. Caching is only useful
+        when a :class:`~profig.Coercer` is set.
     """
     
     _formats = {}
@@ -517,11 +536,14 @@ class Config(ConfigSection):
         format = kwargs.pop('format', 'ini')
         self.set_format(format)
         
-        self.coercer = Coercer(self.encoding)
-        register_booleans(self.coercer)
+        self.coercer = kwargs.pop('coercer', NoValue)
+        if self.coercer is NoValue:
+            self.coercer = Coercer(self.encoding)
+        if self.coercer:
+            register_booleans(self.coercer)
         
         self.sep = '.'
-        self.cache_values = True
+        self.use_cache = True
     
     @classmethod
     def known_formats(cls):

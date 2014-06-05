@@ -189,6 +189,8 @@ class TestBasic(unittest.TestCase):
         c['a'] = 2
         c['a.a'] = 2
         
+        self.assertEqual(c.as_dict(flat=True), {'a': 2, 'a.a': 2})
+        
         c.section('a').reset(recurse=False)
         self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 2})
         
