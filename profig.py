@@ -507,11 +507,11 @@ class Config(ConfigSection):
     The dict class used internally can be set using *dict_type*. By default
     an `OrderedDict` is used.
     
-    This is a subclass of :class:`~profig.ConfigSection`.
+    A :class:`~profig.Coercer` can be set using *coercer*. If no coercer is
+    passed in, a default will be created. If `None` is passed in, no coercer
+    will be set and values will be read from and written to sources directly.
     
-    :var coercer: A :class:`~profig.Coercer` instance to use for
-        adapting/converting values. Set to `None` to disable coercing.
-    :var sep: The separator to use to seperate keys.
+    This is a subclass of :class:`~profig.ConfigSection`.
     """
     
     _formats = {}
