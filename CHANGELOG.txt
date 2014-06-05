@@ -1,6 +1,11 @@
 Changes
 -------
 
+0.3.0 (06-04-14)
+- byte-string values are read/written directly from/to sources.
+- added support for Python 3.2.
+- bugfixes
+
 0.2.9 (05-27-14)
 - bugfixes
 - new syntax for sections with both children, and a value: [section] = value

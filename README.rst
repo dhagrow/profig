@@ -20,6 +20,7 @@ Features
 * Dict-like access.
 * Easily extensible input/output formats.
 * Preserves ordering and comments of config files.
+* Supports Python 2.7+ and 3.2+.
 
 Installation
 ------------
