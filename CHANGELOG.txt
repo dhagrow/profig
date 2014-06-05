@@ -2,34 +2,42 @@ Changes
 -------
 
 0.3.0 (06-04-14)
-- byte-string values are read/written directly from/to sources.
-- added support for Python 3.2.
-- bugfixes
+
+* byte-string values are read/written directly from/to sources.
+* added support for Python 3.2.
+* bugfixes
 
 0.2.9 (05-27-14)
-- bugfixes
-- new syntax for sections with both children, and a value: [section] = value
+
+* bugfixes
+* new syntax for sections with both children, and a value: [section] = value
 
 0.2.8 (04-11-14)
-- INI format is now the default
-- custom ProfigFormat has been removed
-- can now get/set comments for keys
-- comments and whitespace read from sources are preserved
-- filtering of keys when syncing has been removed (temporarily?)
+
+* INI format is now the default
+* custom ProfigFormat has been removed
+* can now get/set comments for keys
+* comments and whitespace read from sources are preserved
+* filtering of keys when syncing has been removed (temporarily?)
 
 0.2.7 (03-29-14)
-- improved INI support
-- bugfixes
+
+* improved INI support
+* bugfixes
 
 0.2.6 (03-26-14)
-- full unicode support
+
+* full unicode support
 
 0.2.5 (03-21-14)
-- fix broken Python 3 compatibility
+
+* fix broken Python 3 compatibility
 
 0.2.4 (03-21-14)
-- added support for Python 2
-- bugfixes
+
+* added support for Python 2
+* bugfixes
 
 0.2.3 and earlier (03-12-14)
-- initial releases
+
+* initial releases
