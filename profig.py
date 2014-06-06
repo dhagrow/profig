@@ -838,7 +838,7 @@ if WIN:
                 name = winreg.EnumKey(key, i)
                 subkey = winreg.OpenKeyEx(key, name)
                 subsection = section.section(name)
-                self.read_subkey(subkey, section)
+                self.read(subkey, section)
         
         def write(self, rkey, context=None):
             pass
