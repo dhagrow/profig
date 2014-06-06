@@ -405,7 +405,7 @@ class ConfigSection(collections.MutableMapping):
             finally:
                 # only close files that were opened from the filesystem
                 if isinstance(source, str):
-                    file.close()
+                    format.close(file)
             
             # return lines only for the first source
             if i == 0:
@@ -420,9 +420,9 @@ class ConfigSection(collections.MutableMapping):
         finally:
             # only close files that were opened from the filesystem
             if isinstance(source, str):
-                file.close()
+                format.close(file)
             else:
-                file.flush()
+                format.flush(file)
     
     def _process_sources(self, sources, format):
         sources = sources or self.sources
@@ -618,6 +618,12 @@ class Format(BaseFormat):
             if 'w' in mode:
                 source.truncate()
             return source
+    
+    def close(self, file):
+        file.close()
+    
+    def flush(self, file):
+        file.flush()
     
     def _read_error(self, file, lineno=None, text='', message=''):
         if self.read_errors != 'ignore':
@@ -820,7 +826,7 @@ if WIN:
         
         def read(self, key, section=None):
             section = section or self.config
-            n_subkeys, n_values = winreg.QueryInfoKey(key)
+            n_subkeys, n_values, t = winreg.QueryInfoKey(key)
             
             # read values from this subkey
             for i in range(n_values):
@@ -844,6 +850,12 @@ if WIN:
                 return winreg.CreateKeyEx(self.base_key, source)
             else:
                 raise ValueError('invalid mode: {}'.format(mode))
+        
+        def close(self, file):
+            pass
+        
+        def flush(self, file):
+            pass
 
 ## Config Errors ##
 
