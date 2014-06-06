@@ -27,10 +27,16 @@ __license__ = 'MIT'
 __all__ = ['Config', 'IniFormat', 'ConfigError', 'Coercer', 'CoerceError']
 
 PY3 = sys.version_info.major >= 3
-
 # use str for unicode data and bytes for binary data
 if not PY3:
     str = unicode
+
+WIN = os.name == 'nt'
+if WIN:
+    try:
+        import winreg
+    except ImportError:
+        import _winreg as winreg
 
 # the name *type* is used often so give type() an alias rather than use *typ*
 _type = type
@@ -592,7 +598,7 @@ class Format(BaseFormat):
         in a subclass."""
         raise NotImplementedError('abstract')
     
-    def open(self, source, mode='rb', *args):
+    def open(self, source, mode='rb'):
         """Returns a file object.
         
         If *source* is a file object, returns *source*. If *mode* is 'w',
@@ -606,7 +612,7 @@ class Format(BaseFormat):
             if self.ensure_dirs is not None and 'w' in mode:
                 # ensure the path exists if any writing is to be done
                 ensure_dirs(os.path.dirname(source), self.ensure_dirs)
-            return io.open(source, mode, *args)
+            return io.open(source, mode)
         else:
             source.seek(0)
             if 'w' in mode:
@@ -807,6 +813,37 @@ class IniFormat(Format):
             self.write_section(section, file, first)
             seen.add(section.key)
             first = False
+
+if WIN:
+    class RegistryFormat(Format):
+        base_key = winreg.HKEY_CURRENT_USER
+        
+        def read(self, key, section=None):
+            section = section or self.config
+            n_subkeys, n_values = winreg.QueryInfoKey(key)
+            
+            # read values from this subkey
+            for i in range(n_values):
+                name, value, type = winreg.EnumValue(key, i)
+                section.set_value(name, value)
+            
+            # read values from next subkeys
+            for i in range(n_subkeys):
+                name = winreg.EnumKey(i)
+                subkey = winreg.OpenKeyEx(key, name)
+                subsection = section.section(name)
+                self.read_subkey(subkey, section)
+        
+        def write(self, rkey, context=None):
+            pass
+        
+        def open(self, source, mode='rb'):
+            if 'r' in mode:
+                return winreg.OpenKeyEx(self.base_key, source)
+            elif 'w' in mode:
+                return winreg.CreateKeyEx(self.base_key, source)
+            else:
+                raise ValueError('invalid mode: {}'.format(mode))
 
 ## Config Errors ##
 
