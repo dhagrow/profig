@@ -835,7 +835,7 @@ if WIN:
             
             # read values from next subkeys
             for i in range(n_subkeys):
-                name = winreg.EnumKey(i)
+                name = winreg.EnumKey(key, i)
                 subkey = winreg.OpenKeyEx(key, name)
                 subsection = section.section(name)
                 self.read_subkey(subkey, section)
