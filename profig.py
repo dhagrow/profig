@@ -361,10 +361,7 @@ class ConfigSection(collections.MutableMapping):
         """
         if not self._root.coercer:
             return value
-        # only set the type if it has not already been set
-        if self._type is None:
-            self._type = type or value.__class__
-        type = type or self._type
+        type = type or self._type or value.__class__
         return self._root.coercer.adapt(value, type)
     
     def convert(self, string, type=None):
