@@ -33,6 +33,7 @@ if not PY3:
 
 WIN = os.name == 'nt'
 if WIN:
+    import ntpath
     try:
         import winreg
     except ImportError:
@@ -438,7 +439,9 @@ class ConfigSection(collections.MutableMapping):
         """
         if not format:
             return self._format
-        elif isinstance(format, str):
+        if isinstance(format, bytes):
+            format = format.decode('ascii')
+        if isinstance(format, str):
             try:
                 cls = Config._formats[format]
             except KeyError as e:
@@ -566,6 +569,8 @@ class MetaFormat(type):
     :class:`~profig.Config` class.
     """
     def __init__(cls, name, bases, dct):
+        if isinstance(name, bytes):
+            name = name.decode('ascii')
         if name not in ('BaseFormat', 'Format'):
             Config._formats[cls.name] = cls
         return super(MetaFormat, cls).__init__(name, bases, dct)
@@ -822,16 +827,18 @@ class IniFormat(Format):
 
 if WIN:
     class RegistryFormat(Format):
+        name = 'registry'
         base_key = winreg.HKEY_CURRENT_USER
         
         def read(self, key, section=None):
             section = section or self.config
             n_subkeys, n_values, t = winreg.QueryInfoKey(key)
-            
+            print('QueryInfoKey', n_subkeys, n_values)
             # read values from this subkey
             for i in range(n_values):
                 name, value, type = winreg.EnumValue(key, i)
-                section.set_value(name, value)
+                print('EnumValue', i, name, value, type)
+                section[name] = value
             
             # read values from next subkeys
             for i in range(n_subkeys):
@@ -841,7 +848,19 @@ if WIN:
                 self.read(subkey, section)
         
         def write(self, rkey, context=None):
-            pass
+            cfg = self.config
+            for section in cfg.sections(recurse=True):
+                if section.has_children:
+                    # create a key
+                    pass
+                
+                if section.valid:
+                    # write value
+                    key, name = self._reg_key(section.key)
+                    subkey = winreg.CreateKeyEx(rkey, key)
+                    value = section.value()
+                    type = self._get_type(value)
+                    winreg.SetValueEx(subkey, name, 0, type, value)
         
         def open(self, source, mode='rb'):
             if 'r' in mode:
@@ -856,6 +875,21 @@ if WIN:
         
         def flush(self, file):
             pass
+        
+        def _reg_key(self, section_key):
+            key = self.config._make_key(section_key)
+            return ntpath.pathsep.join(key[:-1]), key[-1]
+        
+        def _get_type(self, value):
+            if isinstance(value, str):
+                return winreg.REG_SZ
+            elif isinstance(value, bytes):
+                return winreg.REG_BINARY
+            elif isinstance(value, int):
+                return winreg.REG_DWORD
+            else:
+                err = 'type not supported by this format: {}'
+                raise ValueError(err.format(_type(value)))
 
 ## Config Errors ##
 
