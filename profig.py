@@ -845,7 +845,7 @@ if WIN:
                 name = winreg.EnumKey(key, i)
                 subkey = winreg.OpenKeyEx(key, name)
                 subsection = section.section(name)
-                self.read(subkey, section)
+                self.read(subkey, subsection)
         
         def write(self, rkey, context=None):
             cfg = self.config
