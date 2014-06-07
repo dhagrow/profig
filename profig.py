@@ -27,10 +27,17 @@ __license__ = 'MIT'
 __all__ = ['Config', 'IniFormat', 'ConfigError', 'Coercer', 'CoerceError']
 
 PY3 = sys.version_info.major >= 3
-
 # use str for unicode data and bytes for binary data
 if not PY3:
     str = unicode
+
+WIN = os.name == 'nt'
+if WIN:
+    import ntpath
+    try:
+        import winreg
+    except ImportError:
+        import _winreg as winreg
 
 # the name *type* is used often so give type() an alias rather than use *typ*
 _type = type
@@ -396,7 +403,7 @@ class ConfigSection(collections.MutableMapping):
             finally:
                 # only close files that were opened from the filesystem
                 if isinstance(source, str):
-                    file.close()
+                    format.close(file)
             
             # return lines only for the first source
             if i == 0:
@@ -411,9 +418,9 @@ class ConfigSection(collections.MutableMapping):
         finally:
             # only close files that were opened from the filesystem
             if isinstance(source, str):
-                file.close()
+                format.close(file)
             else:
-                file.flush()
+                format.flush(file)
     
     def _process_sources(self, sources, format):
         sources = sources or self.sources
@@ -429,7 +436,9 @@ class ConfigSection(collections.MutableMapping):
         """
         if not format:
             return self._format
-        elif isinstance(format, str):
+        if isinstance(format, bytes):
+            format = format.decode('ascii')
+        if isinstance(format, str):
             try:
                 cls = Config._formats[format]
             except KeyError as e:
@@ -557,6 +566,8 @@ class MetaFormat(type):
     :class:`~profig.Config` class.
     """
     def __init__(cls, name, bases, dct):
+        if isinstance(name, bytes):
+            name = name.decode('ascii')
         if name not in ('BaseFormat', 'Format'):
             Config._formats[cls.name] = cls
         return super(MetaFormat, cls).__init__(name, bases, dct)
@@ -589,7 +600,7 @@ class Format(BaseFormat):
         in a subclass."""
         raise NotImplementedError('abstract')
     
-    def open(self, source, mode='rb', *args):
+    def open(self, source, mode='rb'):
         """Returns a file object.
         
         If *source* is a file object, returns *source*. If *mode* is 'w',
@@ -603,12 +614,18 @@ class Format(BaseFormat):
             if self.ensure_dirs is not None and 'w' in mode:
                 # ensure the path exists if any writing is to be done
                 ensure_dirs(os.path.dirname(source), self.ensure_dirs)
-            return io.open(source, mode, *args)
+            return io.open(source, mode)
         else:
             source.seek(0)
             if 'w' in mode:
                 source.truncate()
             return source
+    
+    def close(self, file):
+        file.close()
+    
+    def flush(self, file):
+        file.flush()
     
     def _read_error(self, file, lineno=None, text='', message=''):
         if self.read_errors != 'ignore':
@@ -804,6 +821,72 @@ class IniFormat(Format):
             self.write_section(section, file, first)
             seen.add(section.key)
             first = False
+
+if WIN:
+    class RegistryFormat(Format):
+        name = 'registry'
+        base_key = winreg.HKEY_CURRENT_USER
+        
+        def read(self, key, section=None):
+            section = section or self.config
+            n_subkeys, n_values, t = winreg.QueryInfoKey(key)
+            print('QueryInfoKey', n_subkeys, n_values)
+            # read values from this subkey
+            for i in range(n_values):
+                name, value, type = winreg.EnumValue(key, i)
+                print('EnumValue', i, name, value, type)
+                section[name] = value
+            
+            # read values from next subkeys
+            for i in range(n_subkeys):
+                name = winreg.EnumKey(key, i)
+                subkey = winreg.OpenKeyEx(key, name)
+                subsection = section.section(name)
+                self.read(subkey, subsection)
+        
+        def write(self, rkey, context=None):
+            cfg = self.config
+            for section in cfg.sections(recurse=True):
+                if section.has_children:
+                    # create a key
+                    pass
+                
+                if section.valid:
+                    # write value
+                    key, name = self._reg_key(section.key)
+                    subkey = winreg.CreateKeyEx(rkey, key)
+                    value = section.value()
+                    type = self._get_type(value)
+                    winreg.SetValueEx(subkey, name, 0, type, value)
+        
+        def open(self, source, mode='rb'):
+            if 'r' in mode:
+                return winreg.OpenKeyEx(self.base_key, source)
+            elif 'w' in mode:
+                return winreg.CreateKeyEx(self.base_key, source)
+            else:
+                raise ValueError('invalid mode: {}'.format(mode))
+        
+        def close(self, file):
+            pass
+        
+        def flush(self, file):
+            pass
+        
+        def _reg_key(self, section_key):
+            key = self.config._make_key(section_key)
+            return ntpath.pathsep.join(key[:-1]), key[-1]
+        
+        def _get_type(self, value):
+            if isinstance(value, str):
+                return winreg.REG_SZ
+            elif isinstance(value, bytes):
+                return winreg.REG_BINARY
+            elif isinstance(value, int):
+                return winreg.REG_DWORD
+            else:
+                err = 'type not supported by this format: {}'
+                raise ValueError(err.format(_type(value)))
 
 ## Config Errors ##
 
