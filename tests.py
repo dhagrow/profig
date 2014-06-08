@@ -17,6 +17,9 @@ import profig
 if not profig.PY3:
     str = unicode
 
+if profig.WIN:
+    import winreg
+
 class TestBasic(unittest.TestCase):
     def test_init(self):
         c = profig.Config()
@@ -494,6 +497,218 @@ class TestMisc(unittest.TestCase):
         
         path = '~/.config'
         self.assertEqual(profig.get_source('test', 'user'), os.path.join(path, 'test'))
+
+if profig.WIN:
+    class TestRegistryFormat(unittest.TestCase):
+        def setUp(self):
+            c = profig.Config(r'Software\_profig_test', format='registry')
+    
+            self.c.init('a', 1)
+            self.c.init('b', 'value')
+            self.c.init('a.1', 2)
+        
+        def tearDown(self):
+            pass
+    
+        def test_basic(self):
+            del self.c['a.1']
+    
+            buf = io.BytesIO()
+            self.c.sync(buf)
+            
+            self.assertEqual(buf.getvalue(), b"""\
+    [a] = 1
+    
+    [b] = value
+    """)
+        
+        def test_sync_read_blank(self):
+            c = profig.Config(format='ini')
+            buf = io.BytesIO(b"""\
+    [b] = value
+    
+    [a] = 1
+    1 = 2
+    """)
+            c.sync(buf)
+            
+            self.assertEqual(c['a'], '1')
+            self.assertEqual(c['b'], 'value')
+            self.assertEqual(c['a.1'], '2')
+        
+        def test_subsection(self):
+            buf = io.BytesIO()
+            self.c.sync(buf)
+            
+            self.assertEqual(buf.getvalue(), b"""\
+    [a] = 1
+    1 = 2
+    
+    [b] = value
+    """)
+    
+        def test_preserve_order(self):
+            buf = io.BytesIO(b"""\
+    [a] = 1
+    1 = 2
+    
+    [b] = value
+    """)
+            self.c['a.1'] = 3
+            self.c['a'] = 2
+            self.c['b'] = 'test'
+            
+            self.c.sync(buf)
+            
+            self.assertEqual(buf.getvalue(), b"""\
+    [a] = 2
+    1 = 3
+    
+    [b] = test
+    """)
+        
+        def test_preserve_comments(self):
+            buf = io.BytesIO(b"""\
+    ;a comment
+    [a] = 1
+    ; another comment
+    1 = 2
+    
+    ; yet more comments?
+    [b] = value
+    ;arrrrgh!
+    """)
+            self.c['a.1'] = 3
+            self.c['a'] = 2
+            self.c['b'] = 'test'
+            
+            self.c.sync(buf)
+            
+            self.assertEqual(buf.getvalue(), b"""\
+    ; a comment
+    [a] = 2
+    ; another comment
+    1 = 3
+    
+    ; yet more comments?
+    [b] = test
+    ;arrrrgh!
+    """)
+        
+        def test_binary_read(self):
+            fd, temppath = tempfile.mkstemp()
+            try:
+                with io.open(fd, 'wb') as file:
+                    file.write(b"""\
+    [a] = binary
+    b = also binary
+    """)
+                
+                c = profig.Config(temppath, format='ini')
+                c.init('a', b'')
+                c.init('a.b', b'')
+                c.read()
+                
+                self.assertEqual(c['a'], b'binary')
+                self.assertEqual(c['a.b'], b'also binary')
+            finally:
+                os.remove(temppath)
+        
+        def test_unicode_write(self):
+            fd, temppath = tempfile.mkstemp()
+            try:
+                c = profig.Config(temppath, format='ini')
+                
+                c[a] = b'\x00binary\xff'
+                c.write()
+                
+                with io.open(fd, 'rb') as file:
+                    result = file.read()
+                
+                self.assertEqual(result, b"""\
+    [a] = \x00binary\xff
+    """)
+            finally:
+                os.remove(temppath)
+        
+        def test_unicode_read(self):
+            fd, temppath = tempfile.mkstemp()
+            try:
+                with io.open(fd, 'wb') as file:
+                    file.write(b"""\
+    [\xdc] = \xdc
+    """)
+                
+                c = profig.Config(temppath, format='ini', encoding='shiftjis')
+                c.read()
+                
+                self.assertEqual(c['\uff9c'], '\uff9c')
+            finally:
+                os.remove(temppath)
+        
+        def test_unicode_write(self):
+            fd, temppath = tempfile.mkstemp()
+            try:
+                c = profig.Config(temppath, format='ini', encoding='shiftjis')
+                
+                c['\uff9c'] = '\uff9c'
+                c.write()
+                
+                with io.open(fd, 'rb') as file:
+                    result = file.read()
+                
+                self.assertEqual(result, b"""\
+    [\xdc] = \xdc
+    """)
+            finally:
+                os.remove(temppath)
+        
+        def test_repeated_values(self):
+            c = profig.Config(format='ini')
+            buf = io.BytesIO(b"""\
+    [a]
+    b = 1
+    b = 2
+    """)
+            c.sync(buf)
+            
+            self.assertEqual(c['a.b'], '2')
+            self.assertEqual(buf.getvalue(), b"""\
+    [a]
+    b = 2
+    """)
+            
+            c['a.b'] = '3'
+            c.sync(buf)
+            
+            self.assertEqual(buf.getvalue(), b"""\
+    [a]
+    b = 3
+    """)
+        
+        def test_repeated_sections(self):
+            c = profig.Config(format='ini')
+            buf = io.BytesIO(b"""\
+    [a]
+    b = 1
+    b = 2
+    
+    [b]
+    a = 1
+    
+    [a]
+    b = 3
+    """)
+            c.sync(buf)
+            
+            self.assertEqual(c['a.b'], '3')    
+            self.assertEqual(buf.getvalue(), b"""\
+    [a]
+    b = 3
+    
+    [b]
+    a = 1
+    """)
 
 if __name__ == '__main__':
     unittest.main()

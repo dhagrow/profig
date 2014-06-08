@@ -830,11 +830,10 @@ if WIN:
         def read(self, key, section=None):
             section = section or self.config
             n_subkeys, n_values, t = winreg.QueryInfoKey(key)
-            print('QueryInfoKey', n_subkeys, n_values)
+            
             # read values from this subkey
             for i in range(n_values):
                 name, value, type = winreg.EnumValue(key, i)
-                print('EnumValue', i, name, value, type)
                 section[name] = value
             
             # read values from next subkeys
@@ -873,6 +872,13 @@ if WIN:
         def flush(self, file):
             pass
         
+        def delete(self, key, recurse=False):
+            if recurse:
+                for key in reversed(self._all_keys(key)):
+                    winreg.DeleteKey(key)
+            else :
+                winreg.DeleteKey(key)
+        
         def _reg_key(self, section_key):
             key = self.config._make_key(section_key)
             return ntpath.pathsep.join(key[:-1]), key[-1]
@@ -887,6 +893,16 @@ if WIN:
             else:
                 err = 'type not supported by this format: {}'
                 raise ValueError(err.format(_type(value)))
+        
+        def _all_keys(self, key):
+            n_subkeys, n_values, t = winreg.QueryInfoKey(key)
+            yield key
+            
+            for i in range(n_subkeys):
+                name = winreg.EnumKey(key, i)
+                subkey = winreg.OpenKeyEx(key, name)
+                for subsubkey in self._all_keys(subkey):
+                    yield subsubkey
 
 ## Config Errors ##
 
