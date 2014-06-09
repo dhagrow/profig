@@ -872,12 +872,9 @@ if WIN:
         def flush(self, file):
             pass
         
-        def delete(self, key, recurse=False):
-            if recurse:
-                for key in reversed(self._all_keys(key)):
-                    winreg.DeleteKey(key)
-            else :
-                winreg.DeleteKey(key)
+        def delete(self, key):
+            for key, name in reversed(list(self._all_keys(key))):
+                winreg.DeleteKey(key, name)
         
         def _reg_key(self, section_key):
             key = self.config._make_key(section_key)
