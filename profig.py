@@ -282,16 +282,19 @@ class ConfigSection(collections.MutableMapping):
                 raise InvalidSectionError(key)
         return section
 
-    def sections(self, recurse=False):
+    def sections(self, recurse=False, only_valid=False):
         """Returns the sections that are children to this section.
         
         If *recurse* is `True`, returns grandchildren as well.
+        If *only_valid* is `True`, returns only valid sections.
         """
         for child in self._children.values():
-            yield child
+            if not only_valid or child.valid:
+                yield child
             if recurse:
                 for grand in child.sections(recurse):
-                    yield grand
+                    if not only_valid or grand.valid:
+                        yield grand
     
     def reset(self, recurse=True):
         """Resets this section to it's default value, leaving it
@@ -845,18 +848,13 @@ if WIN:
         
         def write(self, key, context=None):
             cfg = self.config
-            for section in cfg.sections(recurse=True):
-                if section.has_children:
-                    # create a key
-                    pass
-                
-                if section.valid:
-                    # write value
-                    rkey, name = self._reg_key(section.key)
-                    subkey = winreg.CreateKeyEx(key, rkey)
-                    value = section.value()
-                    type = self._get_type(value)
-                    winreg.SetValueEx(subkey, name, 0, type, value)
+            for section in cfg.sections(recurse=True, only_valid=True):
+                # write value
+                rkey, name = self._reg_key(section.key)
+                subkey = winreg.CreateKeyEx(key, rkey)
+                value = section.value()
+                type = self._get_type(value)
+                winreg.SetValueEx(subkey, name, 0, type, value)
         
         def open(self, source, mode='rb'):
             if 'r' in mode:
@@ -895,7 +893,7 @@ if WIN:
         
         def _reg_key(self, section_key):
             key = self.config._make_key(section_key)
-            return ntpath.pathsep.join(key[:-1]), key[-1]
+            return ntpath.sep.join(key[:-1]), key[-1]
         
         def _get_type(self, value):
             if isinstance(value, str):
