@@ -843,7 +843,7 @@ if WIN:
                 subsection = section.section(name)
                 self.read(subkey, subsection)
         
-        def write(self, rkey, context=None):
+        def write(self, key, context=None):
             cfg = self.config
             for section in cfg.sections(recurse=True):
                 if section.has_children:
@@ -852,8 +852,8 @@ if WIN:
                 
                 if section.valid:
                     # write value
-                    key, name = self._reg_key(section.key)
-                    subkey = winreg.CreateKeyEx(rkey, key)
+                    rkey, name = self._reg_key(section.key)
+                    subkey = winreg.CreateKeyEx(key, rkey)
                     value = section.value()
                     type = self._get_type(value)
                     winreg.SetValueEx(subkey, name, 0, type, value)
@@ -866,15 +866,32 @@ if WIN:
             else:
                 raise ValueError('invalid mode: {}'.format(mode))
         
-        def close(self, file):
-            pass
+        def close(self, key):
+            winreg.CloseKey(key)
         
-        def flush(self, file):
-            pass
+        def flush(self, key):
+            winreg.FlushKey(key)
         
         def delete(self, key):
-            for key, name in reversed(list(self._all_keys(key))):
-                winreg.DeleteKey(key, name)
+            """Deletes all keys and values recursively from *key*."""
+            for subkey in self.all_keys(key):
+                winreg.DeleteKey(subkey, '')
+        
+        def all_keys(self, key):
+            """Generates all keys descending from *key*.
+            
+            The deepest is returned first, then the rest, all the way
+            back to *key*
+            """
+            n_subkeys, n_values, t = winreg.QueryInfoKey(key)
+            
+            for i in range(n_subkeys):
+                name = winreg.EnumKey(key, i)
+                subkey = winreg.OpenKeyEx(key, name)
+                for subsubkey in self.all_keys(subkey):
+                    yield subsubkey
+            
+            yield key
         
         def _reg_key(self, section_key):
             key = self.config._make_key(section_key)
@@ -890,16 +907,6 @@ if WIN:
             else:
                 err = 'type not supported by this format: {}'
                 raise ValueError(err.format(_type(value)))
-        
-        def _all_keys(self, key):
-            n_subkeys, n_values, t = winreg.QueryInfoKey(key)
-            yield key
-            
-            for i in range(n_subkeys):
-                name = winreg.EnumKey(key, i)
-                subkey = winreg.OpenKeyEx(key, name)
-                for subsubkey in self._all_keys(subkey):
-                    yield subsubkey
 
 ## Config Errors ##
 
