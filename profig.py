@@ -17,6 +17,7 @@ import re
 import sys
 import errno
 import locale
+import inspect
 import itertools
 import collections
 
@@ -57,9 +58,9 @@ class ConfigSection(collections.MutableMapping):
         self._default = NoValue
         self._type = None
         self._parent = parent
+        self._dirty = False
         
         self.comment = None
-        self.dirty = False
         
         if parent is None:
             # root
@@ -104,6 +105,11 @@ class ConfigSection(collections.MutableMapping):
     def valid(self):
         """`True` if this section has a valid value. Read-only."""
         return not (self._value is NoValue and self._default is NoValue)
+    
+    @property
+    def dirty(self):
+        """`True` if this section's value has changed since the last write. Read-only."""
+        return self._dirty
     
     @property
     def is_default(self):
@@ -168,22 +174,19 @@ class ConfigSection(collections.MutableMapping):
         file in a manner consistent with the active :class:`~profig.Format`.
         """
         section = self._create_section(key)
-        section._type = type or default.__class__
+        section._type = type or _type(default)
         section.set_default(default)
         section.comment = comment
     
-    def get(self, key, default=None, convert=True, type=None):
-        """
-        Return the value for key if key is in the dictionary,
-        else default. If *default* is not given, it defaults to
-        `None`, so that this method never raises an
-        :exc:`~profig.InvalidSectionError`. If *type* is provided,
-        it will be used as the type to convert the value from text.
-        If *convert* is `False`, *type* will be ignored.
+    def get(self, key, default=None):
+        """If *key* exists, returns the value. Otherwise, returns *default*.
+        
+        If *default* is not given, it defaults to `None`, so that this
+        method never raises an exception.
         """
         try:
             section = self.section(key, create=False)
-            return section.value(convert, type)
+            return section.value()
         except (InvalidSectionError, NoValueError):
             return default
     
@@ -228,37 +231,33 @@ class ConfigSection(collections.MutableMapping):
         return "{}('{}', value={!r}, keys={}, comment={!r})".format(
             self.__class__.__name__, self.key, value, list(self), self.comment)
     
-    def as_dict(self, flat=False, recurse=True, convert=True, dict_type=None):
+    def as_dict(self, flat=False, recurse=True, dict_type=None):
         """Returns the configuration's keys and values as a dictionary.
         
         If *flat* is `True`, returns a single-depth dict with :samp:`.`
         delimited keys.
         
-        If *convert* is `True`, all values will be converted. Otherwise, their
-        string representations will be returned.
-        
         If *dict_type* is not `None`, it should be the mapping class to use
         for the result. Otherwise, the *dict_type* set by
-        :meth:`~config.Config.__init__` will be used (the default is
-        `OrderedDict`).
+        :meth:`~config.Config.__init__` will be used.
         """
         dtype = dict_type or self._root._dict_type
         valid = self is not self._root and self.valid
         
         if flat:
             sections = ((k, self.section(k)) for k in self)
-            return dtype((k, s.value(convert)) for k, s in sections)
+            return dtype((k, s.value()) for k, s in sections)
         
         if recurse and self._children:
             d = dtype()
             if valid:
-                d[''] = self.value(convert)
+                d[''] = self.value()
             for section in self.sections():
-                d.update(section.as_dict(convert=convert, dict_type=dict_type))
+                d.update(section.as_dict(dict_type=dict_type))
             
             return d if self is self._root else dtype({self.name: d})
         elif valid:
-            return dtype({self.name: self.value(convert)})
+            return dtype({self.name: self.value()})
         else:
             return dtype()
 
@@ -294,92 +293,56 @@ class ConfigSection(collections.MutableMapping):
                     if not only_valid or grand.valid:
                         yield grand
     
-    def reset(self, recurse=True):
+    def reset(self, recurse=True, clean=False):
         """Resets this section to it's default value, leaving it
         in the same state as after a call to :meth:`ConfigSection.init`.
-        If *recurse* is `True`, does the same to all the
-        section's children."""
+        
+        If *recurse* is `True`, does the same to all the section's children.
+        If *clean* is `True`, also clears the dirty flag on all sections.
+        """
         if self is not self._root:
-            self._reset()
+            self._reset(clean)
         if recurse:
             for section in self.sections(recurse):
-                section._reset()
+                section._reset(clean)
     
-    def value(self, convert=True, type=None):
-        """Get the section's value.
-        
-        To get the internal string value, set *convert* to `False`.
-        If *convert* is `False`, *type* will be ignored.
-        """
-        if not convert:
-            if self._value is not NoValue:
-                return self._value
-        elif self._value is not NoValue:
-            return self.convert(self._value, type)
-        
-        return self.default(convert, type)
+    def value(self):
+        """Get the section's value."""
+        if self._value is not NoValue:
+            return self._value
+        return self.default()
     
-    def set_value(self, value, adapt=True):
-        """Set the section's value.
-        
-        To set the internal string value, set *adapt* to `False`.
-        """
-        if adapt:
-            value = self.adapt(value)
-        elif isinstance(value, bytes) and self._type is not bytes:
-            value = value.decode(self._root.encoding)
-        if value != self._value:
-            self._value = value
-            self.dirty = True
+    def set_value(self, value):
+        """Set the section's value."""
+        self._value = value
+        self._dirty = True
     
-    def default(self, convert=True, type=None):
-        """Get the section's default value.
-        
-        To get the underlying string value, set *convert* to `False`.
-        If *convert* is `False`, *type* will be ignored.
-        """
-        if not convert:
-            if self._default is not NoValue:
-                return self._default
-        elif self._default is not NoValue:
-            return self.convert(self._default, type)
-        
+    def default(self):
+        """Get the section's default value."""
+        if self._default is not NoValue:
+            return self._default
         raise NoValueError(self.key)
     
-    def set_default(self, value, adapt=True):
-        """Set the section's default value.
-        
-        To set the internal string value, set *adapt* to `False`.
-        """
-        if adapt:
-            value = self.adapt(value)
-        elif isinstance(value, bytes) and self._type is not bytes:
-            value = value.decode(self._root.encoding)
+    def set_default(self, value):
+        """Set the section's default value."""
         self._default = value
     
-    def items(self, convert=True):
-        """Returns a (key, value) iterator over the unprocessed values of
-        this section."""
-        for key in self:
-            yield (key, self.section(key).value(convert))
-    
-    def adapt(self, value, type=None):
-        """
-        value -> str
-        """
+    def adapt(self):
+        """value -> str"""
         if not self._root.coercer:
             return value
-        type = type or self._type or value.__class__
-        return self._root.coercer.adapt(value, type)
+        return self._root.coercer.adapt(self.value(), self._type)
     
-    def convert(self, string, type=None):
-        """
-        str -> value
-        """
+    def convert(self, string):
+        """str -> value"""
         if not self._root.coercer:
-            return string
-        type = type or self._type
-        return self._root.coercer.convert(string, type)
+            value = string
+        else:
+            type = self._type
+            if not (inspect.isclass(type) and issubclass(type, bytes)):
+                string = string.decode(self._root.encoding)
+            value = self._root.coercer.convert(string, type)
+        self.set_value(value)
     
     ## utilities ##
     
@@ -483,10 +446,10 @@ class ConfigSection(collections.MutableMapping):
     def _keystr(self, key):
         return self._root.sep.join(key)
     
-    def _reset(self):
+    def _reset(self, clean=False):
         if self._value is not NoValue:
             self._value = NoValue
-            self.dirty = True
+            self._dirty = not clean
         if self._default is NoValue:
             self._type = None
     
@@ -725,8 +688,8 @@ class IniFormat(Format):
         # file has been read. assign the values
         for key, value in values.items():
             section = cfg.section(key)
-            if not section.dirty and value is not None:
-                section.set_value(value, adapt=False)
+            if not section._dirty and value is not None:
+                section.convert(value)
             if key in comments:
                 section.comment = comments[key]
         
@@ -746,7 +709,7 @@ class IniFormat(Format):
         if section.parent is section.root:
             # header section
             if section.valid:
-                value = section.value(convert=False)
+                value = section.adapt()
                 write('[{}]'.format(section.name))
                 file.write(self.delimeter)
                 if isinstance(value, bytes):
@@ -761,7 +724,7 @@ class IniFormat(Format):
             # value section
             cfg = self.config
             key = cfg._keystr(cfg._make_key(section.key)[1:])
-            value = section.value(convert=False)
+            value = section.adapt()
             write(key)
             file.write(self.delimeter)
             if isinstance(value, bytes):
@@ -770,7 +733,7 @@ class IniFormat(Format):
                 write(value)
             write('\n')
         
-        section.dirty = False
+        section._dirty = False
     
     def write(self, file, lines=None):
         cfg = self.config

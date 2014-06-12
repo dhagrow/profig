@@ -97,7 +97,6 @@ class TestBasic(unittest.TestCase):
         
         self.assertEqual(c.get('a'), 1)
         self.assertEqual(c.get('a.1'), 1)
-        self.assertEqual(c.get('a', type=str), '1')
         self.assertEqual(c.get('a.2'), None)
         self.assertEqual(c.get('a.2', 2), 2)
     
@@ -113,8 +112,6 @@ class TestBasic(unittest.TestCase):
         for key in ['a', 'b']:
             s = c.section(key)
             self.assertEqual(s.value(), 1)
-            self.assertEqual(s.value(convert=False), '1')
-            self.assertEqual(s.value(type=str), '1')
     
     def test_default(self):
         c = profig.Config()
@@ -127,8 +124,6 @@ class TestBasic(unittest.TestCase):
         
         s = c.section('b')
         self.assertEqual(s.default(), 1)
-        self.assertEqual(s.default(convert=False), '1')
-        self.assertEqual(s.default(type=str), '1')
     
     def test_set_value(self):
         c = profig.Config()
@@ -140,8 +135,9 @@ class TestBasic(unittest.TestCase):
         c.section('b').set_value('3')
         self.assertEqual(c['b'], '3')
         
+        # .init does not enforce types
         c.section('c').set_value('4')
-        self.assertEqual(c['c'], 4)
+        self.assertEqual(c['c'], '4')
     
     def test_set_default(self):
         c = profig.Config()
@@ -153,8 +149,9 @@ class TestBasic(unittest.TestCase):
         c.section('b').set_default('3')
         self.assertEqual(c['b'], '3')
         
+        # .init does not enforce types
         c.section('c').set_default('4')
-        self.assertEqual(c['c'], 4)
+        self.assertEqual(c['c'], '4')
     
     def test_section(self):
         c = profig.Config()
@@ -179,11 +176,11 @@ class TestBasic(unittest.TestCase):
         c['b'] = 1
         c['a.a'] = 1
         self.assertEqual(c.as_dict(), {'a': {'': 1, 'a': 1}, 'b': 1})
-        self.assertEqual(c.as_dict(convert=False),
-            {'a': {'': '1', 'a': '1'}, 'b': '1'})
+        #self.assertEqual(c.as_dict(convert=False),
+            #{'a': {'': '1', 'a': '1'}, 'b': '1'})
         self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1, 'b': 1})
-        self.assertEqual(c.as_dict(flat=True, convert=False),
-            {'a': '1', 'a.a': '1', 'b': '1'})
+        #self.assertEqual(c.as_dict(flat=True, convert=False),
+            #{'a': '1', 'a.a': '1', 'b': '1'})
     
     def test_reset(self):
         c = profig.Config(dict_type=dict)
@@ -460,23 +457,28 @@ class TestCoercer(unittest.TestCase):
         c.sync(buf)
         self.assertEqual(c['color'], 3)
         
+        c['color'] = 4
         with self.assertRaises(profig.AdaptError):
-            c['color'] = 4
+            c.write(buf)
     
     def test_not_exist_error(self):
         c = profig.Config()
-        c.init('value', [])
+        c.init('value', [], 'notexist')
         
+        buf = io.BytesIO()
         with self.assertRaises(profig.NotRegisteredError):
-            c.section('value').value(type='notexist')
+            c.write(buf)
         
+        c.init('value', [])
+        c['value'] = 3
         with self.assertRaises(profig.AdaptError):
-            c['value'] = 3
+            c.write(buf)
         
+        c.reset(clean=True)
         c.init('value', 1)
-        c.section('value').set_value('badvalue')
+        buf = io.BytesIO(b"""[value] = badvalue""")
         with self.assertRaises(profig.ConvertError):
-            c['value']
+            c.read(buf)
 
 class TestErrors(unittest.TestCase):
     def test_ReadError(self):
