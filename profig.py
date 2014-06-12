@@ -202,10 +202,8 @@ class ConfigSection(collections.MutableMapping):
         del section._parent._children[section.name]
     
     def __bool__(self):
-        return True
-    
-    def __nonzero__(self):
-        return True
+        return self.valid or len(self) > 0
+    __nonzero__ = __bool__
     
     def __len__(self):
         return len(self._children)
