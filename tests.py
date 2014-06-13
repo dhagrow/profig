@@ -18,7 +18,10 @@ if not profig.PY3:
     str = unicode
 
 if profig.WIN:
-    import winreg
+    try:
+        import winreg
+    except ImportError:
+        import _winreg as winreg
 
 class TestBasic(unittest.TestCase):
     def test_init(self):
@@ -503,26 +506,31 @@ class TestMisc(unittest.TestCase):
 if profig.WIN:
     class TestRegistryFormat(unittest.TestCase):
         def setUp(self):
-            c = profig.Config(r'Software\_profig_test', format='registry')
+            self.base_key = winreg.HKEY_CURRENT_USER
+            self.path = r'Software\_profig_test'
+            self.c = c = profig.Config(self.path, format='registry')
     
-            self.c.init('a', 1)
-            self.c.init('b', 'value')
-            self.c.init('a.1', 2)
+            c.init('a', 1)
+            c.init('a.a', 2)
+            c.init('b', 'bytes')
+            c.init('c', u'str')
         
         def tearDown(self):
-            pass
+            fmt = self.c._format
+            fmt.delete(fmt.open(self.path))
     
         def test_basic(self):
-            del self.c['a.1']
+            c = self.c
+            del c['b']
     
-            buf = io.BytesIO()
-            self.c.sync(buf)
+            c.sync()
             
-            self.assertEqual(buf.getvalue(), b"""\
-    [a] = 1
-    
-    [b] = value
-    """)
+            k = winreg.OpenKeyEx(self.base_key, self.path)
+            self.assertEqual(winreg.QueryValueEx(k, 'a')[0], 1)
+            self.assertEqual(winreg.QueryValueEx(k, 'c')[0], u'str')
+            
+            k = winreg.OpenKeyEx(k, r'a')
+            self.assertEqual(winreg.QueryValueEx(k, r'a')[0], 2)
         
         def test_sync_read_blank(self):
             c = profig.Config(format='ini')

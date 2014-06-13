@@ -819,7 +819,10 @@ if WIN:
         
         def open(self, source, mode='rb'):
             if 'r' in mode:
-                return winreg.OpenKeyEx(self.base_key, source)
+                try:
+                    return winreg.OpenKeyEx(self.base_key, source)
+                except WindowsError as e:
+                    raise IOError(e)
             elif 'w' in mode:
                 return winreg.CreateKeyEx(self.base_key, source)
             else:
