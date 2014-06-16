@@ -792,13 +792,15 @@ if WIN:
         base_key = winreg.HKEY_CURRENT_USER
         
         def read(self, key, section=None):
-            section = section or self.config
+            section = section if section is not None else self.config
             n_subkeys, n_values, t = winreg.QueryInfoKey(key)
             
             # read values from this subkey
             for i in range(n_values):
                 name, value, type = winreg.EnumValue(key, i)
-                section[name] = value
+                subsection = section.section(name)
+                subsection.set_value(value)
+                subsection._dirty = False
             
             # read values from next subkeys
             for i in range(n_subkeys):
@@ -810,8 +812,16 @@ if WIN:
         def write(self, key, context=None):
             cfg = self.config
             for section in cfg.sections(recurse=True, only_valid=True):
-                # write value
-                rkey, name = self._reg_key(section.key)
+                # determine the registry key/name
+                section_key = cfg._make_key(section.key)
+                if section.has_children:
+                    rkey = ntpath.sep.join(section_key)
+                    name = ''
+                else:
+                    rkey = ntpath.sep.join(section_key[:-1])
+                    name = section_key[-1]
+                
+                # write the value
                 subkey = winreg.CreateKeyEx(key, rkey)
                 value = section.value()
                 type = self._get_type(value)
@@ -836,7 +846,7 @@ if WIN:
         
         def delete(self, key):
             """Deletes all keys and values recursively from *key*."""
-            for subkey in self.all_keys(key):
+            for subkey in list(self.all_keys(key)):
                 winreg.DeleteKey(subkey, '')
         
         def all_keys(self, key):
@@ -846,7 +856,6 @@ if WIN:
             back to *key*
             """
             n_subkeys, n_values, t = winreg.QueryInfoKey(key)
-            
             for i in range(n_subkeys):
                 name = winreg.EnumKey(key, i)
                 subkey = winreg.OpenKeyEx(key, name)
@@ -854,10 +863,6 @@ if WIN:
                     yield subsubkey
             
             yield key
-        
-        def _reg_key(self, section_key):
-            key = self.config._make_key(section_key)
-            return ntpath.sep.join(key[:-1]), key[-1]
         
         def _get_type(self, value):
             if isinstance(value, str):

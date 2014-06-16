@@ -508,21 +508,19 @@ if profig.WIN:
         def setUp(self):
             self.base_key = winreg.HKEY_CURRENT_USER
             self.path = r'Software\_profig_test'
-            self.c = c = profig.Config(self.path, format='registry')
-    
-            c.init('a', 1)
-            c.init('a.a', 2)
-            c.init('b', 'bytes')
-            c.init('c', u'str')
+            self.key = winreg.CreateKeyEx(self.base_key, self.path, 0, winreg.KEY_ALL_ACCESS)
+            
+            self.c = profig.Config(self.path, format='registry')
         
         def tearDown(self):
-            fmt = self.c._format
-            fmt.delete(fmt.open(self.path))
+            self.c._format.delete(self.key)
     
         def test_basic(self):
             c = self.c
-            del c['b']
-    
+            c.init('a', 1)
+            c.init('a.a', 2)
+            c.init('c', u'str')
+            
             c.sync()
             
             k = winreg.OpenKeyEx(self.base_key, self.path)
@@ -533,18 +531,36 @@ if profig.WIN:
             self.assertEqual(winreg.QueryValueEx(k, r'a')[0], 2)
         
         def test_sync_read_blank(self):
-            c = profig.Config(format='ini')
-            buf = io.BytesIO(b"""\
-    [b] = value
-    
-    [a] = 1
-    1 = 2
-    """)
-            c.sync(buf)
+            key = winreg.CreateKeyEx(self.key, 'a')
+            winreg.SetValueEx(key, '', 0, winreg.REG_DWORD, 1)
+            winreg.SetValueEx(key, '1', 0, winreg.REG_DWORD, 2)
+            key = winreg.CreateKeyEx(self.key, 'b')
+            winreg.SetValueEx(key, '', 0, winreg.REG_SZ, 'value')
             
-            self.assertEqual(c['a'], '1')
+            c = self.c
+            c.read()
+            
+            self.assertEqual(c['a'], 1)
+            self.assertEqual(c['a.1'], 2)
             self.assertEqual(c['b'], 'value')
-            self.assertEqual(c['a.1'], '2')
+        
+        def test_sync_blank(self):
+            # in this test, the value for b will be read from
+            # '_profig_test\b\(Default)', but will be written back
+            # to '_profig_test\b'. 'b' has no children, so it's considered
+            # a root-level value.
+            key = winreg.CreateKeyEx(self.key, 'a')
+            winreg.SetValueEx(key, '', 0, winreg.REG_DWORD, 1)
+            winreg.SetValueEx(key, '1', 0, winreg.REG_DWORD, 2)
+            key = winreg.CreateKeyEx(self.key, 'b')
+            winreg.SetValueEx(key, '', 0, winreg.REG_SZ, 'value')
+            
+            c = self.c
+            c.sync()
+            
+            self.assertEqual(c['a'], 1)
+            self.assertEqual(c['a.1'], 2)
+            self.assertEqual(c['b'], 'value')
         
         def test_subsection(self):
             buf = io.BytesIO()
@@ -555,54 +571,6 @@ if profig.WIN:
     1 = 2
     
     [b] = value
-    """)
-    
-        def test_preserve_order(self):
-            buf = io.BytesIO(b"""\
-    [a] = 1
-    1 = 2
-    
-    [b] = value
-    """)
-            self.c['a.1'] = 3
-            self.c['a'] = 2
-            self.c['b'] = 'test'
-            
-            self.c.sync(buf)
-            
-            self.assertEqual(buf.getvalue(), b"""\
-    [a] = 2
-    1 = 3
-    
-    [b] = test
-    """)
-        
-        def test_preserve_comments(self):
-            buf = io.BytesIO(b"""\
-    ;a comment
-    [a] = 1
-    ; another comment
-    1 = 2
-    
-    ; yet more comments?
-    [b] = value
-    ;arrrrgh!
-    """)
-            self.c['a.1'] = 3
-            self.c['a'] = 2
-            self.c['b'] = 'test'
-            
-            self.c.sync(buf)
-            
-            self.assertEqual(buf.getvalue(), b"""\
-    ; a comment
-    [a] = 2
-    ; another comment
-    1 = 3
-    
-    ; yet more comments?
-    [b] = test
-    ;arrrrgh!
     """)
         
         def test_binary_read(self):
