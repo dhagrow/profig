@@ -575,6 +575,7 @@ class Format(BaseFormat):
             source = source.decode(self.encoding)
         
         if isinstance(source, str):
+            source = os.path.expanduser(source)
             if self.ensure_dirs is not None and 'w' in mode:
                 # ensure the path exists if any writing is to be done
                 ensure_dirs(os.path.dirname(source), self.ensure_dirs)
@@ -690,6 +691,7 @@ class IniFormat(Format):
             section = cfg.section(key)
             if not section._dirty and value is not None:
                 section.convert(value)
+                section._dirty = False
             if key in comments:
                 section.comment = comments[key]
         
