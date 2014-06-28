@@ -18,6 +18,7 @@ import sys
 import errno
 import locale
 import inspect
+import logging
 import itertools
 import collections
 
@@ -42,6 +43,8 @@ if WIN:
 
 # the name *type* is used often so give type() an alias rather than use *typ*
 _type = type
+
+log = logging.getLogger('profig')
 
 ## Config ##
 
@@ -348,30 +351,36 @@ class ConfigSection(collections.MutableMapping):
     
     def _read(self, sources, format):
         write_lines = None
+        # True if at least one source read something
+        one_source_read = False
         
         # read unchanged values from sources
         for i, source in enumerate(reversed(sources)):
             try:
                 file = format.open(source)
-            except IOError:
+            except IOError as e:
+                log.debug('%s: %s', source, e)
                 continue
             
             # read file
             try:
                 lines = format.read(file)
-            except IOError:
-                # XXX: there should be a way of indicating that there
-                # was an error without causing the sync to fail for
-                # other sources
+            except IOError as e:
+                log.debug('%s: %s', source, e)
                 continue
             finally:
                 # only close files that were opened from the filesystem
                 if isinstance(source, str):
                     format.close(file)
             
+            one_source_read = True
+            
             # return lines only for the first source
             if i == 0:
                 write_lines = lines
+        
+        if not one_source_read:
+            log.info('no sources were read')
         
         return write_lines
     
