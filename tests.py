@@ -433,13 +433,13 @@ class TestCoercer(unittest.TestCase):
         buf = io.BytesIO()
         c.sync(buf)
         
-        self.assertEqual(buf.getvalue(), b"""\
-[paths] = path1:path2
-""")
+        self.assertEqual(buf.getvalue(), """\
+[paths] = path1{sep}path2
+""".format(sep=os.pathsep).encode('ascii'))
         
-        buf = io.BytesIO(b"""\
-[paths] = path1:path2:path3
-""")
+        buf = io.BytesIO("""\
+[paths] = path1{sep}path2{sep}path3
+""".format(sep=os.pathsep).encode('ascii'))
         c.sync(buf)
         self.assertEqual(c['paths'], ['path1', 'path2', 'path3'])
     
