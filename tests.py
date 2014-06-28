@@ -41,7 +41,7 @@ class TestBasic(unittest.TestCase):
         self.assertNotEqual(s.root, s)
     
     def test_formats(self):
-        self.assertEqual(sorted(profig.Config.known_formats()), ['ini'])
+        self.assertIn('ini', profig.Config.known_formats())
         
         c = profig.Config()
         self.assertIsInstance(c._format, profig.IniFormat)
