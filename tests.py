@@ -499,9 +499,6 @@ class TestMisc(unittest.TestCase):
     def test_get_source(self):
         path = os.path.dirname(__file__)
         self.assertEqual(profig.get_source('test'), os.path.join(path, 'test'))
-        
-        path = '~/.config'
-        self.assertEqual(profig.get_source('test', 'user'), os.path.join(path, 'test'))
 
 if profig.WIN:
     class TestRegistryFormat(unittest.TestCase):
