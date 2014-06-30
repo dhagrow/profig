@@ -304,8 +304,8 @@ class TestIniFormat(unittest.TestCase):
         try:
             with io.open(fd, 'wb') as file:
                 file.write(b"""\
-[a] = binary
-b = also binary
+[a] = \x00binary\xff
+b = also\x00binary\xff
 """)
             
             c = profig.Config(temppath, format='ini')
@@ -313,17 +313,17 @@ b = also binary
             c.init('a.b', b'')
             c.read()
             
-            self.assertEqual(c['a'], b'binary')
-            self.assertEqual(c['a.b'], b'also binary')
+            self.assertEqual(c['a'], b'\x00binary\xff')
+            self.assertEqual(c['a.b'], b'also\x00binary\xff')
         finally:
             os.remove(temppath)
     
-    def test_unicode_write(self):
+    def test_binary_write(self):
         fd, temppath = tempfile.mkstemp()
         try:
             c = profig.Config(temppath, format='ini')
             
-            c[a] = b'\x00binary\xff'
+            c['a'] = b'\x00binary\xff'
             c.write()
             
             with io.open(fd, 'rb') as file:
@@ -505,7 +505,8 @@ if profig.WIN:
         def setUp(self):
             self.base_key = winreg.HKEY_CURRENT_USER
             self.path = r'Software\_profig_test'
-            self.key = winreg.CreateKeyEx(self.base_key, self.path, 0, winreg.KEY_ALL_ACCESS)
+            self.key = winreg.CreateKeyEx(self.base_key, self.path, 0,
+                winreg.KEY_ALL_ACCESS)
             
             self.c = profig.Config(self.path, format='registry')
         
@@ -521,11 +522,11 @@ if profig.WIN:
             c.sync()
             
             k = winreg.OpenKeyEx(self.base_key, self.path)
-            self.assertEqual(winreg.QueryValueEx(k, 'a')[0], 1)
             self.assertEqual(winreg.QueryValueEx(k, 'c')[0], u'str')
             
-            k = winreg.OpenKeyEx(k, r'a')
-            self.assertEqual(winreg.QueryValueEx(k, r'a')[0], 2)
+            k = winreg.OpenKeyEx(k, 'a')
+            self.assertEqual(winreg.QueryValueEx(k, '')[0], 1)
+            self.assertEqual(winreg.QueryValueEx(k, 'a')[0], 2)
         
         def test_sync_read_blank(self):
             key = winreg.CreateKeyEx(self.key, 'a')
@@ -559,131 +560,45 @@ if profig.WIN:
             self.assertEqual(c['a.1'], 2)
             self.assertEqual(c['b'], 'value')
         
-        def test_subsection(self):
-            buf = io.BytesIO()
-            self.c.sync(buf)
-            
-            self.assertEqual(buf.getvalue(), b"""\
-    [a] = 1
-    1 = 2
-    
-    [b] = value
-    """)
-        
         def test_binary_read(self):
-            fd, temppath = tempfile.mkstemp()
-            try:
-                with io.open(fd, 'wb') as file:
-                    file.write(b"""\
-    [a] = binary
-    b = also binary
-    """)
-                
-                c = profig.Config(temppath, format='ini')
-                c.init('a', b'')
-                c.init('a.b', b'')
-                c.read()
-                
-                self.assertEqual(c['a'], b'binary')
-                self.assertEqual(c['a.b'], b'also binary')
-            finally:
-                os.remove(temppath)
+            key = winreg.CreateKeyEx(self.key, 'a')
+            winreg.SetValueEx(key, '', 0, winreg.REG_BINARY, b'\x00binary\xff')
+            key = winreg.CreateKeyEx(key, 'b')
+            winreg.SetValueEx(key, '', 0, winreg.REG_BINARY, b'also\x00binary\xff')
+            
+            c = self.c
+            c.init('a', b'')
+            c.init('a.b', b'')
+            c.read()
+            
+            self.assertEqual(c['a'], b'\x00binary\xff')
+            self.assertEqual(c['a.b'], b'also\x00binary\xff')
         
-        def test_unicode_write(self):
-            fd, temppath = tempfile.mkstemp()
-            try:
-                c = profig.Config(temppath, format='ini')
-                
-                c[a] = b'\x00binary\xff'
-                c.write()
-                
-                with io.open(fd, 'rb') as file:
-                    result = file.read()
-                
-                self.assertEqual(result, b"""\
-    [a] = \x00binary\xff
-    """)
-            finally:
-                os.remove(temppath)
+        def test_binary_write(self):
+            c = self.c
+            c['a'] = b'\x00binary\xff'
+            c.write()
+            
+            value = winreg.QueryValueEx(self.key, 'a')[0]
+            self.assertEqual(value, b'\x00binary\xff')
         
         def test_unicode_read(self):
-            fd, temppath = tempfile.mkstemp()
-            try:
-                with io.open(fd, 'wb') as file:
-                    file.write(b"""\
-    [\xdc] = \xdc
-    """)
-                
-                c = profig.Config(temppath, format='ini', encoding='shiftjis')
-                c.read()
-                
-                self.assertEqual(c['\uff9c'], '\uff9c')
-            finally:
-                os.remove(temppath)
+            key = winreg.CreateKeyEx(self.key, '\uff9c')
+            winreg.SetValueEx(key, '', 0, winreg.REG_SZ, '\uff9c')
+            
+            c = self.c
+            c.init('\uff9c', '')
+            c.read()
+            
+            self.assertEqual(c['\uff9c'], '\uff9c')
         
         def test_unicode_write(self):
-            fd, temppath = tempfile.mkstemp()
-            try:
-                c = profig.Config(temppath, format='ini', encoding='shiftjis')
-                
-                c['\uff9c'] = '\uff9c'
-                c.write()
-                
-                with io.open(fd, 'rb') as file:
-                    result = file.read()
-                
-                self.assertEqual(result, b"""\
-    [\xdc] = \xdc
-    """)
-            finally:
-                os.remove(temppath)
-        
-        def test_repeated_values(self):
-            c = profig.Config(format='ini')
-            buf = io.BytesIO(b"""\
-    [a]
-    b = 1
-    b = 2
-    """)
-            c.sync(buf)
+            c = self.c
+            c['\uff9c'] = '\uff9c'
+            c.write()
             
-            self.assertEqual(c['a.b'], '2')
-            self.assertEqual(buf.getvalue(), b"""\
-    [a]
-    b = 2
-    """)
-            
-            c['a.b'] = '3'
-            c.sync(buf)
-            
-            self.assertEqual(buf.getvalue(), b"""\
-    [a]
-    b = 3
-    """)
-        
-        def test_repeated_sections(self):
-            c = profig.Config(format='ini')
-            buf = io.BytesIO(b"""\
-    [a]
-    b = 1
-    b = 2
-    
-    [b]
-    a = 1
-    
-    [a]
-    b = 3
-    """)
-            c.sync(buf)
-            
-            self.assertEqual(c['a.b'], '3')    
-            self.assertEqual(buf.getvalue(), b"""\
-    [a]
-    b = 3
-    
-    [b]
-    a = 1
-    """)
+            value = winreg.QueryValueEx(self.key, '\uff9c')[0]
+            self.assertEqual(value, '\uff9c')
 
 if __name__ == '__main__':
     unittest.main()
