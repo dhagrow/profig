@@ -206,12 +206,28 @@ Formats
 A :class:`~profig.Format` subclass defines how a configuration should be
 read/written from/to a source.
 
-For the time being, the only format available in the :mod:`profig` library
-implements INI formatting:
+:mod:`profig` provides :class:`~profig.Format` subclasses for both INI
+formatted files, and the Windows registry:
 
 :class:`~profig.IniFormat`
-    Standard INI format. An INI header will be written for each
-    section in the root config object.
+    Syncs configuration base on the standard INI format.
+
+Because :class:`~profig.IniFormat` is the default, an INI file can be sourced
+as follows::
+    
+    >>> cfg = profig.Config('~/.config/black_knight.cfg')
+
+:class:`~profig.RegistryFormat`
+    Syncs configuration with the Windows registry.
+
+To use the :class:`~profig.RegistryFormat`, you have to specify which format
+to use and specify a path relative to *HKEY_CURRENT_USER* (configurable as a
+class attribute)::
+    
+    >>> cfg = profig.Config(r'Software\BlackKnight', format='registry')
+
+:class:`~profig.RegistryFormat` is, of course, only available on Windows
+machines.
 
 Support for additional formats can be added easily by subclassing
 :class:`~profig.Format`.
@@ -249,7 +265,7 @@ a byte-string key is used, it will be decoded using the configured encoding.
 
 Values are coerced into a unicode representation before being output to a
 config file. Note that this means that by specifically storing a byte-string
-as a value, :mod:`profig` will assume the value is binary data. The specifics
+as a value, :mod:`profig` will interpret the value as binary data. The specifics
 of how binary data is stored depends on the format being used. The default
 format (:class:`~profig.IniFormat`) operates on binary files, therfore binary
 data is written directly to it's sources.

@@ -17,7 +17,23 @@ Formats define de/serialization specifics.
 
 .. autoclass:: profig.Format
 
-.. autoclass:: profig.IniFormat
+.. class:: profig.IniFormat
+
+    Implements reading/writing configurations from/to INI formatted files.
+    
+    A header will be written for each section in the root config object.
+
+.. class:: profig.RegistryFormat
+    
+    Implements reading/writing configurations from/to the Windows
+    registry.
+    
+    Sections with children will be created as keys. Those without children
+    will be created as values.
+    
+    Keys will be created relative to
+    :class:`RegistryFormat.base_key`, which defaults to
+    *HKEY_CURRENT_USER*.
 
 Coercer
 -------

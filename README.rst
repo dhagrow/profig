@@ -16,16 +16,17 @@ Features
 --------
 
 * Automatic value conversion.
-* Simple section nesting.
+* Section nesting.
 * Dict-like access.
-* Easily extensible input/output formats.
-* Preserves ordering and comments of config files.
+* Extensible input/output formats.
+* Built-in support for INI files and the Windows registry.
+* Preserves ordering and comments of INI files.
 * Supports Python 2.7+ and 3.2+.
 
 Installation
 ------------
 
-*profig* installs easily using *easy_install* or *pip*::
+*profig* installs using *easy_install* or *pip*::
     
     $ pip install profig
 
