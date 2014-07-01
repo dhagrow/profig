@@ -517,12 +517,12 @@ if profig.WIN:
             c = self.c
             c.init('a', 1)
             c.init('a.a', 2)
-            c.init('c', u'str')
+            c.init('c', 'str')
             
             c.sync()
             
             k = winreg.OpenKeyEx(self.base_key, self.path)
-            self.assertEqual(winreg.QueryValueEx(k, 'c')[0], u'str')
+            self.assertEqual(winreg.QueryValueEx(k, 'c')[0], 'str')
             
             k = winreg.OpenKeyEx(k, 'a')
             self.assertEqual(winreg.QueryValueEx(k, '')[0], 1)
