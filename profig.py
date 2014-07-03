@@ -40,6 +40,7 @@ if WIN:
         import winreg
     except ImportError:
         import _winreg as winreg
+    __all__.append('RegistryFormat')
 
 # the name *type* is used often so give type() an alias rather than use *typ*
 _type = type
