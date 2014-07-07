@@ -174,11 +174,16 @@ class ConfigSection(collections.MutableMapping):
         
         If *type* is not provided, the type of the default value will be used.
         
+        If a value is already set for the section at *key*, it will be
+        coerced to *type*.
+        
         If a *comment* is provided, it may be written out to the config
         file in a manner consistent with the active :class:`~profig.Format`.
         """
         section = self._create_section(key)
         section._type = type or _type(default)
+        if _type(section._value) is not section._type:
+            section.convert(section._value)
         section.set_default(default)
         section.comment = comment
     
