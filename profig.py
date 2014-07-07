@@ -182,7 +182,7 @@ class ConfigSection(collections.MutableMapping):
         """
         section = self._create_section(key)
         section._type = type or _type(default)
-        if _type(section._value) is not section._type:
+        if section._value is not NoValue and _type(section._value) is not section._type:
             section.convert(section._value)
         section.set_default(default)
         section.comment = comment
