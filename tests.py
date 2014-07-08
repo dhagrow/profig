@@ -24,7 +24,7 @@ if profig.WIN:
         import _winreg as winreg
 
 class TestBasic(unittest.TestCase):
-    def test_init(self):
+    def test_initial_state(self):
         c = profig.Config()
 
         self.assertEqual(dict(c), {})
@@ -92,6 +92,48 @@ class TestBasic(unittest.TestCase):
         c['a.1'] = 1
         self.assertEqual(len(c), 1)
         self.assertEqual(len(c.section('a')), 1)
+    
+    def test_init(self):
+        c = profig.Config()
+        c.init('a', 1)
+        c.init('a.a', 2)
+        
+        self.assertEqual(c['a'], 1)
+        
+        c['a'] = {'': 2, 'a': 3}
+        self.assertEqual(c['a'], 2)
+        self.assertEqual(c['a.a'], 3)
+        
+        s = c.section('a')
+        s.convert(b'3')
+        self.assertEqual(s.value(), 3)
+        self.assertIs(s._type, int)
+        self.assertIs(s.default(), 1)
+    
+    def test_delayed_init(self):
+        c = profig.Config()
+        
+        c['a'] = {'': '2', 'a': '3'}
+        self.assertEqual(c['a'], '2')
+        self.assertEqual(c['a.a'], '3')
+        
+        s = c.section('a')
+        s.convert(b'3')
+        self.assertEqual(s.value(), '3')
+        self.assertIs(s._type, None)
+        with self.assertRaises(profig.NoValueError):
+            s.default()
+        
+        c.init('a', 1)
+        c.init('a.a', 2)
+        
+        self.assertEqual(c['a'], 3)
+        self.assertEqual(c['a.a'], 3)
+        
+        s = c.section('a')
+        self.assertEqual(s.value(), 3)
+        self.assertIs(s._type, int)
+        self.assertIs(s.default(), 1)
     
     def test_get(self):
         c = profig.Config()
@@ -216,7 +258,7 @@ class TestIniFormat(unittest.TestCase):
 
     def test_basic(self):
         del self.c['a.1']
-
+        
         buf = io.BytesIO()
         self.c.sync(buf)
         

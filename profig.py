@@ -348,7 +348,11 @@ class ConfigSection(collections.MutableMapping):
             value = string
         else:
             type = self._type
-            if not (inspect.isclass(type) and issubclass(type, bytes)):
+            # if we are converting a byte-string and the type is not bytes,
+            # then we need to decode it
+            if isinstance(string, bytes) and not (
+                inspect.isclass(type) and issubclass(type, bytes)
+                ):
                 string = string.decode(self._root.encoding)
             value = self._root.coercer.convert(string, type)
         self.set_value(value)
