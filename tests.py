@@ -107,8 +107,10 @@ class TestBasic(unittest.TestCase):
         s = c.section('a')
         s.convert(b'3')
         self.assertEqual(s.value(), 3)
+        self.assertEqual(s._value, 3)
         self.assertIs(s._type, int)
         self.assertIs(s.default(), 1)
+        self.assertIs(s._default, 1)
     
     def test_delayed_init(self):
         c = profig.Config()
@@ -120,7 +122,9 @@ class TestBasic(unittest.TestCase):
         s = c.section('a')
         s.convert(b'3')
         self.assertEqual(s.value(), '3')
+        self.assertEqual(s._value, '3')
         self.assertIs(s._type, None)
+        self.assertIs(s._default, profig.NoValue)
         with self.assertRaises(profig.NoValueError):
             s.default()
         
@@ -132,8 +136,10 @@ class TestBasic(unittest.TestCase):
         
         s = c.section('a')
         self.assertEqual(s.value(), 3)
+        self.assertEqual(s._value, 3)
         self.assertIs(s._type, int)
         self.assertIs(s.default(), 1)
+        self.assertIs(s._default, 1)
     
     def test_get(self):
         c = profig.Config()

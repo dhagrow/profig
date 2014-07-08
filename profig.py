@@ -344,9 +344,7 @@ class ConfigSection(collections.MutableMapping):
     
     def convert(self, string):
         """str -> value"""
-        if not self._root.coercer:
-            value = string
-        else:
+        if self._root.coercer:
             type = self._type
             # if we are converting a byte-string and the type is not bytes,
             # then we need to decode it
@@ -355,6 +353,8 @@ class ConfigSection(collections.MutableMapping):
                 ):
                 string = string.decode(self._root.encoding)
             value = self._root.coercer.convert(string, type)
+        else:
+            value = string
         self.set_value(value)
     
     ## utilities ##
