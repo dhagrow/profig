@@ -1,6 +1,10 @@
 Changes
 -------
 
+0.3.3 (07-11-14)
+
+* bugfixes
+
 0.3.2 (06-30-14)
 
 * added support for the Windows registry
