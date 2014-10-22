@@ -135,9 +135,7 @@ class ConfigSection(collections.MutableMapping):
         the sources.
         """
         format = kwargs.pop('format', None)
-        if kwargs:
-            err = "sync() got an unexpected keyword argument '{}'"
-            raise TypeError(err.format(kwargs.popitem()[0]))
+        kwargs_check('sync', kwargs)
         
         sources, format = self._process_sources(sources, format)
         
@@ -154,6 +152,8 @@ class ConfigSection(collections.MutableMapping):
         *sources* can be set using *format*.
         """
         format = kwargs.pop('format', None)
+        kwargs_check('read', kwargs)
+        
         sources, format = self._process_sources(sources, format)
         self._read(sources, format)
     
@@ -522,6 +522,8 @@ class Config(ConfigSection):
             register_booleans(self.coercer)
         
         self.sep = '.'
+        
+        kwargs_check('__init__', kwargs)
     
     @classmethod
     def known_formats(cls):
@@ -956,6 +958,11 @@ class NoValue:
     def __repr__(self):
         return '{}'.format(self.__class__.__name__)
 NoValue = NoValue()
+
+def kwargs_check(name, kwargs):
+    if kwargs:
+        err = "{}() got an unexpected keyword argument '{}'"
+        raise TypeError(err.format(name, kwargs.popitem()[0]))
 
 # adapted from pyglet
 def get_source(filename, scope='script'):
