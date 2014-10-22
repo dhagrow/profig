@@ -224,14 +224,13 @@ class TestBasic(unittest.TestCase):
         c['a'] = 1
         self.assertEqual(c.as_dict(), {'a': 1})
         
+        c['c.a'] = 1
+        self.assertEqual(c.as_dict(), {'a': 1, 'c': {'a': 1}})
+        
         c['b'] = 1
         c['a.a'] = 1
-        self.assertEqual(c.as_dict(), {'a': {'': 1, 'a': 1}, 'b': 1})
-        #self.assertEqual(c.as_dict(convert=False),
-            #{'a': {'': '1', 'a': '1'}, 'b': '1'})
-        self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1, 'b': 1})
-        #self.assertEqual(c.as_dict(flat=True, convert=False),
-            #{'a': '1', 'a.a': '1', 'b': '1'})
+        self.assertEqual(c.as_dict(), {'a': {'': 1, 'a': 1}, 'b': 1, 'c': {'a': 1}})
+        self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1, 'b': 1, 'c.a': 1})
     
     def test_reset(self):
         c = profig.Config(dict_type=dict)

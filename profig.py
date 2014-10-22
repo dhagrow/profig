@@ -240,7 +240,7 @@ class ConfigSection(collections.MutableMapping):
         return "{}('{}', value={!r}, keys={}, comment={!r})".format(
             self.__class__.__name__, self.key, value, list(self), self.comment)
     
-    def as_dict(self, flat=False, recurse=True, dict_type=None):
+    def as_dict(self, recurse=True, flat=False, dict_type=None):
         """Returns the configuration's keys and values as a dictionary.
         
         If *flat* is `True`, returns a single-depth dict with :samp:`.`
@@ -257,18 +257,16 @@ class ConfigSection(collections.MutableMapping):
             sections = ((k, self.section(k)) for k in self)
             return dtype((k, s.value()) for k, s in sections)
         
-        if recurse and self._children:
-            d = dtype()
-            if valid:
-                d[''] = self.value()
-            for section in self.sections():
-                d.update(section.as_dict(dict_type=dict_type))
-            
-            return d if self is self._root else dtype({self.name: d})
-        elif valid:
-            return dtype({self.name: self.value()})
-        else:
-            return dtype()
+        d = dtype()
+        if valid:
+            d[''] = self.value()
+        for section in self.sections():
+            if section._children:
+                d[section.name] = section.as_dict(dict_type=dict_type)
+            else:
+                d[section.name] = section.value()
+        
+        return d
 
     def section(self, key, create=True):
         """Returns a section object for *key*.
