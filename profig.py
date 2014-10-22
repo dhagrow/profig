@@ -390,7 +390,7 @@ class ConfigSection(collections.MutableMapping):
                 write_lines = lines
         
         if not one_source_read:
-            log.info('no sources were read')
+            log.warning('no config was read')
         
         return write_lines
     
