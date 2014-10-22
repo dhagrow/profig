@@ -284,6 +284,9 @@ class ConfigSection(collections.MutableMapping):
                 section = section._children[name]
             except KeyError:
                 if create:
+                    if self._root.strict:
+                        err = 'cannot create a section for an uninitialized key: {}'
+                        raise StrictError(err.format(key))
                     return self._create_section(key)
                 raise InvalidSectionError(key)
         return section
@@ -323,6 +326,9 @@ class ConfigSection(collections.MutableMapping):
     
     def set_value(self, value):
         """Set the section's value."""
+        if self._root.strict and self._default is NoValue:
+            err = 'cannot set a value for an uninitialized key: {}'
+            raise StrictError(err.format(self.key))
         self._value = value
         self._dirty = True
     
@@ -511,6 +517,7 @@ class Config(ConfigSection):
 
         self.sources = list(sources)
         self.encoding = kwargs.pop('encoding', locale.getpreferredencoding(False))
+        self.strict = kwargs.pop('strict', False)
         
         format = kwargs.pop('format', 'ini')
         self.set_format(format)
@@ -911,6 +918,9 @@ class InvalidSectionError(KeyError, ConfigError):
 
 class NoValueError(ValueError, ConfigError):
     """Raised when a section has no set value or default value."""
+
+class StrictError(ConfigError):
+    """Raised when "strict" mode is enabled and an action is not permitted."""
 
 class SyncError(ConfigError):
     """Base class for errors that can occur when syncing."""
