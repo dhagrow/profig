@@ -778,7 +778,7 @@ class IniFormat(Format):
         header = None
         lines = lines or []
         first = True
-        for i, line in enumerate(lines):
+        for i, line in enumerate(lines, 1):
             if line.issection:
                 if line.name in seen:
                     continue
@@ -791,7 +791,12 @@ class IniFormat(Format):
                             seen.add(sec.key)
                 
                 # write current section header
-                header = cfg.section(line.name)
+                try:
+                    header = cfg.section(line.name)
+                except StrictError as e:
+                    self._error(file, i, line.line.strip(), e)
+                    continue
+                
                 self.write_section(header, file, first)
                 seen.add(header.key)
                 first = False
@@ -799,7 +804,14 @@ class IniFormat(Format):
             elif line.iskey:
                 if line.name in seen:
                     continue
-                self.write_section(cfg.section(line.name), file)
+                
+                try:
+                    section = cfg.section(line.name)
+                except StrictError as e:
+                    self._error(file, i, line.line.strip(), e)
+                    continue
+                
+                self.write_section(section, file)
                 seen.add(line.name)
             
             else:
