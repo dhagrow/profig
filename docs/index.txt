@@ -1,5 +1,11 @@
 .. profig documentation master file, created by
    sphinx-quickstart on Sat Jun  8 01:16:06 2013.
+  
+.. toctree::
+    :hidden:
+    
+    index
+    changes
 
 Behold, profig's documentation!
 ===============================

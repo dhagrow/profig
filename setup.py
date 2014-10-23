@@ -11,8 +11,7 @@ import profig
 
 BASE_DIR = os.path.dirname(__file__)
 README_PATH = os.path.join(BASE_DIR, 'README.rst')
-CHANGELOG_PATH = os.path.join(BASE_DIR, 'CHANGELOG.txt')
-DESCRIPTION = '\n'.join(open(x).read() for x in [README_PATH, CHANGELOG_PATH])
+DESCRIPTION = open(README_PATH).read()
 
 setup(
     name='profig',

@@ -55,7 +55,7 @@ directly::
     >>> cfg['server.host']
     '192.168.1.1'
 
-Or by section::
+Or by section. Notice that the type of the *port* option is preserved::
     
     >>> server_cfg = cfg.section('server')
     >>> server_cfg['port']
@@ -67,6 +67,7 @@ Resources
 * Documentation_
 * PyPI_
 * Repository_
+* :doc:`changes`
 
 .. _Documentation: http://profig.rtfd.org/
 .. _PyPI: https://pypi.python.org/pypi/profig
