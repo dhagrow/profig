@@ -531,12 +531,12 @@ class TestCoercer(unittest.TestCase):
             c.read(buf)
 
 class TestErrors(unittest.TestCase):
-    def test_ReadError(self):
+    def test_FormatError(self):
         c = profig.Config()
-        c._format.read_errors = 'exception'
+        c._format.error_mode = 'exception'
         
         buf = io.BytesIO(b"""a""")
-        with self.assertRaises(profig.ReadError):
+        with self.assertRaises(profig.FormatError):
             c.sync(buf)
 
 class TestMisc(unittest.TestCase):

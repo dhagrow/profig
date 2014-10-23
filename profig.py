@@ -373,14 +373,14 @@ class ConfigSection(collections.MutableMapping):
             try:
                 file = format.open(source)
             except IOError as e:
-                log.debug('%s: %s', source, e)
+                log.warning('%s: %s', source, e)
                 continue
             
             # read file
             try:
                 lines = format.read(file)
             except IOError as e:
-                log.debug('%s: %s', source, e)
+                log.warning('%s: %s', source, e)
                 continue
             finally:
                 # only close files that were opened from the filesystem
@@ -571,14 +571,24 @@ class Line(collections.namedtuple('Line', 'line name iskey issection')):
 
 class Format(BaseFormat):
     name = None
+    error_modes = {'ignore', 'error', 'exception'}
     
     def __init__(self, config):
         self.config = config
         
         self.encoding = config.root.encoding
         self.ensure_dirs = 0o744
-        self.read_errors = 'exception'
-        self.write_errors = 'exception'
+        self.error_mode = 'error'
+    
+    @property
+    def error_mode(self):
+        return self._error_mode
+    
+    @error_mode.setter
+    def error_mode(self, mode):
+        if mode not in self.error_modes:
+            raise ValueError('invalid error_mode: {}'.format(mode))
+        self._error_mode = mode
     
     def read(self, file): # pragma: no cover
         """Reads *file* and returns a dict. Must be implemented
@@ -618,27 +628,19 @@ class Format(BaseFormat):
     def flush(self, file):
         file.flush()
     
-    def _read_error(self, file, lineno=None, text='', message=''):
-        if self.read_errors != 'ignore':
-            name = file.name if hasattr(file, 'name') else '<???>'
-            exc = ReadError(name, lineno, text, message)
-            if self.read_errors == 'exception':
-                raise exc
-            elif self.read_errors == 'error':
-                print(str(exc), file=sys.stderr)
-            else:
-                assert False
-    
-    def _write_error(self, file, message=''):
-        if self.write_errors != 'ignore':
-            name = file.name if hasattr(file, 'name') else '<???>'
-            exc = WriteError(name, message)
-            if self.write_errors == 'exception':
-                raise exc
-            elif self.write_errors == 'error':
-                print(str(exc), file=sys.stderr)
-            else:
-                assert False
+    def _error(self, file, lineno=None, text='', message=''):
+        if self.error_mode == 'ignore':
+            return
+        
+        name = file.name if hasattr(file, 'name') else '<???>'
+        exc = FormatError(message, name, lineno, text)
+        
+        if self.error_mode == 'exception':
+            raise exc
+        elif self.error_mode == 'error':
+            log.warning(exc)
+        else:
+            assert False
 
 class IniFormat(Format):
     name = 'ini'
@@ -697,7 +699,7 @@ class IniFormat(Format):
             try:
                 key, value = line.split(self.delimeter.strip(), 1)
             except ValueError:
-                self._read_error(file, i, line)
+                self._error(file, i, line, 'syntax error')
                 continue
             
             key = cfg._keystr(cfg._make_key(section_name, key.strip()))
@@ -713,8 +715,13 @@ class IniFormat(Format):
             lines.append(comment)
         
         # file has been read. assign the values
-        for key, value in values.items():
-            section = cfg.section(key)
+        for i, (key, value) in enumerate(values.items(), 1):
+            try:
+                section = cfg.section(key)
+            except StrictError as e:
+                self._error(file, i, lines[i-1].line.strip(), e)
+                continue
+            
             if not section._dirty and value is not None:
                 section.convert(value)
                 section._dirty = False
@@ -920,42 +927,26 @@ class NoValueError(ValueError, ConfigError):
 class StrictError(ConfigError):
     """Raised when "strict" mode is enabled and an action is not permitted."""
 
-class SyncError(ConfigError):
-    """Base class for errors that can occur when syncing."""
-    def __init__(self, filename=None, message=''):
-        self.filename = filename
+class FormatError(ConfigError):
+    """Raised for errors when reading/writing with a Format."""
+    def __init__(self, message='', filename=None, lineno=None, text=''):
         self.message = message
-    
-    def __str__(self):
-        if self.filename:
-            err = ["error reading '{}'".format(self.filename)]
-            if self.message:
-                err.extend([': ', self.message])
-            return ''.join(err)
-        else:
-            return self.message
-
-class ReadError(SyncError):
-    """Raised when a value could not be read from a source."""
-    def __init__(self, filename=None, lineno=None, text='', message=''):
-        super(ReadError, self).__init__(filename, message)
+        self.filename = filename
         self.lineno = lineno
         self.text = text
     
     def __str__(self):
         if self.filename:
-            msg = "error reading '{}', line {}"
-            err = [msg.format(self.filename, self.lineno)]
+            err = ["error reading '{}'".format(self.filename)]
+            if self.lineno:
+                err.append(', line {}'.format(self.lineno))
             if self.message:
-                err.extend([': ', self.message])
+                err.append(': {}'.format(self.message))
             if self.text:
-                err.extend(['\n  ', self.text])
+                err.append('\n  {}'.format(self.text))
             return ''.join(err)
         else:
             return self.message
-
-class WriteError(SyncError):
-    """Raised when a value could not be written to a source."""
 
 class NoSourcesError(ConfigError):
     """Raised when there are no sources for a config object."""
