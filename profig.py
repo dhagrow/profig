@@ -240,7 +240,7 @@ class ConfigSection(collections.MutableMapping):
         return "{}('{}', value={!r}, keys={}, comment={!r})".format(
             self.__class__.__name__, self.key, value, list(self), self.comment)
     
-    def as_dict(self, recurse=True, flat=False, dict_type=None):
+    def as_dict(self, flat=False, dict_type=None):
         """Returns the configuration's keys and values as a dictionary.
         
         If *flat* is `True`, returns a single-depth dict with :samp:`.`
