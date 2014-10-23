@@ -11,6 +11,7 @@ Behold, profig's documentation!
 ===============================
 
 .. include:: ../README.rst
+* :doc:`changes`
 
 Usage
 -----

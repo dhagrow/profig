@@ -67,7 +67,6 @@ Resources
 * Documentation_
 * PyPI_
 * Repository_
-* :doc:`changes`
 
 .. _Documentation: http://profig.rtfd.org/
 .. _PyPI: https://pypi.python.org/pypi/profig
