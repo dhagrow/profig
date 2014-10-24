@@ -887,7 +887,7 @@ if WIN:
                 reg_type = self.types.get(section.type)
                 if reg_type is None:
                     # not a type supported by the registry, so adapt it
-                    reg_type = winreg.REG_SZ
+                    reg_type = winreg.REG_BINARY
                     value = section.adapt()
                 
                 winreg.SetValueEx(subkey, name, 0, reg_type, value)
