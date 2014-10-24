@@ -837,6 +837,11 @@ if WIN:
     class RegistryFormat(Format):
         name = 'registry'
         base_key = winreg.HKEY_CURRENT_USER
+        types = {
+            str: winreg.REG_SZ,
+            bytes: winreg.REG_BINARY,
+            int: winreg.REG_DWORD,
+            }
         
         def read(self, key, section=None):
             section = section if section is not None else self.config
@@ -846,7 +851,14 @@ if WIN:
             for i in range(n_values):
                 name, value, type = winreg.EnumValue(key, i)
                 subsection = section.section(name)
-                subsection.set_value(value)
+                
+                reg_type = self.types.get(subsection.type)
+                if reg_type is None:
+                    # not a type supported by the registry, so convert it
+                    subsection.convert(value)
+                else:
+                    subsection.set_value(value)
+                
                 subsection._dirty = False
             
             # read values from next subkeys
@@ -871,8 +883,14 @@ if WIN:
                 # write the value
                 subkey = winreg.CreateKeyEx(key, rkey)
                 value = section.value()
-                type = self._get_type(value)
-                winreg.SetValueEx(subkey, name, 0, type, value)
+                
+                reg_type = self.types.get(section.type)
+                if reg_type is None:
+                    # not a type supported by the registry, so adapt it
+                    reg_type = winreg.REG_SZ
+                    value = section.adapt()
+                
+                winreg.SetValueEx(subkey, name, 0, reg_type, value)
         
         def open(self, source, mode='rb'):
             if 'r' in mode:
@@ -910,17 +928,6 @@ if WIN:
                     yield subsubkey
             
             yield key
-        
-        def _get_type(self, value):
-            if isinstance(value, str):
-                return winreg.REG_SZ
-            elif isinstance(value, bytes):
-                return winreg.REG_BINARY
-            elif isinstance(value, int):
-                return winreg.REG_DWORD
-            else:
-                err = 'type not supported by this format: {}'
-                raise ValueError(err.format(_type(value)))
 
 ## Config Errors ##
 
