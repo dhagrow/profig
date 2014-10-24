@@ -1,24 +1,21 @@
 .. profig documentation master file, created by
    sphinx-quickstart on Sat Jun  8 01:16:06 2013.
-  
-.. toctree::
-    :hidden:
-    
-    index
 
 Behold, profig's documentation!
 ===============================
 
-.. include:: ../README.rst
-* :doc:`changes`
+*profig* is a configuration library for Python. It's objective is to make
+the most common tasks of configuration handling as simple as possible.
 
-Usage
------
+Contents
+--------
 
 .. toctree::
     :maxdepth: 2
     
+    overview
     guide
     api
     recipes
     development
+    changes
