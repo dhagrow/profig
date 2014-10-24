@@ -5,7 +5,6 @@
     :hidden:
     
     index
-    changes
 
 Behold, profig's documentation!
 ===============================
