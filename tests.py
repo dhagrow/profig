@@ -662,7 +662,7 @@ if profig.WIN:
         
         def test_unicode_write(self):
             c = self.c
-            c['\uff9c'] = '\uff9c'
+            c.init('\uff9c', '\uff9c')
             c.write()
             
             value = winreg.QueryValueEx(self.key, '\uff9c')[0]
