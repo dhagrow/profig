@@ -340,19 +340,22 @@ class ConfigSection(collections.MutableMapping):
         """Set the section's default value."""
         self._default = value
     
-    def adapt(self):
+    def adapt(self, encode=True):
         """value -> str"""
         if not self._root.coercer:
             return value
-        return self._root.coercer.adapt(self.value(), self._type)
+        value = self._root.coercer.adapt(self.value(), self._type)
+        if encode and isinstance(value, str):
+            value = value.encode(self._root.encoding)
+        return value
     
-    def convert(self, string):
+    def convert(self, string, decode=True):
         """str -> value"""
         if self._root.coercer:
             type = self._type
             # if we are converting a byte-string and the type is not bytes,
             # then we need to decode it
-            if isinstance(string, bytes) and not (
+            if decode and isinstance(string, bytes) and not (
                 inspect.isclass(type) and issubclass(type, bytes)
                 ):
                 string = string.decode(self._root.encoding)
@@ -724,7 +727,7 @@ class IniFormat(Format):
                 continue
             
             if not section._dirty and value is not None:
-                section.convert(value)
+                section.convert(value, decode=True)
                 section._dirty = False
             if key in comments:
                 section.comment = comments[key]
@@ -760,13 +763,9 @@ class IniFormat(Format):
             # value section
             cfg = self.config
             key = cfg._keystr(cfg._make_key(section.key)[1:])
-            value = section.adapt()
             write(key)
             file.write(self.delimeter)
-            if isinstance(value, bytes):
-                file.write(value)
-            else:
-                write(value)
+            file.write(section.adapt(encode=True))
             write('\n')
         
         section._dirty = False
@@ -856,7 +855,7 @@ if WIN:
                 reg_type = self.types.get(subsection.type)
                 if reg_type is None:
                     # not a type supported by the registry, so convert it
-                    subsection.convert(value)
+                    subsection.convert(value, decode=True)
                 else:
                     subsection.set_value(value)
                 
@@ -881,16 +880,17 @@ if WIN:
                     rkey = ntpath.sep.join(section_key[:-1])
                     name = section_key[-1]
                 
-                # write the value
-                subkey = winreg.CreateKeyEx(key, rkey)
-                value = section.value()
-                
+                # get a supported type for the value
                 reg_type = self.types.get(section.type)
                 if reg_type is None:
                     # not a type supported by the registry, so adapt it
                     reg_type = winreg.REG_BINARY
-                    value = section.adapt()
+                    value = section.adapt(encode=True)
+                else:
+                    value = section.value()
                 
+                # write the value
+                subkey = winreg.CreateKeyEx(key, rkey)
                 winreg.SetValueEx(subkey, name, 0, reg_type, value)
         
         def open(self, source, mode='rb'):
