@@ -60,11 +60,15 @@ Automatic Typing (Coercion)
 ---------------------------
 
 Automatic typing is referred to as "coercion" within the :mod:`profig` library.
+
 Functions that adapt (object -> string) or convert (string -> object) values
 are referred to as "coercers".
 
 - Values are "adapted" into strings.
 - Strings are "converted" into values.
+
+Defining Types
+~~~~~~~~~~~~~~
 
 Type information can be assigned by initializing a key with a default value::
     
@@ -76,7 +80,8 @@ Type information can be assigned by initializing a key with a default value::
     >>> type(port)
     <class 'int'>
 
-A specific type can by specified as the third argument::
+When a type cannot be easily inferred, a specific type can by specified as
+the third argument to :meth:`~profig.ConfigSection.init`::
     
     >>> cfg.init('editor.open_files', [], 'path_list')
 
@@ -104,14 +109,13 @@ section directly::
 
 .. note::
     
-    A key consideration that must be taken into account when using coercion
-    is that, by default, no validation of the values is performed, as dictated
-    by the Python convention of duck-typing.
-    This can lead to errors at if not anticipated. See
-    `Using Coercers as Validators`_ for details.
+    When using coercion, it is important to take into account that, by
+    default, no validation of the values is performed. It is, however, simple
+    to have a coercer validate as well. See `Using Coercers as Validators`_
+    for details.
 
 Adding Coercers
----------------
+~~~~~~~~~~~~~~~
 
 Functions that define how an object is coerced (adapted or converted) can be
 defined using the :class:`~profig.Coercer` object that is accessible as an
@@ -123,14 +127,17 @@ coercer for a *bool* type could be defined like this::
     
     >>> cfg.coercer.register(bool, lambda x: str(int(x)), lambda x: bool(int(x)))
 
-The first argument to :meth:`~profig.Coercer.register` is a value that will be
-used to determine the correct coercer to use. A class object, when available, is
-most convenient, because it allows using a call to `type(obj)` to determine
-which coercer to use. However, any value can be used for the registration,
-including, e.g. strings or tuples.
+The first argument to :meth:`~profig.Coercer.register` represents a type value
+that will be used to determine the correct coercer to use. A class object,
+when available, is most convenient, because it allows using a call to
+`type(obj)` to determine which coercer to use. However, any value can be
+used for the registration, including, e.g. strings or tuples.
+
+The second argument specifies how to *adapt* a value to a string, while the
+third argument specifies host to *convert* a string to a value.
 
 Using Coercers as Validators
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 By default, a coercer will only raise exceptions if there is a fundamental
 incompatibility in the values it is trying to coerce. What this means is that
@@ -140,30 +147,33 @@ errors::
     
     >>> cfg.init('default.value', 1) # sets the type of the key to 'int'
     >>> cfg['default.value'] = 4.5   # a float value can be set
-    >>> buf = io.StringIO()
+    
+    # sync the float value to the config file
+    >>> buf = io.BytesIO()
     >>> cfg.sync(buf)
-    >>> buf.getvalue() # the float value is output to the config file
+    >>> buf.getvalue()
     '[default]\nvalue: 4.5\n'
-    >>> buf = io.StringIO('[default]\nvalue: 5.6\n') # we change the float value
+    
+    # here, we change the float value
+    >>> buf = io.BytesIO('[default]\nvalue: 5.6\n')
     >>> cfg.sync(buf)
     >>> cfg['default.value'] # this now raises an exception
     Traceback (most recent call last):
     ...
     ConvertError: invalid literal for int() with base 10: '5.6'
 
-Fortunately, this behavior can be changed easily by defining or overriding
-coercers in order to, for example, raise exceptions for unexpected ranges of
-inputs or other restrictions that should be in place for a given configuration
-value.
+This behavior can be changed by defining or overriding coercers in order to,
+for example, raise exceptions for unexpected ranges of inputs or other
+restrictions that should be in place for a given configuration value.
 
 Synchronization
 ---------------
 
-A sync is a combination of the read and write operations, executed in the
+A *sync* is a combination of the read and write operations, executed in the
 following order:
     
-    1. Read in any changed values from a source, unless a value has changed
-       on the config object since the last time it was synced.
+    1. Read in the changed values from all sources, except the values that have
+       changed on the config object since the last time it was synced.
     2. Write any values changed on the config object back to the primary
        source.
 
