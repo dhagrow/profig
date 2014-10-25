@@ -253,6 +253,27 @@ class TestBasic(unittest.TestCase):
         c.reset()
         self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1})
 
+class TestStrictMode(unittest.TestCase):
+    def setUp(self):
+        self.c = profig.Config(strict=True)
+        self.c.init('a', 1)
+    
+    def test_set_init(self):
+        with self.assertRaises(profig.StrictError):
+            self.c['b'] = 3
+        
+        s = self.c.section('b')
+        with self.assertRaises(profig.StrictError):
+            s.set_value(3)
+    
+    def test_set_uninit(self):
+        with self.assertRaises(profig.StrictError):
+            self.c['b'] = 3
+        
+        s = self.c.section('b')
+        with self.assertRaises(profig.StrictError):
+            s.set_value(3)
+
 class TestIniFormat(unittest.TestCase):
     def setUp(self):
         self.c = profig.Config(format='ini')
