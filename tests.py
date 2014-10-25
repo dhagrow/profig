@@ -667,6 +667,24 @@ if profig.WIN:
             
             value = winreg.QueryValueEx(self.key, '\uff9c')[0]
             self.assertEqual(value, '\uff9c')
+        
+        def test_unsupported_type_read(self):
+            key = winreg.CreateKeyEx(self.key, 'a')
+            winreg.SetValueEx(key, '', 0, winreg.REG_SZ, '1.11')
+            
+            c = self.c
+            c.init('a', 1.11)
+            c.read()
+            
+            self.assertEqual(c['a'], 1.11)
+        
+        def test_unsupported_type_write(self):
+            c = self.c
+            c.init('a', 1.11)
+            c.write()
+            
+            value = winreg.QueryValueEx(self.key, 'a')[0]
+            self.assertEqual(value, b'1.11')
 
 if __name__ == '__main__':
     unittest.main()
