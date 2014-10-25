@@ -574,6 +574,7 @@ class Format(BaseFormat):
     error_modes = {'ignore', 'error', 'exception'}
     
     def __init__(self, config):
+        #: Access to the root Config instance.
         self.config = config
         
         self.encoding = config.root.encoding

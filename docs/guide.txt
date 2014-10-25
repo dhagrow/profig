@@ -249,14 +249,16 @@ To add support for a new format you must subclass :meth:`~profig.Format` and
 override the, :meth:`~profig.Format.read` and :meth:`~profig.Format.write`
 methods.
 
-Read should assign values to :attr:`~profig.Format.config`, which is a local
-instance of the :class:`~profig.Config` object. A *context* value can
-optionally be returned which will be passed to :meth:`~profig.Format.write`
-during a sync. It can be used, for example, to track comments and ordering of
-the source. `None` can be returned if no context is needed.
+:meth:`~profig.Format.read` should assign values to
+:attr:`~profig.Format.config`, which is a local instance of the
+:class:`~profig.Config` object. A *context* value can optionally be returned
+which will be passed to :meth:`~profig.Format.write` during a sync. It can be
+used, for example, to track comments and ordering of the source. `None` can be
+returned if no context is needed.
 
-Write accepts any context returned from a call to :meth:`~profig.Format.read`
-and should read the values to write from :attr:`~profig.Format.config`.
+:meth:`~profig.Format.write` accepts any context returned from a call to
+:meth:`~profig.Format.read` and should read the values to write from
+:attr:`~profig.Format.config`.
 
 Unicode
 -------
@@ -277,8 +279,8 @@ Values are coerced into a unicode representation before being output to a
 config file. Note that this means that by specifically storing a byte-string
 as a value, :mod:`profig` will interpret the value as binary data. The specifics
 of how binary data is stored depends on the format being used. The default
-format (:class:`~profig.IniFormat`) operates on binary files, therfore binary
-data is written directly to it's sources.
+format (:class:`~profig.IniFormat`) operates on binary files, therefore binary
+data is written directly to its sources.
 
 So, if we consider the following examples using a Python 2 interpreter,
 where `str` objects are byte-strings::
