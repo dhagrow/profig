@@ -522,7 +522,7 @@ class Config(ConfigSection):
         
         self.coercer = kwargs.pop('coercer', NoValue)
         if self.coercer is NoValue:
-            self.coercer = Coercer(self.encoding)
+            self.coercer = Coercer()
         if self.coercer:
             register_booleans(self.coercer)
         
