@@ -24,6 +24,7 @@ Features
 * Extensible input/output formats.
 * Built-in support for INI files and the Windows registry.
 * Preserves ordering and comments of INI files.
+* Full Unicode support.
 * Supports Python 2.7+ and 3.2+.
 
 Installation
