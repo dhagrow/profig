@@ -4,8 +4,9 @@
 Behold, profig's documentation!
 ===============================
 
-*profig* is a configuration library for Python. It's objective is to make
-the most common tasks of configuration handling as simple as possible.
+*profig* is a straightforward configuration library for Python. Its
+objective is to make the most common tasks of configuration handling as
+simple as possible.
 
 Contents
 --------

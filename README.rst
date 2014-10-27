@@ -1,7 +1,7 @@
 Overview
 ========
 
-*profig* is a configuration library for Python.
+*profig* is a straightforward configuration library for Python.
 
 .. image:: https://travis-ci.org/dhagrow/profig.svg?branch=master
     :target: https://travis-ci.org/dhagrow/profig
@@ -21,6 +21,7 @@ Features
 * Automatic value conversion.
 * Section nesting.
 * Dict-like access.
+* Single-file module with no dependencies.
 * Extensible input/output formats.
 * Built-in support for INI files and the Windows registry.
 * Preserves ordering and comments of INI files.
