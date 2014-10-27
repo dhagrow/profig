@@ -56,6 +56,27 @@ value for the option. The third argument is optional and is used by an internal
 for the option. If the third argument is not provided, the type of the default
 value will be used to select the correct coercer.
 
+Strict Mode
+-----------
+
+"Strict" mode can be enabled by passing *strict=True* to the
+:class:`~profig.Config` constructor::
+    
+    >>> cfg = profig.Config(strict=True)
+    # or
+    >>> cfg.strict = True
+
+By default, :class:`~profig.Config` objects can be assigned any new value
+simply by setting the value on any new key, just as with the standard `dict`.
+When "strict" mode is enabled, however, assignments are only allowed for keys
+that have already been initialized using :meth:`~profig.ConfigSection.init`.
+
+The main benefit to enabling "strict" mode is that it will prevent typos in the
+names of configuration options. Any sync performed while in "strict" mode
+will also clear any old or deprecated options.
+
+A violation of "strict" mode will raise a :exc:`~profig.StrictError`.
+
 Automatic Typing (Coercion)
 ---------------------------
 
