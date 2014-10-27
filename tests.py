@@ -287,7 +287,7 @@ a = 1
         
         self.c.format.error_mode = 'ignore'
         self.c.sync(buf)
-        self.assertEqual(buf.getvalue(), """\
+        self.assertEqual(buf.getvalue(), b"""\
 [a] = 1
 """)
 
