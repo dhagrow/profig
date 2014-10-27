@@ -47,14 +47,14 @@ class TestBasic(unittest.TestCase):
         self.assertIsInstance(c._format, profig.IniFormat)
         
         c = profig.Config(format='ini')
-        self.assertIsInstance(c._format, profig.IniFormat)
+        self.assertIsInstance(c.format, profig.IniFormat)
         
         c = profig.Config(format=profig.IniFormat)
-        self.assertIsInstance(c._format, profig.IniFormat)
+        self.assertIsInstance(c.format, profig.IniFormat)
         
         c = profig.Config()
         c.set_format(profig.IniFormat(c))
-        self.assertIsInstance(c._format, profig.IniFormat)
+        self.assertIsInstance(c.format, profig.IniFormat)
         
         with self.assertRaises(profig.UnknownFormatError):
             c = profig.Config(format='marshmallow')
@@ -256,15 +256,12 @@ class TestBasic(unittest.TestCase):
 class TestStrictMode(unittest.TestCase):
     def setUp(self):
         self.c = profig.Config(strict=True)
+        self.c.format.error_mode = 'exception'
         self.c.init('a', 1)
     
     def test_set_init(self):
-        with self.assertRaises(profig.StrictError):
-            self.c['b'] = 3
-        
-        s = self.c.section('b')
-        with self.assertRaises(profig.StrictError):
-            s.set_value(3)
+        self.c['a'] = 3
+        self.assertEqual(self.c['a'], 3)
     
     def test_set_uninit(self):
         with self.assertRaises(profig.StrictError):
@@ -273,6 +270,14 @@ class TestStrictMode(unittest.TestCase):
         s = self.c.section('b')
         with self.assertRaises(profig.StrictError):
             s.set_value(3)
+    
+    def test_read_uninit(self):
+        buf = io.BytesIO(b"""\
+[a]
+a = 1
+""")
+        with self.assertRaises(profig.FormatError):
+            self.c.read(buf)
 
 class TestIniFormat(unittest.TestCase):
     def setUp(self):
@@ -554,7 +559,7 @@ class TestCoercer(unittest.TestCase):
 class TestErrors(unittest.TestCase):
     def test_FormatError(self):
         c = profig.Config()
-        c._format.error_mode = 'exception'
+        c.format.error_mode = 'exception'
         
         buf = io.BytesIO(b"""a""")
         with self.assertRaises(profig.FormatError):
@@ -579,7 +584,7 @@ if profig.WIN:
             self.c = profig.Config(self.path, format='registry')
         
         def tearDown(self):
-            self.c._format.delete(self.key)
+            self.c.format.delete(self.key)
     
         def test_basic(self):
             c = self.c
