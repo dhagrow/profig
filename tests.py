@@ -256,7 +256,6 @@ class TestBasic(unittest.TestCase):
 class TestStrictMode(unittest.TestCase):
     def setUp(self):
         self.c = profig.Config(strict=True)
-        self.c.format.error_mode = 'exception'
         self.c.init('a', 1)
     
     def test_set_init(self):
@@ -276,8 +275,21 @@ class TestStrictMode(unittest.TestCase):
 [a]
 a = 1
 """)
+        self.c.format.error_mode = 'exception'
         with self.assertRaises(profig.FormatError):
             self.c.read(buf)
+    
+    def test_clear_uninit_on_sync(self):
+        buf = io.BytesIO(b"""\
+[a]
+a = 1
+""")
+        
+        self.c.format.error_mode = 'ignore'
+        self.c.sync(buf)
+        self.assertEqual(buf.getvalue(), """\
+[a] = 1
+""")
 
 class TestIniFormat(unittest.TestCase):
     def setUp(self):
