@@ -23,7 +23,7 @@ import itertools
 import collections
 
 __author__  = 'Miguel Turner'
-__version__ = '0.3.3'
+__version__ = '0.4.0'
 __license__ = 'MIT'
 
 __all__ = ['Config', 'IniFormat', 'ConfigError', 'Coercer', 'CoerceError']

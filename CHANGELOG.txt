@@ -1,6 +1,12 @@
 Changes
 -------
 
+0.4.0 (10-27-14)
+
+* added "strict" mode to support safer configurations
+* Windows registry format supports all types
+* bugfixes/simplifications/clarifications
+
 0.3.3 (07-11-14)
 
 * bugfixes
