@@ -579,7 +579,7 @@ class Line(collections.namedtuple('Line', 'line name iskey issection')):
 
 class Format(BaseFormat):
     name = None
-    error_modes = {'ignore', 'error', 'exception'}
+    error_modes = {'ignore', 'warning', 'exception'}
     
     def __init__(self, config):
         #: Access to the root Config instance.
@@ -587,7 +587,7 @@ class Format(BaseFormat):
         
         self.encoding = config.root.encoding
         self.ensure_dirs = 0o744
-        self.error_mode = 'error'
+        self.error_mode = 'warning'
     
     @property
     def error_mode(self):
@@ -637,17 +637,24 @@ class Format(BaseFormat):
     def flush(self, file):
         file.flush()
     
-    def _error(self, file, lineno=None, text='', message=''):
+    def _error(self, exc, file, lineno=None, text=''):
         if self.error_mode == 'ignore':
             return
         
         name = file.name if hasattr(file, 'name') else '<???>'
-        exc = FormatError(message, name, lineno, text)
+        err = ["error reading '{}'".format(name)]
+        if lineno is not None:
+            err.append(', line {}'.format(lineno))
+        err.append(': {}'.format(exc))
+        if text:
+            err.append('\n  {}'.format(text))
+        message = ''.join(err)
         
         if self.error_mode == 'exception':
+            log.error(message)
             raise exc
-        elif self.error_mode == 'error':
-            log.warning(exc)
+        elif self.error_mode == 'warning':
+            log.warning(message)
         else:
             assert False
 
@@ -708,7 +715,7 @@ class IniFormat(Format):
             try:
                 key, value = line.split(self.delimeter.strip(), 1)
             except ValueError:
-                self._error(file, i, line, 'syntax error')
+                self._error(FormatError('invalid syntax'), file, i, line)
                 continue
             
             key = cfg._keystr(cfg._make_key(section_name, key.strip()))
@@ -728,7 +735,7 @@ class IniFormat(Format):
             try:
                 section = cfg.section(key)
             except StrictError as e:
-                self._error(file, i, lines[i-1].line.strip(), e)
+                self._error(e, file, i, lines[i-1].line.strip())
                 continue
             
             if not section._dirty and value is not None:
@@ -799,7 +806,7 @@ class IniFormat(Format):
                 try:
                     header = cfg.section(line.name)
                 except StrictError as e:
-                    self._error(file, i, line.line.strip(), e)
+                    self._error(e, file, i, line.line.strip())
                     continue
                 
                 self.write_section(header, file, first)
@@ -813,7 +820,7 @@ class IniFormat(Format):
                 try:
                     section = cfg.section(line.name)
                 except StrictError as e:
-                    self._error(file, i, line.line.strip(), e)
+                    self._error(e, file, i, line.line.strip())
                     continue
                 
                 self.write_section(section, file)
@@ -954,24 +961,6 @@ class StrictError(ConfigError):
 
 class FormatError(ConfigError):
     """Raised for errors when reading/writing with a Format."""
-    def __init__(self, message='', filename=None, lineno=None, text=''):
-        self.message = message
-        self.filename = filename
-        self.lineno = lineno
-        self.text = text
-    
-    def __str__(self):
-        if self.filename:
-            err = ["error reading '{}'".format(self.filename)]
-            if self.lineno:
-                err.append(', line {}'.format(self.lineno))
-            if self.message:
-                err.append(': {}'.format(self.message))
-            if self.text:
-                err.append('\n  {}'.format(self.text))
-            return ''.join(err)
-        else:
-            return self.message
 
 class NoSourcesError(ConfigError):
     """Raised when there are no sources for a config object."""

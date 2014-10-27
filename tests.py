@@ -44,7 +44,7 @@ class TestBasic(unittest.TestCase):
         self.assertIn('ini', profig.Config.known_formats())
         
         c = profig.Config()
-        self.assertIsInstance(c._format, profig.IniFormat)
+        self.assertIsInstance(c.format, profig.IniFormat)
         
         c = profig.Config(format='ini')
         self.assertIsInstance(c.format, profig.IniFormat)
@@ -276,7 +276,7 @@ class TestStrictMode(unittest.TestCase):
 a = 1
 """)
         self.c.format.error_mode = 'exception'
-        with self.assertRaises(profig.FormatError):
+        with self.assertRaises(profig.StrictError):
             self.c.read(buf)
     
     def test_clear_uninit_on_sync(self):
@@ -704,4 +704,8 @@ if profig.WIN:
             self.assertEqual(value, b'1.11')
 
 if __name__ == '__main__':
+    # silence logging
+    import logging
+    logging.basicConfig(level=logging.CRITICAL)
+    
     unittest.main()
