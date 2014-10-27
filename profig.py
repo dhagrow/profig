@@ -533,6 +533,11 @@ class Config(ConfigSection):
         
         kwargs_check('__init__', kwargs)
     
+    @property
+    def format(self):
+        """The :class:`~profig.Format` to use to process sources."""
+        return self._format
+    
     @classmethod
     def known_formats(cls):
         """Returns the formats registered with this class."""
