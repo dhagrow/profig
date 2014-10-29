@@ -1,37 +1,37 @@
-Changes
--------
+Release History
+---------------
 
-0.4.0 (10-27-14)
+0.4.0 (2014-10-27)
 
 * added "strict" mode to support safer configurations
 * Windows registry format supports all types
 * bugfixes/simplifications/clarifications
 
-0.3.3 (07-11-14)
+0.3.3 (2014-07-11)
 
 * bugfixes
 
-0.3.2 (06-30-14)
+0.3.2 (2014-06-30)
 
 * added support for the Windows registry
 * bugfixes
 
-0.3.1 (06-04-14)
+0.3.1 (2014-06-04)
 
 * fixed release package
 
-0.3.0 (06-04-14)
+0.3.0 (2014-06-04)
 
 * byte-string values are read/written directly from/to sources.
 * added support for Python 3.2.
 * bugfixes
 
-0.2.9 (05-27-14)
+0.2.9 (2014-05-27)
 
 * bugfixes
 * new syntax for sections with both children, and a value: [section] = value
 
-0.2.8 (04-11-14)
+0.2.8 (2014-04-11)
 
 * INI format is now the default
 * custom ProfigFormat has been removed
@@ -39,24 +39,24 @@ Changes
 * comments and whitespace read from sources are preserved
 * filtering of keys when syncing has been removed (temporarily?)
 
-0.2.7 (03-29-14)
+0.2.7 (2014-03-29)
 
 * improved INI support
 * bugfixes
 
-0.2.6 (03-26-14)
+0.2.6 (2014-03-26)
 
 * full unicode support
 
-0.2.5 (03-21-14)
+0.2.5 (2014-03-21)
 
 * fix broken Python 3 compatibility
 
-0.2.4 (03-21-14)
+0.2.4 (2014-03-21)
 
 * added support for Python 2
 * bugfixes
 
-0.2.3 and earlier (03-12-14)
+0.2.3 and earlier (2014-03-12)
 
 * initial releases
