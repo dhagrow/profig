@@ -238,15 +238,26 @@ A :class:`~profig.Format` subclass defines how a configuration should be
 read/written from/to a source.
 
 :mod:`profig` provides :class:`~profig.Format` subclasses for both INI
-formatted files, and the Windows registry:
+formatted files, and the Windows registry.
+
+IniFormat
+^^^^^^^^^
 
 :class:`~profig.IniFormat`
     Syncs configuration base on the standard INI format.
+
+The INI file format has no strict standard_, however :mod:`profig` tries not
+to stray far from the most commonly supported features. In particular, it
+should read any INI file that the standard library's configparser_ can read.
+If it does not, please file an issue_ so that the discrepency can be fixed.
 
 Because :class:`~profig.IniFormat` is the default, an INI file can be sourced
 as follows::
     
     >>> cfg = profig.Config('~/.config/black_knight.cfg')
+
+RegistryFormat
+^^^^^^^^^^^^^^
 
 :class:`~profig.RegistryFormat`
     Syncs configuration with the Windows registry.
@@ -331,3 +342,7 @@ we can use one of the available encodings: 'hex', and 'base64'::
 Or third, we can register different coercers for byte-strings::
     
     >>> cfg.coercer.register(bytes, compress, decompress)
+
+.. _standard: http://en.wikipedia.org/wiki/INI_file
+.. _configparser: https://docs.python.org/3/library/configparser.html
+.. _issue: https://bitbucket.org/dhagrow/profig/issues

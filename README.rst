@@ -10,9 +10,8 @@ Motivation
 ----------
 
 Why another configuration library? The simple answer is that none of the
-available options gave me everything I wanted, with an API that I enjoyed using.
-This library is as close to my ideal as I have been able to come. It tries
-to provide some (but not too much) powerful functionality, without sacrificing
+available options give me everything I want, with an API that I enjoy using.
+This library provides a lot of powerful functionality, but never at the cost of
 simplicity.
 
 Features
@@ -54,7 +53,7 @@ Then, we sync our current state with the state of the config file::
 
     >>> cfg.sync()
 
-As expected, we can access the values directly without any extra effort, either
+As expected, we can access the updated values without undue effort, either
 directly::
 
     >>> cfg['server.host']
