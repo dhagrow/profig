@@ -240,24 +240,32 @@ read/written from/to a source.
 :mod:`profig` provides :class:`~profig.Format` subclasses for both INI
 formatted files, and the Windows registry.
 
-IniFormat
-^^^^^^^^^
+INI
+~~~
 
 :class:`~profig.IniFormat`
-    Syncs configuration base on the standard INI format.
-
-The INI file format has no strict standard_, however :mod:`profig` tries not
-to stray far from the most commonly supported features. In particular, it
-should read any INI file that the standard library's configparser_ can read.
-If it does not, please file an issue_ so that the discrepency can be fixed.
+    Syncs configuration with a file based on the standard INI format.
 
 Because :class:`~profig.IniFormat` is the default, an INI file can be sourced
 as follows::
     
     >>> cfg = profig.Config('~/.config/black_knight.cfg')
 
-RegistryFormat
-^^^^^^^^^^^^^^
+The INI file format has no strict standard_, however :mod:`profig` tries not
+to stray far from the most commonly supported features. In particular, it
+should read any INI file that the standard library's configparser_ can read.
+If it does not, please file an issue_ so that the discrepency can be fixed.
+
+The only deviation :mod:`profig` makes is to support the fact that it is
+possible to set a value on any :class:`~profig.ConfigSection`, including
+those at the top-level, which become section headers when output to an INI
+file. This is represented in the INI files as values set on the header::
+    
+    [server] = true
+    host = localhost
+
+Windows Registry
+~~~~~~~~~~~~~~~~
 
 :class:`~profig.RegistryFormat`
     Syncs configuration with the Windows registry.

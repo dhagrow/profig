@@ -82,6 +82,7 @@ class ConfigSection(collections.MutableMapping):
     
     @property
     def root(self):
+        """Returns the root :class:`~profig.ConfigSection` object. Read-only."""
         return self._root
     
     @property
@@ -117,10 +118,13 @@ class ConfigSection(collections.MutableMapping):
     
     @property
     def is_default(self):
+        """`True` if this section has a default value and its current value
+        is equal to the default value. Read-only."""
         return (self._value is NoValue and self._default is not NoValue)
     
     @property
     def has_children(self):
+        """`True` if this section has child sections. Read-only."""
         return bool(self._children)
     
     ## methods ##
@@ -487,18 +491,19 @@ class ConfigSection(collections.MutableMapping):
             print(spaces, repr(section))
 
 class Config(ConfigSection):
-    """
-    The root configuration object.
+    """The root configuration object.
     
     Any number of sources can be set using *sources*. These are the sources
     that will be using when calling :meth:`~profig.ConfigSection.sync`.
     
-    The format of the sources can be set using *format*. This can be either
-    the registered name of a format, such as "ini", or a
-    :class:`~profig.Format` class or instance.
+    The format of the sources can be set using *format*. This can be the
+    registered name of a format, such as "ini", or a :class:`~profig.Format`
+    class or instance.
     
     An encoding can be set using *encoding*. If *encoding* is not specified
     the encoding used is platform dependent: locale.getpreferredencoding(False).
+    
+    "String" mode can be enabled by setting *strict* to `True`.
     
     The dict class used internally can be set using *dict_type*. By default
     an `OrderedDict` is used.
@@ -544,6 +549,11 @@ class Config(ConfigSection):
         return tuple(cls._formats)
     
     def set_format(self, format):
+        """Sets the format to use when processing sources.
+        
+        *format* can be the registered name of a format, such as
+        "ini", or a :class:`~profig.Format` class or instance.
+        """
         self._format = self._process_format(format)
     
     def _dump(self, indent=2): # pragma: no cover
@@ -578,8 +588,10 @@ class Line(collections.namedtuple('Line', 'line name iskey issection')):
         return super(Line, cls).__new__(cls, line, name, iskey, issection)
 
 class Format(BaseFormat):
+    #: A convenient name for the format.
     name = None
-    error_modes = {'ignore', 'warning', 'exception'}
+    #: The supported error modes.
+    error_modes = frozenset(['ignore', 'warning', 'exception'])
     
     def __init__(self, config):
         #: Access to the root Config instance.
@@ -591,6 +603,17 @@ class Format(BaseFormat):
     
     @property
     def error_mode(self):
+        """Specifies how the format should react to errors raised when
+        processing a source.
+        
+        Must be one of the following:
+        
+        * ignore - Ignore all errors completely.
+        * warning - Log a warning for any errors.
+        * exception - Raise an exception for any error.
+        
+        Only 'exception' will cause the format to stop processing a source.
+        """
         return self._error_mode
     
     @error_mode.setter
