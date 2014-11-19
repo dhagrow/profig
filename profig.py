@@ -686,7 +686,7 @@ class IniFormat(Format):
     delimeter = b' = '
     comment_char = b'; '
     default_section = b'default'
-    _rx_section_header = re.compile(b'\[\s*(\S*)\s*\](\s*=\s*(\S*))?')
+    _rx_section_header = re.compile(b'\[\s*(\S*)\s*\](\s*=\s*(.*))?')
     
     def read(self, file):
         cfg = self.config
@@ -1166,6 +1166,7 @@ def register_default_coercers(coercer):
     """Registers adapters and converters for common types."""
     import base64
     import binascii
+    from datetime import datetime
     
     # None as the type does not change the value
     coercer.register(None, lambda x: x, lambda x: x)
@@ -1183,6 +1184,11 @@ def register_default_coercers(coercer):
     coercer.register('base64',
         lambda x: base64.b64encode(x),
         lambda x: base64.b64decode(x))
+    
+    # datetime coercers
+    coercer.register(datetime,
+        lambda x: x.isoformat(b' '),
+        lambda x: datetime.strptime(x, b'%Y-%m-%d %H:%M:%S.%f'))
     
     # collection coercers, simply comma delimited
     split = lambda x: x.split(',') if x else []
