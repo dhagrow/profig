@@ -531,8 +531,6 @@ class Config(ConfigSection):
         self.coercer = kwargs.pop('coercer', NoValue)
         if self.coercer is NoValue:
             self.coercer = Coercer()
-        if self.coercer:
-            register_booleans(self.coercer)
         
         self.sep = '.'
         
@@ -1172,7 +1170,6 @@ def register_default_coercers(coercer):
     coercer.register(None, lambda x: x, lambda x: x)
     # NoneType as the type assumes the value is None
     coercer.register(type(None), lambda x: '', lambda x: None)
-    coercer.register(bool, lambda x: str(int(x)), lambda x: bool(int(x)))
     coercer.register(int, str, int)
     coercer.register(float, str, float)
     coercer.register(complex, str, complex)
@@ -1185,16 +1182,25 @@ def register_default_coercers(coercer):
         lambda x: base64.b64encode(x),
         lambda x: base64.b64decode(x))
     
+    # boolean coercers
+    _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
+        '0': False, 'no': False, 'false': False, 'off': False}
+    coercer.register_adapter(bool, lambda x: 'true' if x else 'false')
+    coercer.register_converter(bool, lambda x: _boolean_states[x.lower()])
+    
     # datetime coercers
+    date_format = b'%Y-%m-%d %H:%M:%S.%f'
+    if PY3:
+        date_format = date_format.decode('ascii')
     coercer.register(datetime,
-        lambda x: x.isoformat(b' '),
-        lambda x: datetime.strptime(x, b'%Y-%m-%d %H:%M:%S.%f'))
+        lambda x: x.isoformat(' ' if PY3 else b' '),
+        lambda x: datetime.strptime(x, date_format))
     
     # collection coercers, simply comma delimited
-    split = lambda x: x.split(',') if x else []
-    coercer.register(list, lambda x: ','.join(x), split)
-    coercer.register(set, lambda x: ','.join(x), lambda x: set(split(x)))
-    coercer.register(tuple, lambda x: ','.join(x), lambda x: tuple(split(x)))
+    split = lambda x: [s.strip() for s in x.split(',')] if x else []
+    coercer.register(list, lambda x: ', '.join(x), split)
+    coercer.register(set, lambda x: ', '.join(x), lambda x: set(split(x)))
+    coercer.register(tuple, lambda x: ', '.join(x), lambda x: tuple(split(x)))
     
     # path coercers, os.pathsep delimited
     sep = os.pathsep
@@ -1202,13 +1208,6 @@ def register_default_coercers(coercer):
     coercer.register('path_list', lambda x: sep.join(x), pathsplit)
     coercer.register('path_set', lambda x: sep.join(x), lambda x: set(pathsplit(x)))
     coercer.register('path_tuple', lambda x: sep.join(x), lambda x: tuple(pathsplit(x)))
-
-def register_booleans(coercer):
-    ## override boolean coercers ##
-    _boolean_states = {'1': True, 'yes': True, 'true': True, 'on': True,
-        '0': False, 'no': False, 'false': False, 'off': False}
-    coercer.register_adapter(bool, lambda x: 'true' if x else 'false')
-    coercer.register_converter(bool, lambda x: _boolean_states[x.lower()])
 
 def register_qt_coercers(coercer):
     if 'PyQt4' in sys.modules:

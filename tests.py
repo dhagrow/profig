@@ -520,8 +520,13 @@ class TestCoercer(unittest.TestCase):
         c.sync(buf)
         
         self.assertEqual(buf.getvalue(), b"""\
-[colors] = red,blue
+[colors] = red, blue
 """)
+        
+        c.init('colors', [])
+        c.sync(buf)
+        
+        self.assertEqual(c['colors'], ['red', 'blue'])
     
     def test_path_value(self):
         c = profig.Config()
