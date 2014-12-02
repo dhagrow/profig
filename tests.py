@@ -271,7 +271,7 @@ class TestStrictMode(unittest.TestCase):
 a = 1
 """)
         self.c.format.error_mode = 'exception'
-        with self.assertRaises(profig.StrictError):
+        with self.assertRaises(profig.InvalidSectionError):
             self.c.read(buf)
     
     def test_clear_uninit_on_sync(self):

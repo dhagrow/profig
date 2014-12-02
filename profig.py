@@ -198,13 +198,12 @@ class ConfigSection(collections.MutableMapping):
         method never raises an exception.
         """
         try:
-            section = self.section(key, create=False)
-            return section.value()
+            return self.section(key).value()
         except (InvalidSectionError, NoValueError):
             return default
     
     def __getitem__(self, key):
-        return self.section(key, create=False).value()
+        return self.section(key).value()
     
     def __setitem__(self, key, value):
         section = self._create_section(key)
@@ -272,7 +271,7 @@ class ConfigSection(collections.MutableMapping):
         
         return d
 
-    def section(self, key, create=True):
+    def section(self, key, create=False):
         """Returns a section object for *key*.
         
         If there is no existing section for *key*, and *create* is `False`, an
@@ -286,9 +285,6 @@ class ConfigSection(collections.MutableMapping):
                 section = section._children[name]
             except KeyError:
                 if create:
-                    if self._root.strict:
-                        err = 'cannot create a section for an uninitialized key: {}'
-                        raise StrictError(err.format(key))
                     return self._create_section(key)
                 raise InvalidSectionError(key)
         return section
@@ -662,7 +658,7 @@ class Format(BaseFormat):
         if self.error_mode == 'ignore':
             return
         
-        name = file.name if hasattr(file, 'name') else '<???>'
+        name = file.name if hasattr(file, 'name') else file
         err = ["error reading '{}'".format(name)]
         if lineno is not None:
             err.append(', line {}'.format(lineno))
@@ -754,8 +750,9 @@ class IniFormat(Format):
         # file has been read. assign the values
         for i, (key, value) in enumerate(values.items(), 1):
             try:
-                section = cfg.section(key)
-            except StrictError as e:
+                # create section only if not in strict mode
+                section = cfg.section(key, create=not cfg.strict)
+            except InvalidSectionError as e:
                 self._error(e, file, i, lines[i-1].line.strip())
                 continue
             
@@ -816,7 +813,8 @@ class IniFormat(Format):
                 if line.name in seen:
                     continue
                 
-                # if there is a previous header section, write it's remaining values
+                # if there is a previous header section, write it's
+                # remaining values
                 if header:
                     for sec in header.sections(recurse=True):
                         if sec.key not in seen:
@@ -826,7 +824,7 @@ class IniFormat(Format):
                 # write current section header
                 try:
                     header = cfg.section(line.name)
-                except StrictError as e:
+                except InvalidSectionError as e:
                     self._error(e, file, i, line.line.strip())
                     continue
                 
@@ -840,7 +838,7 @@ class IniFormat(Format):
                 
                 try:
                     section = cfg.section(line.name)
-                except StrictError as e:
+                except InvalidSectionError as e:
                     self._error(e, file, i, line.line.strip())
                     continue
                 
@@ -877,13 +875,20 @@ if WIN:
             }
         
         def read(self, key, section=None):
-            section = section if section is not None else self.config
+            cfg = self.config
+            section = section if section is not None else cfg
             n_subkeys, n_values, t = winreg.QueryInfoKey(key)
             
             # read values from this subkey
             for i in range(n_values):
                 name, value, type = winreg.EnumValue(key, i)
-                subsection = section.section(name)
+                
+                try:
+                    # create section only if not in strict mode
+                    subsection = section.section(key, create=not cfg.strict)
+                except InvalidSectionError as e:
+                    self._error(e, key)
+                    continue
                 
                 reg_type = self.types.get(subsection.type)
                 if reg_type is None:
@@ -898,7 +903,12 @@ if WIN:
             for i in range(n_subkeys):
                 name = winreg.EnumKey(key, i)
                 subkey = winreg.OpenKeyEx(key, name)
-                subsection = section.section(name)
+                try:
+                    # create section only if not in strict mode
+                    subsection = section.section(key, create=not cfg.strict)
+                except InvalidSectionError as e:
+                    self._error(e, key)
+                    continue
                 self.read(subkey, subsection)
         
         def write(self, key, context=None):
