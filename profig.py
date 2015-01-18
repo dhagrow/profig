@@ -198,12 +198,12 @@ class ConfigSection(collections.MutableMapping):
         method never raises an exception.
         """
         try:
-            return self.section(key).value()
+            return self.section(key, create=False).value()
         except (InvalidSectionError, NoValueError):
             return default
     
     def __getitem__(self, key):
-        return self.section(key).value()
+        return self.section(key, create=False).value()
     
     def __setitem__(self, key, value):
         section = self._create_section(key)
@@ -213,7 +213,7 @@ class ConfigSection(collections.MutableMapping):
             section.set_value(value)
     
     def __delitem__(self, key):
-        section = self.section(key)
+        section = self.section(key, create=False)
         del section._parent._children[section.name]
     
     def __bool__(self):
@@ -257,8 +257,8 @@ class ConfigSection(collections.MutableMapping):
         valid = self is not self._root and self.valid
         
         if flat:
-            sections = ((k, self.section(k)) for k in self)
-            return dtype((k, s.value()) for k, s in sections)
+            sections = self.sections(recurse=True, only_valid=True)
+            return dtype((s._key, s.value()) for s in sections)
         
         d = dtype()
         if valid:
@@ -271,11 +271,16 @@ class ConfigSection(collections.MutableMapping):
         
         return d
 
-    def section(self, key, create=False):
+    def section(self, key, create=None):
         """Returns a section object for *key*.
         
+        *create* will default to `False` when in strict mode. Otherwise it
+        defaults to `True`.
+        
         If there is no existing section for *key*, and *create* is `False`, an
-        :exc:`~profig.InvalidSectionError` is thrown."""
+        :exc:`~profig.InvalidSectionError` is thrown.
+        """
+        create = (not self._root.strict) if create is None else create
         
         if key is None:
             raise InvalidSectionError(key)
@@ -750,8 +755,7 @@ class IniFormat(Format):
         # file has been read. assign the values
         for i, (key, value) in enumerate(values.items(), 1):
             try:
-                # create section only if not in strict mode
-                section = cfg.section(key, create=not cfg.strict)
+                section = cfg.section(key)
             except InvalidSectionError as e:
                 self._error(e, file, i, lines[i-1].line.strip())
                 continue
@@ -823,7 +827,7 @@ class IniFormat(Format):
                 
                 # write current section header
                 try:
-                    header = cfg.section(line.name)
+                    header = cfg.section(line.name, create=False)
                 except InvalidSectionError as e:
                     self._error(e, file, i, line.line.strip())
                     continue
@@ -837,7 +841,7 @@ class IniFormat(Format):
                     continue
                 
                 try:
-                    section = cfg.section(line.name)
+                    section = cfg.section(line.name, create=False)
                 except InvalidSectionError as e:
                     self._error(e, file, i, line.line.strip())
                     continue
@@ -884,8 +888,7 @@ if WIN:
                 name, value, type = winreg.EnumValue(key, i)
                 
                 try:
-                    # create section only if not in strict mode
-                    subsection = section.section(key, create=not cfg.strict)
+                    subsection = section.section(key)
                 except InvalidSectionError as e:
                     self._error(e, key)
                     continue
@@ -904,8 +907,7 @@ if WIN:
                 name = winreg.EnumKey(key, i)
                 subkey = winreg.OpenKeyEx(key, name)
                 try:
-                    # create section only if not in strict mode
-                    subsection = section.section(key, create=not cfg.strict)
+                    subsection = section.section(key)
                 except InvalidSectionError as e:
                     self._error(e, key)
                     continue
