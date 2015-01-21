@@ -75,8 +75,6 @@ The main benefit to enabling "strict" mode is that it will prevent typos in the
 names of configuration options. Any sync performed while in "strict" mode
 will also clear any old or deprecated options.
 
-A violation of "strict" mode will raise a :exc:`~profig.StrictError`.
-
 Automatic Typing (Coercion)
 ---------------------------
 
