@@ -42,7 +42,7 @@ if WIN:
         import _winreg as winreg
     __all__.append('RegistryFormat')
 
-# the name *type* is used often so give type() an alias rather than use *typ*
+# keep a reference to the type builtin to free up the name 'type'
 _type = type
 
 log = logging.getLogger('profig')
@@ -1176,7 +1176,7 @@ def register_default_coercers(coercer):
     """Registers adapters and converters for common types."""
     import base64
     import binascii
-    from datetime import datetime
+    import datetime as dt
     
     # None as the type does not change the value
     coercer.register(None, lambda x: x, lambda x: x)
@@ -1201,12 +1201,18 @@ def register_default_coercers(coercer):
     coercer.register_converter(bool, lambda x: _boolean_states[x.lower()])
     
     # datetime coercers
-    date_format = b'%Y-%m-%d %H:%M:%S.%f'
-    if PY3:
-        date_format = date_format.decode('ascii')
-    coercer.register(datetime,
+    dt_date_fmt = '%Y-%m-%d' if PY3 else b'%Y-%m-%d'
+    coercer.register(dt.date,
+        lambda x: x.isoformat(),
+        lambda x: dt.datetime.strptime(x, dt_date_fmt).date())
+    dt_time_fmt = '%H:%M:%S.%f' if PY3 else b'%H:%M:%S.%f'
+    coercer.register(dt.time,
+        lambda x: x.isoformat(),
+        lambda x: dt.datetime.strptime(x, dt_time_fmt).time())
+    dt_datetime_fmt = '%Y-%m-%d %H:%M:%S.%f' if PY3 else b'%Y-%m-%d %H:%M:%S.%f'
+    coercer.register(dt.datetime,
         lambda x: x.isoformat(' ' if PY3 else b' '),
-        lambda x: datetime.strptime(x, date_format))
+        lambda x: dt.datetime.strptime(x, dt_datetime_fmt))
     
     # collection coercers, simply comma delimited
     split = lambda x: [s.strip() for s in x.split(',')] if x else []

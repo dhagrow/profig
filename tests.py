@@ -2,9 +2,9 @@ from __future__ import unicode_literals
 
 import io
 import os
+import datetime
 import tempfile
 import unittest
-from datetime import datetime
 
 import profig
 
@@ -495,9 +495,43 @@ a = 1
 """)
 
 class TestCoercer(unittest.TestCase):
-    def test_datetime(self):
+    def test_datetime_date(self):
         c = profig.Config()
-        dt = datetime(2014, 12, 30, 14, 45, 30, 655)
+        dt = datetime.date(2014, 12, 30)
+        c.init('timestamp', dt)
+        
+        buf = io.BytesIO()
+        c.sync(buf)
+        
+        self.assertEqual(buf.getvalue(), b"""\
+[timestamp] = 2014-12-30
+""")
+        
+        c.init('timestamp', datetime.datetime.now().date())
+        c.sync(buf)
+        
+        self.assertEqual(c['timestamp'], dt)
+    
+    def test_datetime_time(self):
+        c = profig.Config()
+        dt = datetime.time(14, 45, 30, 655)
+        c.init('timestamp', dt)
+        
+        buf = io.BytesIO()
+        c.sync(buf)
+        
+        self.assertEqual(buf.getvalue(), b"""\
+[timestamp] = 14:45:30.000655
+""")
+        
+        c.init('timestamp', datetime.datetime.now().time())
+        c.sync(buf)
+        
+        self.assertEqual(c['timestamp'], dt)
+    
+    def test_datetime_datetime(self):
+        c = profig.Config()
+        dt = datetime.datetime(2014, 12, 30, 14, 45, 30, 655)
         c.init('timestamp', dt)
         
         buf = io.BytesIO()
@@ -507,7 +541,7 @@ class TestCoercer(unittest.TestCase):
 [timestamp] = 2014-12-30 14:45:30.000655
 """)
         
-        c.init('timestamp', datetime.now())
+        c.init('timestamp', datetime.datetime.now())
         c.sync(buf)
         
         self.assertEqual(c['timestamp'], dt)
