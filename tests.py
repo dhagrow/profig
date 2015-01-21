@@ -258,12 +258,11 @@ class TestStrictMode(unittest.TestCase):
         self.assertEqual(self.c['a'], 3)
     
     def test_set_uninit(self):
-        with self.assertRaises(profig.StrictError):
+        with self.assertRaises(profig.InvalidSectionError):
             self.c['b'] = 3
         
-        s = self.c.section('b')
-        with self.assertRaises(profig.StrictError):
-            s.set_value(3)
+        with self.assertRaises(profig.InvalidSectionError):
+            self.c.section('b')
     
     def test_read_uninit(self):
         buf = io.BytesIO(b"""\
@@ -280,7 +279,6 @@ a = 1
 a = 1
 """)
         
-        self.c.format.error_mode = 'ignore'
         self.c.sync(buf)
         self.assertEqual(buf.getvalue(), b"""\
 [a] = 1

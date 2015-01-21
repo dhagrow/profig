@@ -206,7 +206,7 @@ class ConfigSection(collections.MutableMapping):
         return self.section(key, create=False).value()
     
     def __setitem__(self, key, value):
-        section = self._create_section(key)
+        section = self.section(key)
         if isinstance(value, collections.Mapping):
             section.update(value)
         else:
@@ -329,9 +329,6 @@ class ConfigSection(collections.MutableMapping):
     
     def set_value(self, value):
         """Set the section's value."""
-        if self._root.strict and self._default is NoValue:
-            err = 'cannot set a value for an uninitialized key: {}'
-            raise StrictError(err.format(self.key))
         self._value = value
         self._dirty = True
     
@@ -988,9 +985,6 @@ class InvalidSectionError(KeyError, ConfigError):
 
 class NoValueError(ValueError, ConfigError):
     """Raised when a section has no set value or default value."""
-
-class StrictError(ConfigError):
-    """Raised when "strict" mode is enabled and an action is not permitted."""
 
 class FormatError(ConfigError):
     """Raised for errors when reading/writing with a Format."""
