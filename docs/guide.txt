@@ -66,14 +66,14 @@ Strict Mode
     # or
     >>> cfg.strict = True
 
-By default, :class:`~profig.Config` objects can be assigned any new value
-simply by setting the value on any new key, just as with the standard `dict`.
+By default, :class:`~profig.Config` objects can be assigned a new value
+simply by setting the value on a key, just as with the standard `dict`.
 When "strict" mode is enabled, however, assignments are only allowed for keys
 that have already been initialized using :meth:`~profig.ConfigSection.init`.
 
-The main benefit to enabling "strict" mode is that it will prevent typos in the
-names of configuration options. Any sync performed while in "strict" mode
-will also clear any old or deprecated options.
+The main benefit to enabling "strict" mode is that it prevents typos in the
+names of configuration options. In addition, any sync performed while in
+"strict" mode will clear old or deprecated options from the output file.
 
 Automatic Typing (Coercion)
 ---------------------------
