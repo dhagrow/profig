@@ -1,6 +1,11 @@
 Release History
 ---------------
 
+0.4.1 (2015-01-22)
+
+* coercer support for datetime objects
+* "strict" mode fixes
+
 0.4.0 (2014-10-27)
 
 * added "strict" mode to support safer configurations
