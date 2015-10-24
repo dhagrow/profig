@@ -501,7 +501,7 @@ class Config(ConfigSection):
     An encoding can be set using *encoding*. If *encoding* is not specified
     the encoding used is platform dependent: locale.getpreferredencoding(False).
     
-    "String" mode can be enabled by setting *strict* to `True`.
+    Strict mode can be enabled by setting *strict* to `True`.
     
     The dict class used internally can be set using *dict_type*. By default
     an `OrderedDict` is used.
