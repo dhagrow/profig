@@ -501,7 +501,9 @@ class Config(ConfigSection):
     An encoding can be set using *encoding*. If *encoding* is not specified
     the encoding used is platform dependent: locale.getpreferredencoding(False).
     
-    Strict mode can be enabled by setting *strict* to `True`.
+    Strict mode can be enabled by setting *strict* to `True`. In strict mode,
+    accessing keys that have not been initialized will raise an
+    :exc:`~profig.InvalidSectionError`.
     
     The dict class used internally can be set using *dict_type*. By default
     an `OrderedDict` is used.
