@@ -48,7 +48,15 @@ class TestBasic(unittest.TestCase):
         self.assertIsInstance(c.format, profig.IniFormat)
         
         c = profig.Config()
-        c.set_format(profig.IniFormat(c))
+        c.set_format('ini')
+        self.assertIsInstance(c.format, profig.IniFormat)
+        
+        c = profig.Config()
+        c.set_format(profig.IniFormat)
+        self.assertIsInstance(c.format, profig.IniFormat)
+        
+        c = profig.Config()
+        c.set_format(profig.IniFormat())
         self.assertIsInstance(c.format, profig.IniFormat)
         
         with self.assertRaises(profig.UnknownFormatError):

@@ -376,14 +376,14 @@ class ConfigSection(collections.MutableMapping):
         # read unchanged values from sources
         for i, source in enumerate(reversed(sources)):
             try:
-                file = format.open(source)
+                file = format.open(self._root, source)
             except IOError as e:
                 log.warning('%s: %s', source, e)
                 continue
             
             # read file
             try:
-                lines = format.read(file)
+                lines = format.read(self._root, file)
             except IOError as e:
                 log.warning('%s: %s', source, e)
                 continue
@@ -404,9 +404,9 @@ class ConfigSection(collections.MutableMapping):
         return write_lines
     
     def _write(self, source, format, lines=None):
-        file = format.open(source, 'wb')
+        file = format.open(self._root, source, 'wb')
         try:
-            format.write(file, lines)
+            format.write(self._root, file, lines)
         finally:
             # only close files that were opened from the filesystem
             if isinstance(source, str):
@@ -435,11 +435,11 @@ class ConfigSection(collections.MutableMapping):
                 cls = Config._formats[format]
             except KeyError as e:
                 raise UnknownFormatError(e)
-            return cls(self)
+            return cls()
         elif isinstance(format, Format):
             return format
         else:
-            return format(self)
+            return format()
     
     def _create_section(self, key):
         section = self
@@ -591,11 +591,7 @@ class Format(BaseFormat):
     #: The supported error modes.
     error_modes = frozenset(['ignore', 'warning', 'exception'])
     
-    def __init__(self, config):
-        #: Access to the root Config instance.
-        self.config = config
-        
-        self.encoding = config.root.encoding
+    def __init__(self):
         self.ensure_dirs = 0o744
         self.error_mode = 'warning'
     
@@ -620,17 +616,17 @@ class Format(BaseFormat):
             raise ValueError('invalid error_mode: {}'.format(mode))
         self._error_mode = mode
     
-    def read(self, file): # pragma: no cover
+    def read(self, cfg, file): # pragma: no cover
         """Reads *file* and returns a dict. Must be implemented
         in a subclass."""
         raise NotImplementedError('abstract')
     
-    def write(self, file, values, lines=None): # pragma: no cover
+    def write(self, cfg, file, values, lines=None): # pragma: no cover
         """Writes the dict *values* to file. Must be implemented
         in a subclass."""
         raise NotImplementedError('abstract')
     
-    def open(self, source, mode='rb'):
+    def open(self, cfg, source, mode='rb'):
         """Returns a file object.
         
         If *source* is a file object, returns *source*. If *mode* is 'w',
@@ -638,7 +634,7 @@ class Format(BaseFormat):
         This method assumes either read or write/append access, but not both.
         """
         if isinstance(source, bytes):
-            source = source.decode(self.encoding)
+            source = source.decode(cfg.root.encoding)
         
         if isinstance(source, str):
             source = os.path.expanduser(source)
@@ -686,8 +682,8 @@ class IniFormat(Format):
     default_section = b'default'
     _rx_section_header = re.compile(b'\[\s*(\S*)\s*\](\s*=\s*(.*))?')
     
-    def read(self, file):
-        cfg = self.config
+    def read(self, cfg, file):
+        encoding = cfg.root.encoding
         comment_char = self.comment_char.strip()
         section_name = self.default_section
         comment = None
@@ -710,7 +706,7 @@ class IniFormat(Format):
             # comment line
             if line.startswith(comment_char):
                 flush_comment(lines, comment)
-                comment_text = line.lstrip(comment_char).strip().decode(self.encoding)
+                comment_text = line.lstrip(comment_char).strip().decode(encoding)
                 comment = Line(orgline, comment_text)
                 continue
             
@@ -728,7 +724,7 @@ class IniFormat(Format):
                     comments[section_name] = comment.name
                 comment = None
                 
-                section_name = section_name.decode(self.encoding)
+                section_name = section_name.decode(encoding)
                 lines.append(Line(orgline, section_name, issection=True))
                 continue
             
@@ -767,8 +763,9 @@ class IniFormat(Format):
         
         return lines
     
-    def write_section(self, section, file, first=False):
-        write = lambda s: file.write(s.encode(self.encoding))
+    def write_section(self, cfg, section, file, first=False):
+        encoding = cfg.root.encoding
+        write = lambda s: file.write(s.encode(encoding))
         
         if not first and section.parent is section.root:
             write('\n')
@@ -794,7 +791,6 @@ class IniFormat(Format):
         
         elif section.valid:
             # value section
-            cfg = self.config
             key = cfg._keystr(cfg._make_key(section.key)[1:])
             write(key)
             file.write(self.delimeter)
@@ -803,9 +799,7 @@ class IniFormat(Format):
         
         section._dirty = False
     
-    def write(self, file, lines=None):
-        cfg = self.config
-        
+    def write(self, cfg, file, lines=None):
         # write back values in the order they were read
         seen = set()
         header = None
@@ -821,7 +815,7 @@ class IniFormat(Format):
                 if header:
                     for sec in header.sections(recurse=True):
                         if sec.key not in seen:
-                            self.write_section(sec, file)
+                            self.write_section(cfg, sec, file)
                             seen.add(sec.key)
                 
                 # write current section header
@@ -831,7 +825,7 @@ class IniFormat(Format):
                     self._error(e, file, i, line.line.strip())
                     continue
                 
-                self.write_section(header, file, first)
+                self.write_section(cfg, header, file, first)
                 seen.add(header.key)
                 first = False
             
@@ -845,7 +839,7 @@ class IniFormat(Format):
                     self._error(e, file, i, line.line.strip())
                     continue
                 
-                self.write_section(section, file)
+                self.write_section(cfg, section, file)
                 seen.add(line.name)
             
             else:
@@ -855,7 +849,7 @@ class IniFormat(Format):
         if header:
             for sec in header.sections(recurse=True):
                 if sec.key not in seen:
-                    self.write_section(sec, file)
+                    self.write_section(cfg, sec, file)
                     seen.add(sec.key)
         
         # write remaining values
@@ -863,7 +857,7 @@ class IniFormat(Format):
             if section.key in seen:
                 continue
             
-            self.write_section(section, file, first)
+            self.write_section(cfg, section, file, first)
             seen.add(section.key)
             first = False
 
@@ -877,8 +871,7 @@ if WIN:
             int: winreg.REG_DWORD,
             }
         
-        def read(self, key, section=None):
-            cfg = self.config
+        def read(self, cfg, key, section=None):
             section = section if section is not None else cfg
             n_subkeys, n_values, t = winreg.QueryInfoKey(key)
             
@@ -912,8 +905,7 @@ if WIN:
                     continue
                 self.read(subkey, subsection)
         
-        def write(self, key, context=None):
-            cfg = self.config
+        def write(self, cfg, key, context=None):
             for section in cfg.sections(recurse=True, only_valid=True):
                 # determine the registry key/name
                 section_key = cfg._make_key(section.key)
