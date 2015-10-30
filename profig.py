@@ -404,7 +404,7 @@ class ConfigSection(collections.MutableMapping):
         return write_lines
 
     def _write(self, source, format, lines=None):
-        file = format.open(self._root, source, 'wb')
+        file = format.open(self._root, source, 'w')
         try:
             format.write(self._root, file, lines)
         finally:
@@ -624,13 +624,18 @@ class Format(BaseFormat):
         """Writes *cfg* to file. Must be implemented in a subclass."""
         raise NotImplementedError('abstract')
 
-    def open(self, cfg, source, mode='rb'):
+    def open(self, cfg, source, mode='r', binary=True):
         """Returns a file object.
 
-        If *source* is a file object, returns *source*. If *mode* is 'w',
-        The file object will be truncated.
-        This method assumes either read or write/append access, but not both.
+        If *source* is a file object, returns *source*.
+        *mode* can be 'r' or 'w'. If *mode* is 'w', The file object will be
+        truncated.
+        If *binary* is `True`, the file will be opened in binary mode
+        ('rb' or 'wb').
         """
+        if mode not in 'rw':
+            raise ValueError("*mode* argument must be either 'r' or 'w'")
+        
         if isinstance(source, bytes):
             source = source.decode(cfg.root.encoding)
 
@@ -639,6 +644,8 @@ class Format(BaseFormat):
             if self.ensure_dirs is not None and 'w' in mode:
                 # ensure the path exists if any writing is to be done
                 ensure_dirs(os.path.dirname(source), self.ensure_dirs)
+            if binary:
+                mode += 'b'
             return io.open(source, mode)
         else:
             source.seek(0)
@@ -859,8 +866,15 @@ class IniFormat(Format):
             seen.add(section.key)
             first = False
 
-class LoadDumpFormat(Format):
+class SerializeFormat(Format):
+    """A `Format` class that offers support for serialization libraries.
+    
+    If a library provides both a "load" and a "dump" function, it can be passed
+    in directly as *base*. Otherwise the "load"/"dump" functions can be passed
+    in individually as *load* and *dump*,  respectively.
+    """
     def __init__(self, base=None, load=None, dump=None):
+        super(SerializeFormat, self).__init__()
         if base:
             self.load = base.load
             self.dump = base.dump
@@ -875,13 +889,23 @@ class LoadDumpFormat(Format):
     def write(self, cfg, file, values=None):
         self.dump(cfg.as_dict(), file)
 
-class JSONFormat(LoadDumpFormat):
+class JSONFormat(SerializeFormat):
     name = 'json'
 
     def __init__(self):
         import json
         super(JSONFormat, self).__init__(json)
+    
+    def open(self, cfg, source, mode='r', binary=False):
+        # JSON always requires outputs a unicode str
+        return super(JSONFormat, self).open(cfg,  source, mode, binary=False)
 
+class MessagePackFormat(SerializeFormat):
+    name = 'msgpack'
+
+    def __init__(self):
+        import msgpack
+        super(MessagePackFormat, self).__init__(msgpack)
 
 if WIN:
     class RegistryFormat(Format):
@@ -951,7 +975,7 @@ if WIN:
                 subkey = winreg.CreateKeyEx(key, rkey)
                 winreg.SetValueEx(subkey, name, 0, reg_type, value)
 
-        def open(self, source, mode='rb'):
+        def open(self, source, mode='r'):
             if 'r' in mode:
                 try:
                     return winreg.OpenKeyEx(self.base_key, source)
