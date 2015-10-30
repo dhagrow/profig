@@ -617,13 +617,11 @@ class Format(BaseFormat):
         self._error_mode = mode
     
     def read(self, cfg, file): # pragma: no cover
-        """Reads *file* and returns a dict. Must be implemented
-        in a subclass."""
+        """Reads *file* to update *cfg*. Must be implemented in a subclass."""
         raise NotImplementedError('abstract')
     
-    def write(self, cfg, file, values, lines=None): # pragma: no cover
-        """Writes the dict *values* to file. Must be implemented
-        in a subclass."""
+    def write(self, cfg, file, values=None): # pragma: no cover
+        """Writes *cfg* to file. Must be implemented in a subclass."""
         raise NotImplementedError('abstract')
     
     def open(self, cfg, source, mode='rb'):
@@ -860,6 +858,30 @@ class IniFormat(Format):
             self.write_section(cfg, section, file, first)
             seen.add(section.key)
             first = False
+
+class LoadDumpFormat(Format):
+    def __init__(self, base=None, load=None, dump=None):
+        if base:
+            self.load = base.load
+            self.dump = base.dump
+        if load:
+            self.load = load
+        if dump:
+            self.dump = dump
+    
+    def read(self, cfg, file):
+        cfg.update(self.load(file))
+    
+    def write(self, cfg, file, values=None):
+        self.dump(cfg.as_dict(), file)
+
+class JSONFormat(LoadDumpFormat):
+    name = 'json'
+    
+    def __init__(self):
+        import json
+        super(JSONFormat, self).__init__(json)
+
 
 if WIN:
     class RegistryFormat(Format):
