@@ -872,8 +872,11 @@ class SerializeFormat(Format):
     If a library provides both a "load" and a "dump" function, it can be passed
     in directly as *base*. Otherwise the "load"/"dump" functions can be passed
     in individually as *load* and *dump*,  respectively.
+    
+    *binary* should be set to specify whether the serialization dumper outputs
+    unicode strings (`False`) or bytes (`True`).
     """
-    def __init__(self, base=None, load=None, dump=None):
+    def __init__(self, base=None, load=None, dump=None, binary=False):
         super(SerializeFormat, self).__init__()
         if base:
             self.load = base.load
@@ -882,12 +885,19 @@ class SerializeFormat(Format):
             self.load = load
         if dump:
             self.dump = dump
+        self.binary = binary
+    
+    def open(self, cfg, source, mode='r'):
+        return super(JSONFormat, self).open(cfg,  source, mode,
+            binary=self.binary)
 
     def read(self, cfg, file):
-        cfg.update(self.load(file))
+        d = self.load(file)
+        if d:
+            cfg.update(d)
 
     def write(self, cfg, file, values=None):
-        self.dump(cfg.as_dict(), file)
+        self.dump(cfg.as_dict(dict_type=dict), file)
 
 class JSONFormat(SerializeFormat):
     name = 'json'
@@ -895,17 +905,27 @@ class JSONFormat(SerializeFormat):
     def __init__(self):
         import json
         super(JSONFormat, self).__init__(json)
-    
-    def open(self, cfg, source, mode='r', binary=False):
-        # JSON always requires outputs a unicode str
-        return super(JSONFormat, self).open(cfg,  source, mode, binary=False)
+
+class TOMLFormat(SerializeFormat):
+    name = 'toml'
+
+    def __init__(self):
+        import toml
+        super(TOMLFormat, self).__init__(toml)
+
+class YAMLFormat(SerializeFormat):
+    name = 'yaml'
+
+    def __init__(self):
+        import yaml
+        super(YAMLFormat, self).__init__(yaml)
 
 class MessagePackFormat(SerializeFormat):
     name = 'msgpack'
 
     def __init__(self):
         import msgpack
-        super(MessagePackFormat, self).__init__(msgpack)
+        super(MessagePackFormat, self).__init__(msgpack, binary=True)
 
 if WIN:
     class RegistryFormat(Format):
