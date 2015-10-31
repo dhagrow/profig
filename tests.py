@@ -39,25 +39,25 @@ class TestBasic(unittest.TestCase):
         self.assertIn('ini', profig.Config.known_formats())
         
         c = profig.Config()
-        self.assertIsInstance(c.format, profig.IniFormat)
+        self.assertIsInstance(c.format, profig.INIFormat)
         
         c = profig.Config(format='ini')
-        self.assertIsInstance(c.format, profig.IniFormat)
+        self.assertIsInstance(c.format, profig.INIFormat)
         
-        c = profig.Config(format=profig.IniFormat)
-        self.assertIsInstance(c.format, profig.IniFormat)
+        c = profig.Config(format=profig.INIFormat)
+        self.assertIsInstance(c.format, profig.INIFormat)
         
         c = profig.Config()
         c.set_format('ini')
-        self.assertIsInstance(c.format, profig.IniFormat)
+        self.assertIsInstance(c.format, profig.INIFormat)
         
         c = profig.Config()
-        c.set_format(profig.IniFormat)
-        self.assertIsInstance(c.format, profig.IniFormat)
+        c.set_format(profig.INIFormat)
+        self.assertIsInstance(c.format, profig.INIFormat)
         
         c = profig.Config()
-        c.set_format(profig.IniFormat())
-        self.assertIsInstance(c.format, profig.IniFormat)
+        c.set_format(profig.INIFormat())
+        self.assertIsInstance(c.format, profig.INIFormat)
         
         with self.assertRaises(profig.UnknownFormatError):
             c = profig.Config(format='marshmallow')
@@ -292,7 +292,7 @@ a = 1
 [a] = 1
 """)
 
-class TestIniFormat(unittest.TestCase):
+class TestINIFormat(unittest.TestCase):
     def setUp(self):
         self.c = profig.Config(format='ini')
 

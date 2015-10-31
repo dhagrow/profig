@@ -26,7 +26,7 @@ __author__  = 'Miguel Turner'
 __version__ = '0.4.1'
 __license__ = 'MIT'
 
-__all__ = ['Config', 'IniFormat', 'ConfigError', 'Coercer', 'CoerceError']
+__all__ = ['Config', 'INIFormat', 'ConfigError', 'Coercer', 'CoerceError']
 
 PY3 = sys.version_info.major >= 3
 # use str for unicode data and bytes for binary data
@@ -680,7 +680,7 @@ class Format(BaseFormat):
         else:
             assert False
 
-class IniFormat(Format):
+class INIFormat(Format):
     name = 'ini'
     delimeter = b' = '
     comment_char = b'; '

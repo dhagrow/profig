@@ -17,7 +17,7 @@ Formats define de/serialization specifics.
 
 .. autoclass:: profig.Format
 
-.. class:: profig.IniFormat
+.. class:: profig.INIFormat
 
     Implements reading/writing configurations from/to INI formatted files.
     

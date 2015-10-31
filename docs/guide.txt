@@ -241,10 +241,10 @@ formatted files, and the Windows registry.
 INI
 ~~~
 
-:class:`~profig.IniFormat`
+:class:`~profig.INIFormat`
     Syncs configuration with a file based on the standard INI format.
 
-Because :class:`~profig.IniFormat` is the default, an INI file can be sourced
+Because :class:`~profig.INIFormat` is the default, an INI file can be sourced
 as follows::
     
     >>> cfg = profig.Config('~/.config/black_knight.cfg')
@@ -317,7 +317,7 @@ Values are coerced into a unicode representation before being output to a
 config file. Note that this means that by specifically storing a byte-string
 as a value, :mod:`profig` will interpret the value as binary data. The specifics
 of how binary data is stored depends on the format being used. The default
-format (:class:`~profig.IniFormat`) operates on binary files, therefore binary
+format (:class:`~profig.INIFormat`) operates on binary files, therefore binary
 data is written directly to its sources.
 
 So, if we consider the following examples using a Python 2 interpreter,
