@@ -888,7 +888,7 @@ class SerializeFormat(Format):
         self.binary = binary
     
     def open(self, cfg, source, mode='r'):
-        return super(JSONFormat, self).open(cfg,  source, mode,
+        return super(SerializeFormat, self).open(cfg,  source, mode,
             binary=self.binary)
 
     def read(self, cfg, file):
@@ -905,6 +905,14 @@ class JSONFormat(SerializeFormat):
     def __init__(self):
         import json
         super(JSONFormat, self).__init__(json)
+    
+    def read(self, cfg, file):
+        # quick test to see if the file is empty, which json does not like
+        file.seek(0, io.SEEK_END)
+        if file.tell() == 0:
+            return
+        file.seek(0)
+        super(JSONFormat, self).read(cfg, file)
 
 class TOMLFormat(SerializeFormat):
     name = 'toml'
