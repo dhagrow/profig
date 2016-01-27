@@ -378,7 +378,7 @@ class ConfigSection(collections.MutableMapping):
             try:
                 file = format.open(self._root, source)
             except IOError as e:
-                log.warning('%s: %s', source, e)
+                log.debug('%s: %s', source, e)
                 continue
 
             # read file
@@ -399,7 +399,7 @@ class ConfigSection(collections.MutableMapping):
                 write_lines = lines
 
         if not one_source_read:
-            log.warning('no config was read')
+            log.debug('no config was read')
 
         return write_lines
 
