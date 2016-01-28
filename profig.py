@@ -636,7 +636,7 @@ class Format(BaseFormat):
         """
         if mode not in 'rw':
             raise ValueError("*mode* argument must be either 'r' or 'w'")
-        
+
         if isinstance(source, bytes):
             source = source.decode(cfg.root.encoding)
 
@@ -869,11 +869,11 @@ class INIFormat(Format):
 
 class SerializeFormat(Format):
     """A `Format` class that offers support for serialization libraries.
-    
+
     If a library provides both a "load" and a "dump" function, it can be passed
     in directly as *base*. Otherwise the "load"/"dump" functions can be passed
     in individually as *load* and *dump*,  respectively.
-    
+
     *binary* should be set to specify whether the serialization dumper outputs
     unicode strings (`False`) or bytes (`True`).
     """
@@ -887,7 +887,7 @@ class SerializeFormat(Format):
         if dump:
             self.dump = dump
         self.binary = binary
-    
+
     def open(self, cfg, source, mode='r'):
         return super(SerializeFormat, self).open(cfg,  source, mode,
             binary=self.binary)
@@ -908,7 +908,7 @@ class JSONFormat(SerializeFormat):
         dump = (json.dump if PY3 else
             lambda o, f: f.write(unicode(json.dumps(o, ensure_ascii=False))))
         super(JSONFormat, self).__init__(json, dump=dump)
-    
+
     def read(self, cfg, file):
         # quick test to see if the file is empty, which json does not like
         file.seek(0, io.SEEK_END)
@@ -937,7 +937,7 @@ class MessagePackFormat(SerializeFormat):
     def __init__(self):
         import msgpack
         super(MessagePackFormat, self).__init__(msgpack, binary=True)
-    
+
     def read(self, cfg, file):
         # quick test to see if the file is empty, which msgpack does not like
         file.seek(0, io.SEEK_END)
