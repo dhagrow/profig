@@ -905,7 +905,9 @@ class JSONFormat(SerializeFormat):
 
     def __init__(self):
         import json
-        super(JSONFormat, self).__init__(json)
+        dump = (json.dump if PY3 else
+            lambda o, f: f.write(unicode(json.dumps(o, ensure_ascii=False))))
+        super(JSONFormat, self).__init__(json, dump=dump)
     
     def read(self, cfg, file):
         # quick test to see if the file is empty, which json does not like
