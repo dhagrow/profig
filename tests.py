@@ -1,7 +1,8 @@
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 
 import io
 import os
+import sys
 import datetime
 import tempfile
 import unittest
@@ -519,59 +520,74 @@ class TestJSONFormat(unittest.TestCase):
             """{"a": 1, "b": "value"}""",
             ])
 
-class TestTOMLFormat(unittest.TestCase):
-    def setUp(self):
-        self.c = profig.Config(format='toml')
+try:
+    import toml
+except ImportError:
+    print('Unable to test TOML cases', file=sys.stderr)
+else:
+    class TestTOMLFormat(unittest.TestCase):
+        def setUp(self):
+            self.c = profig.Config(format='toml')
+    
+            self.c.init('a', 1)
+            self.c.init('b', 'value')
+            self.c.init('a.1', 2)
+    
+        def test_basic(self):
+            del self.c['a.1']
+            
+            buf = io.StringIO()
+            self.c.sync(buf)
+            
+            self.assertIn(buf.getvalue(), [
+                """a = 1\nb = "value"\n""",
+                """b = "value"\na = 1\n""",
+                ])
 
-        self.c.init('a', 1)
-        self.c.init('b', 'value')
-        self.c.init('a.1', 2)
+try:
+    import yaml
+except ImportError:
+    print('Unable to test YAML cases', file=sys.stderr)
+else:
+    class TestYAMLFormat(unittest.TestCase):
+        def setUp(self):
+            self.c = profig.Config(format='yaml')
+    
+            self.c.init('a', 1)
+            self.c.init('b', 'value')
+            self.c.init('a.1', 2)
+    
+        def test_basic(self):
+            del self.c['a.1']
+            
+            buf = io.StringIO()
+            self.c.sync(buf)
+            
+            self.assertEqual(buf.getvalue(), """{a: 1, b: value}\n""")
 
-    def test_basic(self):
-        del self.c['a.1']
-        
-        buf = io.StringIO()
-        self.c.sync(buf)
-        
-        self.assertIn(buf.getvalue(), [
-            """a = 1\nb = "value"\n""",
-            """b = "value"\na = 1\n""",
-            ])
-
-class TestYAMLFormat(unittest.TestCase):
-    def setUp(self):
-        self.c = profig.Config(format='yaml')
-
-        self.c.init('a', 1)
-        self.c.init('b', 'value')
-        self.c.init('a.1', 2)
-
-    def test_basic(self):
-        del self.c['a.1']
-        
-        buf = io.StringIO()
-        self.c.sync(buf)
-        
-        self.assertEqual(buf.getvalue(), """{a: 1, b: value}\n""")
-
-class TestMessagePackFormat(unittest.TestCase):
-    def setUp(self):
-        self.c = profig.Config(format='msgpack')
-
-        self.c.init('a', 1)
-        self.c.init('b', 'value')
-        self.c.init('a.1', 2)
-
-    def test_basic(self):
-        del self.c['a.1']
-        
-        buf = io.BytesIO()
-        self.c.sync(buf)
-        
-        self.assertIn(buf.getvalue(), [
-            b"""\x82\xa1a\x01\xa1b\xa5value""",
-            b"""\x82\xa1b\xa5value\xa1a\x01""",
-            ])
+try:
+    import msgpack
+except ImportError:
+    print('Unable to test MessagePack cases', file=sys.stderr)
+else:
+    class TestMessagePackFormat(unittest.TestCase):
+        def setUp(self):
+            self.c = profig.Config(format='msgpack')
+    
+            self.c.init('a', 1)
+            self.c.init('b', 'value')
+            self.c.init('a.1', 2)
+    
+        def test_basic(self):
+            del self.c['a.1']
+            
+            buf = io.BytesIO()
+            self.c.sync(buf)
+            
+            self.assertIn(buf.getvalue(), [
+                b"""\x82\xa1a\x01\xa1b\xa5value""",
+                b"""\x82\xa1b\xa5value\xa1a\x01""",
+                ])
 
 class TestCoercer(unittest.TestCase):
     def test_datetime_date(self):
