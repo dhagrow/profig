@@ -519,6 +519,35 @@ class TestJSONFormat(unittest.TestCase):
             """{"b": "value", "a": 1}""",
             """{"a": 1, "b": "value"}""",
             ])
+    
+    def test_unicode_read(self):
+        fd, temppath = tempfile.mkstemp()
+        try:
+            with io.open(fd, 'wb') as file:
+                file.write(b"""{"\xef\xbe\x9c": "\xef\xbe\x9c"}""")
+            
+            c = profig.Config(temppath, format='json', encoding='shiftjis')
+            c.read()
+            c._dump()
+            
+            self.assertEqual(c['\uff9c'], '\uff9c')
+        finally:
+            os.remove(temppath)
+    
+    def test_unicode_write(self):
+        fd, temppath = tempfile.mkstemp()
+        try:
+            c = profig.Config(temppath, format='json', encoding='shiftjis')
+            
+            c['\uff9c'] = '\uff9c'
+            c.write()
+            
+            with io.open(fd, 'rb') as file:
+                result = file.read()
+            
+            self.assertEqual(result, b"""{"\xef\xbe\x9c": "\xef\xbe\x9c"}""")
+        finally:
+            os.remove(temppath)
 
 try:
     import toml
