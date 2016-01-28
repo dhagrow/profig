@@ -26,7 +26,8 @@ __author__  = 'Miguel Turner'
 __version__ = '0.4.1'
 __license__ = 'MIT'
 
-__all__ = ['Config', 'INIFormat', 'ConfigError', 'Coercer', 'CoerceError']
+__all__ = ['Config', 'ConfigError', 'Coercer', 'CoerceError',
+    'INIFormat', 'JSONFormat' 'TOMLFormat', 'YAMLFormat', 'MessagePackFormat']
 
 PY3 = sys.version_info.major >= 3
 # use str for unicode data and bytes for binary data
@@ -934,6 +935,14 @@ class MessagePackFormat(SerializeFormat):
     def __init__(self):
         import msgpack
         super(MessagePackFormat, self).__init__(msgpack, binary=True)
+    
+    def read(self, cfg, file):
+        # quick test to see if the file is empty, which msgpack does not like
+        file.seek(0, io.SEEK_END)
+        if file.tell() == 0:
+            return
+        file.seek(0)
+        super(MessagePackFormat, self).read(cfg, file)
 
 if WIN:
     class RegistryFormat(Format):

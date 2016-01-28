@@ -500,6 +500,79 @@ b = 3
 a = 1
 """)
 
+class TestJSONFormat(unittest.TestCase):
+    def setUp(self):
+        self.c = profig.Config(format='json')
+
+        self.c.init('a', 1)
+        self.c.init('b', 'value')
+        self.c.init('a.1', 2)
+
+    def test_basic(self):
+        del self.c['a.1']
+        
+        buf = io.StringIO()
+        self.c.sync(buf)
+        
+        self.assertIn(buf.getvalue(), [
+            """{"b": "value", "a": 1}""",
+            """{"a": 1, "b": "value"}""",
+            ])
+
+class TestTOMLFormat(unittest.TestCase):
+    def setUp(self):
+        self.c = profig.Config(format='toml')
+
+        self.c.init('a', 1)
+        self.c.init('b', 'value')
+        self.c.init('a.1', 2)
+
+    def test_basic(self):
+        del self.c['a.1']
+        
+        buf = io.StringIO()
+        self.c.sync(buf)
+        
+        self.assertIn(buf.getvalue(), [
+            """a = 1\nb = "value"\n""",
+            """b = "value"\na = 1\n""",
+            ])
+
+class TestYAMLFormat(unittest.TestCase):
+    def setUp(self):
+        self.c = profig.Config(format='yaml')
+
+        self.c.init('a', 1)
+        self.c.init('b', 'value')
+        self.c.init('a.1', 2)
+
+    def test_basic(self):
+        del self.c['a.1']
+        
+        buf = io.StringIO()
+        self.c.sync(buf)
+        
+        self.assertEqual(buf.getvalue(), """{a: 1, b: value}\n""")
+
+class TestMessagePackFormat(unittest.TestCase):
+    def setUp(self):
+        self.c = profig.Config(format='msgpack')
+
+        self.c.init('a', 1)
+        self.c.init('b', 'value')
+        self.c.init('a.1', 2)
+
+    def test_basic(self):
+        del self.c['a.1']
+        
+        buf = io.BytesIO()
+        self.c.sync(buf)
+        
+        self.assertIn(buf.getvalue(), [
+            b"""\x82\xa1a\x01\xa1b\xa5value""",
+            b"""\x82\xa1b\xa5value\xa1a\x01""",
+            ])
+
 class TestCoercer(unittest.TestCase):
     def test_datetime_date(self):
         c = profig.Config()
