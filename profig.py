@@ -965,9 +965,9 @@ if WIN:
                 name, value, type = winreg.EnumValue(key, i)
 
                 try:
-                    subsection = section.section(key)
+                    subsection = section.section(name)
                 except InvalidSectionError as e:
-                    self._error(e, key)
+                    self._error(e, name)
                     continue
 
                 reg_type = self.types.get(subsection.type)
@@ -984,11 +984,11 @@ if WIN:
                 name = winreg.EnumKey(key, i)
                 subkey = winreg.OpenKeyEx(key, name)
                 try:
-                    subsection = section.section(key)
+                    subsection = section.section(name)
                 except InvalidSectionError as e:
-                    self._error(e, key)
+                    self._error(e, name)
                     continue
-                self.read(subkey, subsection)
+                self.read(subsection, subkey)
 
         def write(self, cfg, key, context=None):
             for section in cfg.sections(recurse=True, only_valid=True):
@@ -1014,7 +1014,7 @@ if WIN:
                 subkey = winreg.CreateKeyEx(key, rkey)
                 winreg.SetValueEx(subkey, name, 0, reg_type, value)
 
-        def open(self, source, mode='r'):
+        def open(self, cfg, source, mode='r'):
             if 'r' in mode:
                 try:
                     return winreg.OpenKeyEx(self.base_key, source)
