@@ -257,6 +257,14 @@ class TestBasic(unittest.TestCase):
         c.reset()
         self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1})
 
+    def test_init(self):
+        c = profig.Config()
+        c['val'] = ['a']
+        c.init('val', [], 'path_list')
+
+        self.assertEqual(c['val'], [])
+
+
 class TestStrictMode(unittest.TestCase):
     def setUp(self):
         self.c = profig.Config(strict=True)
@@ -877,6 +885,18 @@ if profig.WIN:
 
             value = winreg.QueryValueEx(self.key, 'a')[0]
             self.assertEqual(value, b'1.11')
+
+        def test_second_write(self):
+            self.c.reset()
+            for value in range(2):
+                self.c.sync()
+                self.c['a'] = str(value)
+                self.c.sync()
+                self.c.reset()
+
+            self.c.sync()
+            self.assertEqual(self.c['a'], str(value))
+
 
 if __name__ == '__main__':
     # silence logging
