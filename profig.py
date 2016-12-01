@@ -11,16 +11,15 @@ A simple-to-use configuration library.
 
 from __future__ import print_function, unicode_literals
 
+import collections
+import errno
+import inspect
 import io
+import locale
+import logging
 import os
 import re
 import sys
-import errno
-import locale
-import inspect
-import logging
-import itertools
-import collections
 
 __author__  = 'Miguel Turner'
 __version__ = '0.4.1'
@@ -962,7 +961,7 @@ if WIN:
 
             # read values from this subkey
             for i in range(n_values):
-                name, value, type = winreg.EnumValue(key, i)
+                name, value, reg_type = winreg.EnumValue(key, i)
 
                 try:
                     subsection = section.section(name)
@@ -970,14 +969,18 @@ if WIN:
                     self._error(e, name)
                     continue
 
-                reg_type = self.types.get(subsection.type)
-                if reg_type is None:
-                    # not a type supported by the registry, so convert it
-                    subsection.convert(value, decode=True)
+                if subsection._dirty:
+                    reg_type = self.types.get(type(section.get(name)))
+                    if reg_type is None:
+                        # not a type supported by the registry, so convert it
+                        subsection.convert(value, decode=True)
                 else:
-                    subsection.set_value(value)
+                    if section.get(name) is None:
+                        subsection.set_value(value)
+                    else:
+                        subsection.convert(value, decode=True)
 
-                subsection._dirty = False
+                        # subsection._dirty = False
 
             # read values from next subkeys
             for i in range(n_subkeys):
@@ -1002,7 +1005,7 @@ if WIN:
                     name = section_key[-1]
 
                 # get a supported type for the value
-                reg_type = self.types.get(section.type)
+                reg_type = self.types.get(type(section.value()))
                 if reg_type is None:
                     # not a type supported by the registry, so adapt it
                     reg_type = winreg.REG_BINARY
