@@ -1,9 +1,9 @@
 from __future__ import unicode_literals, print_function
 
+import datetime
 import io
 import os
 import sys
-import datetime
 import tempfile
 import unittest
 
@@ -257,7 +257,7 @@ class TestBasic(unittest.TestCase):
         c.reset()
         self.assertEqual(c.as_dict(flat=True), {'a': 1, 'a.a': 1})
 
-    def test_init(self):
+    def test_init_value(self):
         c = profig.Config()
         c['val'] = ['a']
         c.init('val', [], 'path_list')

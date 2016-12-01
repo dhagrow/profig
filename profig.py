@@ -187,7 +187,11 @@ class ConfigSection(collections.MutableMapping):
         section = self._create_section(key)
         section._type = type or _type(default)
         if section._value is not NoValue and _type(section._value) is not section._type:
-            section.convert(section._value)
+            try:
+                section.convert(section._value)
+            except ConvertError as e:
+                self._root._format._error(e, key)
+                section.set_value(default)
         section.set_default(default)
         section.comment = comment
 
