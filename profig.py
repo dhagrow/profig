@@ -145,8 +145,8 @@ class ConfigSection(collections.MutableMapping):
         sources, format = self._process_sources(sources, format)
 
         # sync
-        lines = self._read(sources, format)
-        self._write(sources[0], format, lines)
+        context = self._read(sources, format)
+        self._write(sources[0], format, context)
 
     def read(self, *sources, **kwargs):
         """
@@ -374,7 +374,7 @@ class ConfigSection(collections.MutableMapping):
     ## utilities ##
 
     def _read(self, sources, format):
-        write_lines = None
+        context = None
         # True if at least one source read something
         one_source_read = False
 
@@ -401,17 +401,17 @@ class ConfigSection(collections.MutableMapping):
 
             # return lines only for the first source
             if i == 0:
-                write_lines = lines
+                context = lines
 
         if not one_source_read:
             log.debug('no config was read')
 
-        return write_lines
+        return context
 
-    def _write(self, source, format, lines=None):
+    def _write(self, source, format, context=None):
         file = format.open(self._root, source, 'w')
         try:
-            format.write(self._root, file, lines)
+            format.write(self._root, file, context)
         finally:
             # only close files that were opened from the filesystem
             if isinstance(source, str):
