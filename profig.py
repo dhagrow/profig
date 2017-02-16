@@ -11,15 +11,16 @@ A simple-to-use configuration library.
 
 from __future__ import print_function, unicode_literals
 
-import collections
-import errno
-import inspect
 import io
-import locale
-import logging
 import os
 import re
 import sys
+import errno
+import locale
+import inspect
+import logging
+import itertools
+import collections
 
 __author__  = 'Miguel Turner'
 __version__ = '0.4.1'
