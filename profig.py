@@ -952,46 +952,40 @@ if WIN:
             int: winreg.REG_DWORD,
             }
 
-        def read(self, cfg, key, section=None):
-            section = section if section is not None else cfg
-            n_subkeys, n_values, t = winreg.QueryInfoKey(key)
+        def read(self, cfg, key):
+            n_subkeys, n_values, _ = winreg.QueryInfoKey(key)
 
             # read values from this subkey
             for i in range(n_values):
                 name, value, reg_type = winreg.EnumValue(key, i)
 
                 try:
-                    subsection = section.section(name)
+                    section = cfg.section(name)
                 except InvalidSectionError as e:
                     self._error(e, name)
                     continue
 
-                if subsection._dirty:
-                    reg_type = self.types.get(type(section.get(name)))
-                    if reg_type is None:
-                        # not a type supported by the registry, so convert it
-                        subsection.convert(value, decode=True)
-                else:
-                    if section.get(name) is None:
-                        subsection.set_value(value)
-                    else:
-                        subsection.convert(value, decode=True)
+                if section._dirty:
+                    # don't overwrite dirty sections
+                    continue
 
-                        # subsection._dirty = False
+                section.convert(value, decode=True)
+                section._dirty = False
 
             # read values from next subkeys
             for i in range(n_subkeys):
                 name = winreg.EnumKey(key, i)
                 subkey = winreg.OpenKeyEx(key, name)
                 try:
-                    subsection = section.section(name)
+                    section = cfg.section(name)
                 except InvalidSectionError as e:
                     self._error(e, name)
                     continue
-                self.read(subsection, subkey)
+                self.read(section, subkey)
 
         def write(self, cfg, key, context=None):
-            for section in cfg.sections(recurse=True, only_valid=True):
+            for k in cfg:
+                section = cfg.section(k)
                 # determine the registry key/name
                 section_key = cfg._make_key(section.key)
                 if section.has_children:
