@@ -235,10 +235,7 @@ class ConfigSection(collections.MutableMapping):
         sep = self._root.sep
         for child in self._children.values():
             for key in child:
-                if key:
-                    yield sep.join([child._name, key])
-                else:
-                    yield child._name
+                yield sep.join([child._name, key]) if key else child._name
 
     def __repr__(self): # pragma: no cover
         try:
@@ -262,13 +259,13 @@ class ConfigSection(collections.MutableMapping):
         valid = self is not self._root and self.valid
 
         if flat:
-            sections = self.sections(recurse=True, only_valid=True)
-            return dtype((s._key, s.value()) for s in sections)
+            sections = (self.section(k) for k in self)
+            return dtype((s._key or '', s.value()) for s in sections)
 
         d = dtype()
         if valid:
             d[''] = self.value()
-        for section in self.sections():
+        for section in self.sections(only_valid=True):
             if section._children:
                 d[section.name] = section.as_dict(dict_type=dict_type)
             else:
@@ -323,8 +320,8 @@ class ConfigSection(collections.MutableMapping):
         if self is not self._root:
             self._reset(clean)
         if recurse:
-            for section in self.sections(recurse):
-                section._reset(clean)
+            for k in self:
+                self.section(k)._reset(clean)
 
     def value(self):
         """Get the section's value."""
@@ -488,6 +485,7 @@ class ConfigSection(collections.MutableMapping):
 
     def _dump(self, indent=2): # pragma: no cover
         rootlen = len(self._make_key(self._key))
+        print(repr(self))
         for section in sorted(self.sections(recurse=True)):
             sectionlen = len(self._make_key(section._key))
             spaces = ' ' * ((sectionlen - rootlen) * indent - 1)
@@ -558,12 +556,6 @@ class Config(ConfigSection):
         "ini", or a :class:`~profig.Format` class or instance.
         """
         self._format = self._process_format(format)
-
-    def _dump(self, indent=2): # pragma: no cover
-        for section in self.sections(recurse=True):
-            sectionlen = len(self._make_key(section._key))
-            spaces = ' ' * ((sectionlen - 1) * indent)
-            print(spaces, repr(section), sep='')
 
     def __repr__(self): # pragma: no cover
         return '{}(sources={}, keys={})'.format(self.__class__.__name__,
