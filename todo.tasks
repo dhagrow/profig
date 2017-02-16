@@ -1,0 +1,12 @@
+☐ handle Config.init of section with an existing value
+    ☐ keep exception when types do not match?
+    ☐ handle this case for strict mode
+        ☐ disallow even matching types in this case?
+☐ locale.getprefferedencoding(False -> True)
+☐ cleanups
+    ☐ old-style classes
+
+INIFormat:
+    ☐ support # as a comment char
+    ☐ read() line numbers in errors likely wrong
+    ☐ read(): no need for "value is not None" check
