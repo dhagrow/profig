@@ -310,7 +310,7 @@ class ConfigSection(collections.MutableMapping):
                     if not only_valid or grand.valid:
                         yield grand
 
-    def reset(self, recurse=True, clean=False):
+    def reset(self, recurse=True, clean=True):
         """Resets this section to it's default value, leaving it
         in the same state as after a call to :meth:`ConfigSection.init`.
 
@@ -476,7 +476,7 @@ class ConfigSection(collections.MutableMapping):
     def _keystr(self, key):
         return self._root.sep.join(key)
 
-    def _reset(self, clean=False):
+    def _reset(self, clean):
         if self._value is not NoValue:
             self._value = NoValue
             self._dirty = not clean

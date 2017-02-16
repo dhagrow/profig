@@ -887,15 +887,13 @@ if profig.WIN:
             self.assertEqual(value, b'1.11')
 
         def test_second_write(self):
-            self.c.reset()
             for value in range(2):
-                self.c.sync()
                 self.c['a'] = str(value)
                 self.c.sync()
                 self.c.reset()
 
             self.c.sync()
-            self.assertEqual(self.c['a'], str(value))
+            self.assertEqual(self.c['a'], '1')
 
 
 if __name__ == '__main__':
