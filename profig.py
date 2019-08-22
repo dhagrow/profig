@@ -265,7 +265,7 @@ class ConfigSection(collections.MutableMapping):
         d = dtype()
         if valid:
             d[''] = self.value()
-        for section in self.sections(only_valid=True):
+        for section in self.sections():
             if section._children:
                 d[section.name] = section.as_dict(dict_type=dict_type)
             else:
