@@ -536,7 +536,6 @@ class TestJSONFormat(unittest.TestCase):
 
             c = profig.Config(temppath, format='json', encoding='shiftjis')
             c.read()
-            c._dump()
 
             self.assertEqual(c['\uff9c'], '\uff9c')
         finally:
