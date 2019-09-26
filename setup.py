@@ -19,7 +19,7 @@ setup(
     long_description=DESCRIPTION,
     author=profig.__author__,
     author_email='cymrow@gmail.com',
-    url='https://bitbucket.org/dhagrow/profig/',
+    url='https://github.com/dhagrow/profig',
     py_modules=['profig'],
     license=profig.__license__,
     platforms='any',
@@ -36,5 +36,7 @@ setup(
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         ],
     )
