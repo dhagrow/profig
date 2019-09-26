@@ -21,7 +21,10 @@ import inspect
 import logging
 import itertools
 import collections
-from collections import abc
+try:
+    from collections import abc
+except ImportError:
+    import collections as abc
 
 __author__  = 'Miguel Turner'
 __version__ = '0.5.0'
