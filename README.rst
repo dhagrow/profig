@@ -31,20 +31,20 @@ Installation
 ------------
 
 *profig* installs using *easy_install* or *pip*::
-    
+
     $ pip install profig
 
 Example
 -------
 
 Basic usage is cake. Let's assume our config file looks like this::
-    
+
     [server]
     host = 192.168.1.1
     port = 9090
 
 First, we specify the defaults and types to expect::
-    
+
     >>> cfg = profig.Config('server.cfg')
     >>> cfg.init('server.host', 'localhost')
     >>> cfg.init('server.port', 8080)
@@ -60,7 +60,7 @@ directly::
     '192.168.1.1'
 
 Or by section. Notice that the type of the *port* option is preserved::
-    
+
     >>> server_cfg = cfg.section('server')
     >>> server_cfg['port']
     9090
