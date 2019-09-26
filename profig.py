@@ -21,9 +21,10 @@ import inspect
 import logging
 import itertools
 import collections
+from collections import abc
 
 __author__  = 'Miguel Turner'
-__version__ = '0.4.1'
+__version__ = '0.5.0'
 __license__ = 'MIT'
 
 __all__ = ['Config', 'ConfigError', 'Coercer', 'CoerceError',
@@ -50,7 +51,7 @@ log = logging.getLogger('profig')
 
 ## Config ##
 
-class ConfigSection(collections.MutableMapping):
+class ConfigSection(abc.MutableMapping):
     """
     Represents a group of configuration options.
 
@@ -212,7 +213,7 @@ class ConfigSection(collections.MutableMapping):
 
     def __setitem__(self, key, value):
         section = self.section(key)
-        if isinstance(value, collections.Mapping):
+        if isinstance(value, abc.Mapping):
             section.update(value)
         else:
             section.set_value(value)
@@ -464,7 +465,7 @@ class ConfigSection(collections.MutableMapping):
                 p = p.decode(encoding)
             if p and isinstance(p, str):
                 key.extend(p.split(sep))
-            elif isinstance(p, collections.Sequence):
+            elif isinstance(p, abc.Sequence):
                 key.extend(p)
             elif p is None:
                 pass
@@ -1212,7 +1213,7 @@ class Coercer:
                 return tuple(type.rsplit('.', 1))
             else:
                 return type
-        elif isinstance(type, collections.Sequence):
+        elif isinstance(type, abc.Sequence):
             return tuple(self._typename(t) for t in type)
         elif isinstance(type, _type):
             return (type.__module__, type.__name__)
