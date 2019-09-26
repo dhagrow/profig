@@ -927,6 +927,7 @@ class YAMLFormat(SerializeFormat):
     def __init__(self):
         import yaml
         super(YAMLFormat, self).__init__(yaml)
+        self.load = lambda file: yaml.load(file, Loader=yaml.FullLoader)
 
 class MessagePackFormat(SerializeFormat):
     name = 'msgpack'
