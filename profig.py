@@ -30,8 +30,7 @@ __author__  = 'Miguel Turner'
 __version__ = '0.5.0'
 __license__ = 'MIT'
 
-__all__ = ['Config', 'ConfigError', 'Coercer', 'CoerceError',
-    'INIFormat', 'JSONFormat' 'TOMLFormat', 'YAMLFormat', 'MessagePackFormat']
+__all__ = ['Config', 'ConfigError', 'Coercer', 'CoerceError', 'INIFormat']
 
 PY3 = sys.version_info.major >= 3
 # use str for unicode data and bytes for binary data
@@ -866,86 +865,6 @@ class INIFormat(Format):
             self.write_section(cfg, section, file, first)
             seen.add(section.key)
             first = False
-
-class SerializeFormat(Format):
-    """A `Format` class that offers support for serialization libraries.
-
-    If a library provides both a "load" and a "dump" function, it can be passed
-    in directly as *base*. Otherwise the "load"/"dump" functions can be passed
-    in individually as *load* and *dump*,  respectively.
-
-    *binary* should be set to specify whether the serialization dumper outputs
-    unicode strings (`False`) or bytes (`True`).
-    """
-    def __init__(self, base=None, load=None, dump=None, binary=False):
-        super(SerializeFormat, self).__init__()
-        if base:
-            self.load = base.load
-            self.dump = base.dump
-        if load:
-            self.load = load
-        if dump:
-            self.dump = dump
-        self.binary = binary
-
-    def open(self, cfg, source, mode='r'):
-        return super(SerializeFormat, self).open(cfg,  source, mode,
-            binary=self.binary)
-
-    def read(self, cfg, file):
-        d = self.load(file)
-        if d:
-            cfg.update(d)
-
-    def write(self, cfg, file, values=None):
-        self.dump(cfg.as_dict(dict_type=dict), file)
-
-class JSONFormat(SerializeFormat):
-    name = 'json'
-
-    def __init__(self):
-        import json
-        dump = (json.dump if PY3 else
-            lambda o, f: f.write(unicode(json.dumps(o, ensure_ascii=False))))
-        super(JSONFormat, self).__init__(json, dump=dump)
-
-    def read(self, cfg, file):
-        # quick test to see if the file is empty, which json does not like
-        file.seek(0, io.SEEK_END)
-        if file.tell() == 0:
-            return
-        file.seek(0)
-        super(JSONFormat, self).read(cfg, file)
-
-class TOMLFormat(SerializeFormat):
-    name = 'toml'
-
-    def __init__(self):
-        import toml
-        super(TOMLFormat, self).__init__(toml)
-
-class YAMLFormat(SerializeFormat):
-    name = 'yaml'
-
-    def __init__(self):
-        import yaml
-        super(YAMLFormat, self).__init__(yaml)
-        self.load = lambda file: yaml.load(file, Loader=yaml.FullLoader)
-
-class MessagePackFormat(SerializeFormat):
-    name = 'msgpack'
-
-    def __init__(self):
-        import msgpack
-        super(MessagePackFormat, self).__init__(msgpack, binary=True)
-
-    def read(self, cfg, file):
-        # quick test to see if the file is empty, which msgpack does not like
-        file.seek(0, io.SEEK_END)
-        if file.tell() == 0:
-            return
-        file.seek(0)
-        super(MessagePackFormat, self).read(cfg, file)
 
 if WIN:
     class RegistryFormat(Format):
