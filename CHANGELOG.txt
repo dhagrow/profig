@@ -1,6 +1,15 @@
 Release History
 ---------------
 
+0.5.1 (2019-10-24)
+
+* removed additional built-in formats (to avoid unnecessary bloat)
+
+0.5.0 (2019-09-26)
+
+* bugfixes
+* experimentation with built-in TOML, YAML, and MessagePack formats
+
 0.4.1 (2015-01-22)
 
 * coercer support for datetime objects
