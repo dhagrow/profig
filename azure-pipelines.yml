@@ -8,20 +8,24 @@ trigger:
 
 strategy:
   matrix:
-    linux:
-      imageName: "ubuntu-latest"
-    mac:
-      imageName: "macos-latest"
-    windows:
-      imageName: "windows-latest"
-    Python27:
+    Python27-Ubuntu:
       python.version: '2.7'
-    Python35:
-      python.version: '3.5'
-    Python36:
-      python.version: '3.6'
-    Python37:
+      imageName: "ubuntu-latest"
+    Python37-Ubuntu:
       python.version: '3.7'
+      imageName: "ubuntu-latest"
+    Python27-Windows:
+      python.version: '2.7'
+      imageName: "windows-latest"
+    Python37-Windows:
+      python.version: '3.7'
+      imageName: "windows-latest"
+    Python27-macOS:
+      python.version: '2.7'
+      imageName: "macos-latest"
+    Python37-macOS:
+      python.version: '3.7'
+      imageName: "macos-latest"
 
 pool:
   vmImage: $(imageName)
