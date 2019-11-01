@@ -647,13 +647,6 @@ class TestMisc(unittest.TestCase):
     def test_NoValue(self):
         self.assertEqual(repr(profig.NoValue), 'NoValue')
 
-    def test_get_source(self):
-        path = os.path.dirname(__file__)
-        self.assertEqual(
-            os.path.abspath(profig.get_source('test')),
-            os.path.abspath(os.path.join(path, 'test')),
-            )
-
 if profig.WIN:
     class TestRegistryFormat(unittest.TestCase):
         def setUp(self):
