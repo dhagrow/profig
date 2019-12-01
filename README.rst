@@ -3,8 +3,8 @@ Overview
 
 *profig* is a straightforward configuration library for Python.
 
-.. image:: https://travis-ci.org/dhagrow/profig.svg?branch=master
-    :target: https://travis-ci.org/dhagrow/profig
+.. image:: https://img.shields.io/azure-devops/tests/cymrow/profig/1?style=plastic
+    :target: https://dev.azure.com/cymrow/profig/_build?definitionId=1https://travis-ci.org/dhagrow/profig
 
 Motivation
 ----------
