@@ -19,7 +19,6 @@ import errno
 import locale
 import inspect
 import logging
-import itertools
 import collections
 try:
     from collections import abc
@@ -1060,7 +1059,7 @@ class Coercer:
             register_default_coercers(self)
         if register_qt is None:
             # only load Qt coercers if PyQt/PySide has already been imported
-            register_qt = bool({'PyQt4', 'PySide'} & set(sys.modules))
+            register_qt = bool({'PyQt4', 'PySide2', 'PySide'} & set(sys.modules))
         if register_qt:
             register_qt_coercers(self)
 
@@ -1219,7 +1218,11 @@ def register_default_coercers(coercer):
     coercer.register('path_tuple', lambda x: sep.join(x), lambda x: tuple(pathsplit(x)))
 
 def register_qt_coercers(coercer):
-    if 'PyQt4' in sys.modules:
+    if 'PySide2' in sys.modules:
+        from PySide2 import QtCore, QtGui
+    elif 'PyQt5' in sys.modules:
+        from PyQt5 import QtCore, QtGui
+    elif 'PyQt4' in sys.modules:
         from PyQt4 import QtCore, QtGui
     elif 'PySide' in sys.modules:
         from PySide import QtCore, QtGui
@@ -1233,8 +1236,8 @@ def register_qt_coercers(coercer):
         return font
 
     coercer.register(QtCore.QByteArray,
-        lambda x: str(x.toHex()),
-        lambda x: QtCore.QByteArray.fromHex(x))
+        lambda x: bytes(x.toHex()),
+        lambda x: QtCore.QByteArray.fromHex(x.encode('utf8')))
     coercer.register(QtCore.QPoint,
         lambda x: '{},{}'.format(x.x(), x.y()),
         lambda x: QtCore.QPoint(*[int(i) for i in x.split(',')]))
